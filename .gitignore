@@ -1,0 +1,41 @@
+# Build artifacts
+bin/
+obj/
+output/
+*.exe
+!output/ProxyBridge-Setup-*.exe
+
+# Compiled binaries
+*.dll
+!ProxyBridgeCore.dll
+*.pdb
+*.ilk
+
+# Logs and temp files
+*.log
+*.pyc
+build.log
+compile_output.txt
+verbose.log
+*.tmp
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# User data
+*.json
+!gui/**/*.json
+
+# Backup files
+*.old
+*.bak
+*_broken.*
+
+# System files
+.DS_Store
+Thumbs.db
