@@ -40,11 +40,11 @@ if (-not (Test-Path $outputDir)) {
 }
 
 Write-Host ""
-Write-Host "Step 1: Building ProxyBridge..." -ForegroundColor Cyan
+Write-Host "Step 1: Building ProxyBridge (Self-Contained)..." -ForegroundColor Cyan
 
-# Сборка GUI Release
+# Сборка GUI Release (self-contained - включает .NET Runtime)
 Set-Location $guiDir
-dotnet build -c Release
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Build failed!" -ForegroundColor Red
     exit 1
@@ -66,8 +66,8 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Копирование DLL в Release
-Copy-Item ProxyBridgeCore.dll "$guiDir\bin\Release\net9.0-windows\" -Force
+# Копирование DLL в Publish
+Copy-Item ProxyBridgeCore.dll "$guiDir\bin\Release\net9.0-windows\win-x64\publish\" -Force
 
 Write-Host "✓ DLL compiled and copied" -ForegroundColor Green
 

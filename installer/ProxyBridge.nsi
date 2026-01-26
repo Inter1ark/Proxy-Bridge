@@ -41,25 +41,23 @@ Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   SetOverwrite on
 
-  ; Main application files
-  File "..\gui\bin\Release\net9.0-windows\ProxyBridge.exe"
-  File "..\gui\bin\Release\net9.0-windows\ProxyBridgeCore.dll"
-  File "..\gui\bin\Release\net9.0-windows\WinDivert.dll"
-  File "..\gui\bin\Release\net9.0-windows\WinDivert64.sys"
+  ; Main application files (self-contained build)
+  File "..\gui\bin\Release\net9.0-windows\win-x64\publish\ProxyBridge.exe"
+  File "..\gui\bin\Release\net9.0-windows\win-x64\publish\ProxyBridgeCore.dll"
+  File "..\gui\bin\Release\net9.0-windows\win-x64\publish\WinDivert.dll"
+  File "..\gui\bin\Release\net9.0-windows\win-x64\publish\WinDivert64.sys"
   
-  ; Avalonia and dependencies
-  File "..\gui\bin\Release\net9.0-windows\*.dll"
-  
-  ; Runtime directories
-  SetOutPath "$INSTDIR\runtimes"
-  File /r "..\gui\bin\Release\net9.0-windows\runtimes\*.*"
+  ; All dependencies (includes .NET Runtime)
+  File "..\gui\bin\Release\net9.0-windows\win-x64\publish\*.dll"
+  File /nonfatal "..\gui\bin\Release\net9.0-windows\win-x64\publish\*.json"
+  File /nonfatal "..\gui\bin\Release\net9.0-windows\win-x64\publish\*.pdb"
   
   ; Localization
   SetOutPath "$INSTDIR\ru"
-  File /nonfatal "..\gui\bin\Release\net9.0-windows\ru\*.*"
+  File /nonfatal "..\gui\bin\Release\net9.0-windows\win-x64\publish\ru\*.*"
   
   SetOutPath "$INSTDIR\zh"
-  File /nonfatal "..\gui\bin\Release\net9.0-windows\zh\*.*"
+  File /nonfatal "..\gui\bin\Release\net9.0-windows\win-x64\publish\zh\*.*"
   
   ; Create shortcuts
   SetOutPath "$INSTDIR"
@@ -70,6 +68,9 @@ Section "MainSection" SEC01
   ; Register application
   WriteRegStr HKLM "Software\${PRODUCT_NAME}" "InstallDir" "$INSTDIR"
   WriteRegStr HKLM "Software\${PRODUCT_NAME}" "Version" "${PRODUCT_VERSION}"
+  
+  ; Очистить старую историю прокси (для чистой установки)
+  Delete "$APPDATA\ProxyBridge\proxy_history.json"
 SectionEnd
 
 Section -Post

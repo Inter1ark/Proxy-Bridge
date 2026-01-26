@@ -23,16 +23,19 @@ public class App : Application
             var viewModel = new MainWindowViewModel();
             var proxyService = new ProxyBridgeService();
             
-            // Подписываемся на логи и выводим их в консоль
+            // Логи отключены для release версии
+            // Если нужно включить - раскомментируйте код ниже
+            /*
             proxyService.LogReceived += (message) =>
             {
-                Console.WriteLine($"[ProxyBridge] {message}");
+                System.Diagnostics.Debug.WriteLine($"[ProxyBridge] {message}");
             };
             
             proxyService.ConnectionReceived += (processName, pid, destIp, destPort, proxyInfo) =>
             {
-                Console.WriteLine($"[Connection] {processName} (PID:{pid}) -> {destIp}:{destPort} | {proxyInfo}");
+                System.Diagnostics.Debug.WriteLine($"[Connection] {processName} (PID:{pid}) -> {destIp}:{destPort} | {proxyInfo}");
             };
+            */
             
             // Инициализируем сервис
             viewModel.Initialize(proxyService);
