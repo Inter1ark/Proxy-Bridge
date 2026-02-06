@@ -274,6 +274,29 @@
                                     <Run Text="socks5://user:pass@ip:port" Foreground="#00d9ff"/>
                                 </TextBlock>
 
+                                <!-- Кнопка получения прокси через SX.ORG -->
+                                <Button Command="{Binding OpenSxProxyCreatorCommand}"
+                                        Background="#6C63FF"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        CornerRadius="8"
+                                        Padding="16,8"
+                                        Margin="0,10,0,0"
+                                        HorizontalAlignment="Center"
+                                        Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z" Stroke="White" StrokeThickness="2" Fill="Transparent"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="Получить прокси" 
+                                                  FontSize="13" 
+                                                  FontWeight="SemiBold"
+                                                  VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
                                 <!-- GEO Information Display -->
                                 <Border Background="#1f2937" 
                                         CornerRadius="10" 
@@ -362,7 +385,11 @@
                                             Margin="0,0,10,0">
                                         <StackPanel Spacing="12">
                                             <Border Width="50" Height="50" CornerRadius="25" Background="#2b2d42" HorizontalAlignment="Center">
-                                                <TextBlock Text="🔄" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                <Viewbox Width="26" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Data="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round" Fill="Transparent"/>
+                                                    </Canvas>
+                                                </Viewbox>
                                             </Border>
                                             <TextBlock Text="Traffic Tunneled" 
                                                        FontSize="13" 
@@ -385,14 +412,21 @@
                                             Margin="5,0">
                                         <StackPanel Spacing="12">
                                             <Border Width="50" Height="50" CornerRadius="25" Background="#2b2d42" HorizontalAlignment="Center">
-                                                <TextBlock Text="😎" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                <Viewbox Width="26" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Ellipse Canvas.Left="2" Canvas.Top="2" Width="20" Height="20" Stroke="#00d9ff" StrokeThickness="2"/>
+                                                        <Path Data="M8 14s1.5 2 4 2 4-2 4-2" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round" Fill="Transparent"/>
+                                                        <Ellipse Canvas.Left="8" Canvas.Top="8.5" Width="1.5" Height="1.5" Fill="#00d9ff"/>
+                                                        <Ellipse Canvas.Left="14.5" Canvas.Top="8.5" Width="1.5" Height="1.5" Fill="#00d9ff"/>
+                                                    </Canvas>
+                                                </Viewbox>
                                             </Border>
                                             <TextBlock Text="IP Masked" 
                                                        FontSize="13" 
                                                        FontWeight="SemiBold"
                                                        Foreground="#ffffff"
                                                        TextAlignment="Center"/>
-                                            <TextBlock Text="Скройте ваш IP от nokasitsited by IP Masked" 
+                                            <TextBlock Text="Скройте ваш IP и оставайтесь анонимными" 
                                                        FontSize="10" 
                                                        Foreground="#6c7086"
                                                        TextWrapping="Wrap"
@@ -408,14 +442,19 @@
                                             Margin="10,0,0,0">
                                         <StackPanel Spacing="12">
                                             <Border Width="50" Height="50" CornerRadius="25" Background="#2b2d42" HorizontalAlignment="Center">
-                                                <TextBlock Text="🔒" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                <Viewbox Width="26" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Data="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" Stroke="#00d9ff" StrokeThickness="2" Fill="Transparent"/>
+                                                        <Path Data="M9 12l2 2 4-4" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round" Fill="Transparent"/>
+                                                    </Canvas>
+                                                </Viewbox>
                                             </Border>
                                             <TextBlock Text="Secure Connection" 
                                                        FontSize="13" 
                                                        FontWeight="SemiBold"
                                                        Foreground="#ffffff"
                                                        TextAlignment="Center"/>
-                                            <TextBlock Text="Secure connection without ssecure connection" 
+                                            <TextBlock Text="Защищённое подключение через прокси-сервер" 
                                                        FontSize="10" 
                                                        Foreground="#6c7086"
                                                        TextWrapping="Wrap"
@@ -509,7 +548,7 @@
                                        VerticalAlignment="Center"/>
                             
                             <Button Grid.Column="1"
-                                    Content="📁 Load from File"
+                                    Content="Load from File"
                                     Command="{Binding LoadProxyListCommand}"
                                     Background="#00d9ff"
                                     Foreground="#1a1d29"
@@ -523,7 +562,7 @@
                                     Margin="0,0,10,0"/>
                             
                             <Button Grid.Column="2"
-                                    Content="🗑️ Clear List"
+                                    Content="Clear List"
                                     Command="{Binding ClearProxyListCommand}"
                                     Background="#dc3545"
                                     Foreground="#ffffff"
@@ -706,10 +745,17 @@
                                     CornerRadius="10" 
                                     Padding="25">
                                 <StackPanel Spacing="15">
-                                    <TextBlock Text="📖 Как использовать ProxyBridge" 
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Viewbox Width="20" Height="20" VerticalAlignment="Center">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" Stroke="#00d9ff" StrokeThickness="2" Fill="Transparent"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="Как использовать ProxyBridge" 
                                                FontSize="18" 
                                                FontWeight="SemiBold" 
                                                Foreground="#00d9ff"/>
+                                    </StackPanel>
                                     
                                     <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#c9d1d9">
                                         <Run Text="1. Введите данные прокси" FontWeight="Bold"/>
@@ -748,21 +794,28 @@
                                     CornerRadius="10" 
                                     Padding="25">
                                 <StackPanel Spacing="15">
-                                    <TextBlock Text="📞 Контакты для связи" 
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Viewbox Width="20" Height="20" VerticalAlignment="Center">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" Stroke="#00d9ff" StrokeThickness="2" Fill="Transparent"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="Контакты для связи" 
                                                FontSize="18" 
                                                FontWeight="SemiBold" 
                                                Foreground="#00d9ff"/>
+                                    </StackPanel>
                                     
                                     <StackPanel Spacing="12">
                                         <Border Background="#2b2d42" 
                                                 CornerRadius="8" 
                                                 Padding="15">
                                             <Grid ColumnDefinitions="Auto,*,Auto">
-                                                <TextBlock Grid.Column="0" 
-                                                           Text="✈️" 
-                                                           FontSize="20" 
-                                                           VerticalAlignment="Center"
-                                                           Margin="0,0,15,0"/>
+                                                <Viewbox Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,15,0">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Data="M22 2L11 13M22 2l-7 20-4-9-9-4z" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round" Fill="Transparent"/>
+                                                    </Canvas>
+                                                </Viewbox>
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                     <TextBlock Text="Telegram" 
                                                                FontSize="14" 
@@ -795,11 +848,19 @@
                                     CornerRadius="10" 
                                     Padding="25">
                                 <StackPanel Spacing="10">
-                                    <TextBlock Text="ℹ️ О программе" 
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Viewbox Width="20" Height="20" VerticalAlignment="Center">
+                                            <Canvas Width="24" Height="24">
+                                                <Ellipse Canvas.Left="2" Canvas.Top="2" Width="20" Height="20" Stroke="#00d9ff" StrokeThickness="2"/>
+                                                <Path Data="M12 16V12M12 8h.01" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="О программе" 
                                                FontSize="18" 
                                                FontWeight="SemiBold" 
                                                Foreground="#00d9ff"/>
-                                    <TextBlock Text="ProxyBridge v1.0" 
+                                    </StackPanel>
+                                    <TextBlock Text="ProxyBridge v3.0.0" 
                                                FontSize="14" 
                                                Foreground="#ffffff"/>
                                     <TextBlock Text="Система проксирования всего трафика компьютера" 

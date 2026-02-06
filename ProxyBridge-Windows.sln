@@ -1,0 +1,38 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "cli", "cli", "{342A349A-D343-8551-4064-2E2800C39E13}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "gui", "gui", "{9824AA2D-9169-1FBC-8A83-7227C72EA239}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProxyBridge.CLI", "cli\ProxyBridge.CLI.csproj", "{5ED1255A-464B-33F2-90BF-D8C67E21D480}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProxyBridge.GUI", "gui\ProxyBridge.GUI.csproj", "{16A96567-0288-7349-DC79-11DF8952A99C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5ED1255A-464B-33F2-90BF-D8C67E21D480}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5ED1255A-464B-33F2-90BF-D8C67E21D480}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5ED1255A-464B-33F2-90BF-D8C67E21D480}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5ED1255A-464B-33F2-90BF-D8C67E21D480}.Release|Any CPU.Build.0 = Release|Any CPU
+		{16A96567-0288-7349-DC79-11DF8952A99C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{16A96567-0288-7349-DC79-11DF8952A99C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{16A96567-0288-7349-DC79-11DF8952A99C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{16A96567-0288-7349-DC79-11DF8952A99C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{5ED1255A-464B-33F2-90BF-D8C67E21D480} = {342A349A-D343-8551-4064-2E2800C39E13}
+		{16A96567-0288-7349-DC79-11DF8952A99C} = {9824AA2D-9169-1FBC-8A83-7227C72EA239}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D3230700-C580-4E62-B705-7F214EB2FA5C}
+	EndGlobalSection
+EndGlobal

@@ -42,4 +42,15 @@
     <PackageReference Include="Avalonia.ReactiveUI" Version="11.2.0" />
     <PackageReference Include="Avalonia.Diagnostics" Version="11.2.0" Condition="'$(Configuration)' == 'Debug'" />
   </ItemGroup>
+
+  <!-- Нативные зависимости: ProxyBridgeCore.dll, WinDivert.dll, WinDivert64.sys -->
+  <ItemGroup>
+    <None Include="..\ProxyBridgeCore.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="ProxyBridgeCore.dll" />
+    <None Include="..\WinDivert64.sys" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="WinDivert64.sys" />
+  </ItemGroup>
+
+  <!-- WinDivert.dll из установленного пакета -->
+  <ItemGroup Condition="Exists('C:\WinDivert-2.2.2-A\x64\WinDivert.dll')">
+    <None Include="C:\WinDivert-2.2.2-A\x64\WinDivert.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="WinDivert.dll" />
+  </ItemGroup>
 </Project>

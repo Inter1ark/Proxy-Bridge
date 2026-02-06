@@ -38,11 +38,6 @@ public class ProxyBridgeService : IDisposable
         if (_isRunning)
             return true;
 
-        // ВАЖНО: НЕ создаем правило исключения автоматически!
-        // Правило исключения для прокси-сервера должно создаваться ВРУЧНУЮ
-        // в правильном порядке (перед wildcard * -> PROXY правилом)
-        // См. MainWindowViewModel.ActivateAllTraffic()
-
         _isRunning = ProxyBridgeNative.ProxyBridge_Start();
         return _isRunning;
     }

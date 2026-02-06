@@ -1,7 +1,7 @@
 !define PRODUCT_NAME "ProxyBridge"
 !define PRODUCT_VERSION "3.0.0"
 !define PRODUCT_PUBLISHER "InterceptSuite"
-!define PRODUCT_WEB_SITE "https://github.com/InterceptSuite/ProxyBridge"
+!define PRODUCT_WEB_SITE "https://github.com/Inter1ark/Proxy-Bridge"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
 
@@ -25,7 +25,7 @@ RequestExecutionLevel admin
 
 ; Installer Pages
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "..\..\LICENSE"
+!insertmacro MUI_PAGE_LICENSE "..\LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -58,6 +58,10 @@ Section "MainSection" SEC01
   
   SetOutPath "$INSTDIR\zh"
   File /nonfatal "..\gui\bin\Release\net9.0-windows\win-x64\publish\zh\*.*"
+  
+  ; Runtime native libraries (if any)
+  SetOutPath "$INSTDIR"
+  File /nonfatal /r "..\gui\bin\Release\net9.0-windows\win-x64\publish\runtimes"
   
   ; Create shortcuts
   SetOutPath "$INSTDIR"
@@ -104,6 +108,11 @@ Section Uninstall
   RMDir /r "$INSTDIR\runtimes"
   RMDir /r "$INSTDIR\ru"
   RMDir /r "$INSTDIR\zh"
+  
+  ; Remove user data (settings, history)
+  Delete "$APPDATA\ProxyBridge\settings.json"
+  Delete "$APPDATA\ProxyBridge\proxy_history.json"
+  RMDir "$APPDATA\ProxyBridge"
   
   ; Remove shortcuts
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk"

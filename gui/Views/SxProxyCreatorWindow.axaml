@@ -1,0 +1,389 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ProxyBridge.GUI.ViewModels"
+        xmlns:svc="using:ProxyBridge.GUI.Services"
+        x:Class="ProxyBridge.GUI.Views.SxProxyCreatorWindow"
+        x:DataType="vm:SxProxyCreatorViewModel"
+        Width="700"
+        Height="600"
+        MinWidth="600"
+        MinHeight="500"
+        Title="SX.ORG - Прокси"
+        Background="#1A1D2E"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Styles>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#252836"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3D4354"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#252836"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3D4354"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#6C63FF"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="20,12"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#5A52D5"/>
+        </Style>
+        <Style Selector="Button.success">
+            <Setter Property="Background" Value="#00D9A3"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#6C63FF"/>
+            <Setter Property="BorderBrush" Value="#6C63FF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="20,12"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid>
+        <!-- ============================================ -->
+        <!-- ЭКРАН АВТОРИЗАЦИИ -->
+        <!-- ============================================ -->
+        <Grid IsVisible="{Binding !IsAuthorized}" VerticalAlignment="Center">
+            <StackPanel MaxWidth="400" Margin="40">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10" Margin="0,0,0,10">
+                    <Viewbox Width="28" Height="28" VerticalAlignment="Center">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z" Stroke="#00d9ff" StrokeThickness="2" Fill="Transparent"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="SX.ORG"
+                              FontSize="28"
+                              FontWeight="Bold"
+                              Foreground="White"
+                              VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <TextBlock Text="Введите API ключ для доступа к прокси"
+                          FontSize="14"
+                          Foreground="#8E95A5"
+                          HorizontalAlignment="Center"
+                          Margin="0,0,0,30"/>
+
+                <TextBlock Text="API Ключ"
+                          FontSize="13"
+                          Foreground="#8E95A5"
+                          Margin="0,0,0,8"/>
+
+                <TextBox Text="{Binding ApiKey}"
+                        Watermark="Вставьте API ключ"
+                        Margin="0,0,0,16"/>
+
+                <!-- Статус -->
+                <TextBlock Text="{Binding StatusMessage}"
+                          FontSize="13"
+                          Foreground="#FF6B6B"
+                          HorizontalAlignment="Center"
+                          Margin="0,0,0,20"
+                          IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                <Button Classes="primary"
+                       Command="{Binding AuthorizeCommand}"
+                       HorizontalAlignment="Stretch"
+                       Margin="0,0,0,12">
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                        <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" Stroke="#ffffff" StrokeThickness="2" StrokeLineCap="Round" Fill="Transparent"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Text="Войти" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Получить API ключ -->
+                <StackPanel HorizontalAlignment="Center" Spacing="4" Margin="0,0,0,8">
+                    <TextBlock Text="Нет API ключа?" FontSize="12" Foreground="#5B6377" HorizontalAlignment="Center"/>
+                    <Button Classes="secondary"
+                           Command="{Binding GetApiKeyCommand}"
+                           HorizontalAlignment="Center"
+                           Padding="16,8"
+                           FontSize="13">
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                            <Viewbox Width="14" Height="14" VerticalAlignment="Center">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20" Stroke="#6C63FF" StrokeThickness="2" Fill="Transparent"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Получить API ключ" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Загрузка -->
+                <ProgressBar IsIndeterminate="True"
+                            Height="4"
+                            Margin="0,10,0,0"
+                            IsVisible="{Binding IsLoading}"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- ============================================ -->
+        <!-- ОСНОВНОЙ ИНТЕРФЕЙС (после авторизации) -->
+        <!-- ============================================ -->
+        <Grid IsVisible="{Binding IsAuthorized}" RowDefinitions="Auto,*,Auto">
+
+            <!-- ЗАГОЛОВОК -->
+            <Border Grid.Row="0"
+                   Background="#252836"
+                   Padding="20,14"
+                   BorderBrush="#3D4354"
+                   BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0"
+                              Text="SX.ORG Прокси"
+                              FontSize="18"
+                              FontWeight="Bold"
+                              Foreground="White"
+                              VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1"
+                              Text="{Binding Balance, StringFormat='Баланс: ${0}'}"
+                              FontSize="15"
+                              FontWeight="SemiBold"
+                              Foreground="#00D9A3"
+                              VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <!-- КОНТЕНТ -->
+            <ScrollViewer Grid.Row="1">
+                <StackPanel Margin="20" Spacing="20">
+
+                    <!-- ЛОКАЦИЯ -->
+                    <Border Background="#252836" CornerRadius="10" Padding="16">
+                        <StackPanel Spacing="12">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                                    <Canvas Width="24" Height="24">
+                                        <Path Data="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" Stroke="#00d9ff" StrokeThickness="2" Fill="Transparent"/>
+                                        <Ellipse Canvas.Left="9" Canvas.Top="7" Width="6" Height="6" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    </Canvas>
+                                </Viewbox>
+                                <TextBlock Text="Локация"
+                                      FontSize="15"
+                                      FontWeight="SemiBold"
+                                      Foreground="White"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="*,10,*,10,*">
+                                <StackPanel Grid.Column="0" Spacing="6">
+                                    <TextBlock Text="Страна" FontSize="12" Foreground="#8E95A5"/>
+                                    <ComboBox ItemsSource="{Binding Countries}"
+                                            SelectedItem="{Binding SelectedCountry}"
+                                            HorizontalAlignment="Stretch"
+                                            PlaceholderText="Выберите">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="svc:SxCountry">
+                                                <TextBlock Text="{Binding Name}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Spacing="6">
+                                    <TextBlock Text="Регион" FontSize="12" Foreground="#8E95A5"/>
+                                    <ComboBox ItemsSource="{Binding States}"
+                                            SelectedItem="{Binding SelectedState}"
+                                            HorizontalAlignment="Stretch"
+                                            PlaceholderText="Опционально">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="svc:SxState">
+                                                <TextBlock Text="{Binding Name}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4" Spacing="6">
+                                    <TextBlock Text="Город" FontSize="12" Foreground="#8E95A5"/>
+                                    <ComboBox ItemsSource="{Binding Cities}"
+                                            SelectedItem="{Binding SelectedCity}"
+                                            HorizontalAlignment="Stretch"
+                                            PlaceholderText="Опционально">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="svc:SxCity">
+                                                <TextBlock Text="{Binding Name}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- НАСТРОЙКИ -->
+                    <Border Background="#252836" CornerRadius="10" Padding="16">
+                        <StackPanel Spacing="12">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                                    <Canvas Width="24" Height="24">
+                                        <Ellipse Canvas.Left="5" Canvas.Top="5" Width="14" Height="14" Stroke="#00d9ff" StrokeThickness="2"/>
+                                        <Ellipse Canvas.Left="9.5" Canvas.Top="9.5" Width="5" Height="5" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    </Canvas>
+                                </Viewbox>
+                                <TextBlock Text="Настройки"
+                                      FontSize="15"
+                                      FontWeight="SemiBold"
+                                      Foreground="White"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="*,10,*">
+                                <StackPanel Grid.Column="0" Spacing="6">
+                                    <TextBlock Text="Тип" FontSize="12" Foreground="#8E95A5"/>
+                                    <ComboBox SelectedIndex="{Binding SelectedProtocol}" HorizontalAlignment="Stretch">
+                                        <ComboBoxItem Content="Residential"/>
+                                        <ComboBoxItem Content="Mobile"/>
+                                        <ComboBoxItem Content="Corporate"/>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Spacing="6">
+                                    <TextBlock Text="Режим" FontSize="12" Foreground="#8E95A5"/>
+                                    <ComboBox SelectedIndex="{Binding SelectedMode}" HorizontalAlignment="Stretch">
+                                        <ComboBoxItem Content="Sticky (Keep)"/>
+                                        <ComboBoxItem Content="Rotating"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- СУЩЕСТВУЮЩИЕ ПРОКСИ -->
+                    <Border Background="#252836" CornerRadius="10" Padding="16">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                                        <Canvas Width="24" Height="24">
+                                            <Path Data="M8 6h13M8 12h13M8 18h13" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round"/>
+                                            <Ellipse Canvas.Left="3" Canvas.Top="5" Width="2" Height="2" Fill="#00d9ff"/>
+                                            <Ellipse Canvas.Left="3" Canvas.Top="11" Width="2" Height="2" Fill="#00d9ff"/>
+                                            <Ellipse Canvas.Left="3" Canvas.Top="17" Width="2" Height="2" Fill="#00d9ff"/>
+                                        </Canvas>
+                                    </Viewbox>
+                                    <TextBlock Text="Мои прокси"
+                                          FontSize="15"
+                                          FontWeight="SemiBold"
+                                          Foreground="White"
+                                          VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                       Content="Обновить"
+                                       Classes="secondary"
+                                       Padding="10,6"
+                                       FontSize="12"
+                                       Command="{Binding LoadProxiesCommand}"/>
+                            </Grid>
+
+                            <ItemsControl ItemsSource="{Binding Proxies}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ProxyItem">
+                                        <Border Background="#1A1D2E"
+                                               CornerRadius="8"
+                                               Padding="14"
+                                               Margin="0,0,0,6">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <StackPanel Grid.Column="0" Spacing="3">
+                                                    <TextBlock Text="{Binding Name}"
+                                                              FontSize="13"
+                                                              FontWeight="SemiBold"
+                                                              Foreground="White"/>
+                                                    <TextBlock Text="{Binding ProxyString}"
+                                                              FontSize="11"
+                                                              Foreground="#8E95A5"/>
+                                                </StackPanel>
+
+                                                <Button Grid.Column="1"
+                                                       Content="Использовать"
+                                                       Classes="success"
+                                                       Command="{ReflectionBinding $parent[Window].DataContext.UseProxyCommand}"
+                                                       CommandParameter="{Binding}"
+                                                       VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- Пусто -->
+                            <TextBlock Text="Нет прокси. Создайте первый!"
+                                      FontSize="13"
+                                      Foreground="#5B6377"
+                                      HorizontalAlignment="Center"
+                                      IsVisible="{Binding !Proxies.Count}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- НИЖНЯЯ ПАНЕЛЬ -->
+            <Border Grid.Row="2"
+                   Background="#252836"
+                   Padding="20,14"
+                   BorderBrush="#3D4354"
+                   BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0"
+                              Text="{Binding StatusMessage}"
+                              FontSize="13"
+                              Foreground="#8E95A5"
+                              VerticalAlignment="Center"
+                              TextTrimming="CharacterEllipsis"/>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                        <Button Content="Создать прокси"
+                               Classes="primary"
+                               Command="{Binding CreateProxyCommand}"/>
+
+                        <Button Content="Закрыть"
+                               Classes="secondary"
+                               Command="{Binding CloseCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ОВЕРЛЕЙ ЗАГРУЗКИ -->
+            <Border Grid.RowSpan="3"
+                   Background="#CC000000"
+                   IsVisible="{Binding IsLoading}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+                    <ProgressBar IsIndeterminate="True" Width="200" Height="4"/>
+                    <TextBlock Text="{Binding StatusMessage}"
+                              FontSize="14"
+                              Foreground="White"
+                              HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

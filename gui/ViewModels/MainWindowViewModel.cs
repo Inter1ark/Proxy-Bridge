@@ -20,6 +20,11 @@ namespace ProxyBridge.GUI.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase
 {
+    private static void Log(string msg)
+    {
+        Debug.WriteLine($"[ProxyBridge] [{DateTime.Now:HH:mm:ss.fff}] {msg}");
+    }
+    
     private ProxyBridgeService? _proxyService;
     private Window? _mainWindow;
     private DispatcherTimer? _statsTimer;
@@ -264,6 +269,7 @@ public class MainWindowViewModel : ViewModelBase
     public ICommand ClearProxyHistoryCommand { get; }
     public ICommand OpenTelegramCommand { get; }
     public ICommand SelectProxyFromHistoryCommand { get; }
+    public ICommand OpenSxProxyCreatorCommand { get; }
 
     public MainWindowViewModel()
     {
@@ -278,6 +284,7 @@ public class MainWindowViewModel : ViewModelBase
         ClearProxyHistoryCommand = new RelayCommand(() => ProxyHistory.Clear());
         OpenTelegramCommand = new RelayCommand(() => OpenTelegram());
         SelectProxyFromHistoryCommand = new RelayCommand<string>((proxy) => SelectProxyFromHistory(proxy));
+        OpenSxProxyCreatorCommand = new RelayCommand(() => OpenSxProxyCreator());
 
         // Инициализация таймеров
         _statsTimer = new DispatcherTimer
@@ -306,6 +313,8 @@ public class MainWindowViewModel : ViewModelBase
     public void Initialize(ProxyBridgeService proxyService)
     {
         _proxyService = proxyService;
+        // Подписываемся на нативные логи — чтобы видеть ошибки WinDivert и т.д.
+        _proxyService.LogReceived += (msg) => Log($"[NATIVE] {msg}");
     }
 
     public void Cleanup()
@@ -376,26 +385,20 @@ public class MainWindowViewModel : ViewModelBase
 
         try
         {
-            System.Diagnostics.Debug.WriteLine("\n=== CONNECTING TO PROXY ===");
-            System.Diagnostics.Debug.WriteLine($"Proxy Type: {_currentProxyType}");
-            System.Diagnostics.Debug.WriteLine($"Proxy IP: {_currentProxyIp}");
-            System.Diagnostics.Debug.WriteLine($"Proxy Port: {_currentProxyPort}");
-            System.Diagnostics.Debug.WriteLine($"Username: {(_currentProxyUsername != "" ? "***" : "none")}");
-            System.Diagnostics.Debug.WriteLine($"DNS Bypass: {DnsBypass}");
-            System.Diagnostics.Debug.WriteLine($"Disable UDP: {DisableUdp}");
+            Log("\n=== CONNECTING TO PROXY ===");
+            Log($"Proxy Type: {_currentProxyType}");
+            Log($"Proxy IP: {_currentProxyIp}");
+            Log($"Proxy Port: {_currentProxyPort}");
+            Log($"Username: {_currentProxyUsername}");
+            Log($"Password: {_currentProxyPassword}");
+            Log($"DNS Bypass: {DnsBypass}");
+            Log($"Disable UDP: {DisableUdp}");
             
-            // Сначала запускаем сервис
-            System.Diagnostics.Debug.WriteLine("Starting ProxyBridge service...");
-            if (!_proxyService.Start())
-            {
-                System.Diagnostics.Debug.WriteLine("ERROR: Failed to start service");
-                StatusText = "❌ Failed to start service";
-                return;
-            }
-            System.Diagnostics.Debug.WriteLine("✓ Service started");
-
-            // Настраиваем прокси
-            System.Diagnostics.Debug.WriteLine("Configuring proxy...");
+            // ВАЖНО: Сначала конфигурируем прокси ПЕРЕД Start(),
+            // потому что нативный ProxyBridge_Start() использует g_proxy_ip и g_proxy_type
+            // для построения WinDivert фильтра и решения, нужен ли UDP relay
+            Log($"[STEP 1] Configuring proxy BEFORE start: type={_currentProxyType}, ip={_currentProxyIp}, port={_currentProxyPort}");
+            Log($"[STEP 1] Username length: {_currentProxyUsername.Length}, Password length: {_currentProxyPassword.Length}");
             if (!_proxyService.SetProxyConfig(
                 _currentProxyType,
                 _currentProxyIp,
@@ -403,44 +406,52 @@ public class MainWindowViewModel : ViewModelBase
                 _currentProxyUsername,
                 _currentProxyPassword))
             {
-                System.Diagnostics.Debug.WriteLine("ERROR: Failed to configure proxy");
-                StatusText = "❌ Failed to configure proxy";
-                _proxyService.Stop();
+                Log(">>> FAILED at STEP 1: SetProxyConfig() returned false");
+                StatusText = $"❌ Failed to configure proxy ({_currentProxyType} {_currentProxyIp}:{_currentProxyPort})";
                 return;
             }
-            System.Diagnostics.Debug.WriteLine("✓ Proxy configured");
+            Log("[STEP 1] ✓ Proxy configured OK");
 
-            // Настраиваем Disable UDP (ПЕРЕД созданием правил)
+            // Настраиваем Disable UDP (ПЕРЕД Start)
             if (DisableUdp)
             {
-                System.Diagnostics.Debug.WriteLine("Disabling UDP relay...");
+                Log("[STEP 1.5] Disabling UDP relay...");
                 _proxyService.SetDisableUdp(true);
-                System.Diagnostics.Debug.WriteLine("✓ UDP disabled (TCP only)");
             }
             else
             {
                 _proxyService.SetDisableUdp(false);
-                System.Diagnostics.Debug.WriteLine("✓ UDP relay enabled");
+                Log("[STEP 1.5] UDP relay enabled");
             }
 
+            // Теперь запускаем сервис (WinDivert + relay)
+            Log("[STEP 2] Starting ProxyBridge service...");
+            if (!_proxyService.Start())
+            {
+                Log(">>> FAILED at STEP 2: Start() returned false — see [NATIVE] logs above for WinDivert error");
+                StatusText = "❌ Failed to start service (WinDivert). Run as Administrator!";
+                return;
+            }
+            Log("[STEP 2] ✓ Service started OK");
+
             // Простая конфигурация - локальные IP Direct, остальное через прокси
-            System.Diagnostics.Debug.WriteLine("Adding Direct rules for local IPs...");
-            _proxyService.AddRule("*", "127.*.*.*", "*", "BOTH", "DIRECT"); // localhost
-            _proxyService.AddRule("*", "10.*.*.*", "*", "BOTH", "DIRECT"); // private 10.0.0.0/8
-            _proxyService.AddRule("*", "172.16.*.*-172.31.*.*", "*", "BOTH", "DIRECT"); // private 172.16.0.0/12
-            _proxyService.AddRule("*", "192.168.*.*", "*", "BOTH", "DIRECT"); // private 192.168.0.0/16 (including DNS)
-            _proxyService.AddRule("*", "224.*.*.*", "*", "BOTH", "DIRECT"); // multicast
-            _proxyService.AddRule("*", "255.255.255.255", "*", "BOTH", "DIRECT"); // broadcast
-            System.Diagnostics.Debug.WriteLine("✓ Local IPs Direct");
+            Log("[STEP 3] Adding Direct rules for local IPs...");
+            var r1 = _proxyService.AddRule("*", "127.*.*.*", "*", "BOTH", "DIRECT");
+            var r2 = _proxyService.AddRule("*", "10.*.*.*", "*", "BOTH", "DIRECT");
+            var r3 = _proxyService.AddRule("*", "172.16.*.*-172.31.*.*", "*", "BOTH", "DIRECT");
+            var r4 = _proxyService.AddRule("*", "192.168.*.*", "*", "BOTH", "DIRECT");
+            var r5 = _proxyService.AddRule("*", "224.*.*.*", "*", "BOTH", "DIRECT");
+            var r6 = _proxyService.AddRule("*", "255.255.255.255", "*", "BOTH", "DIRECT");
+            Log($"[STEP 3] Local rules IDs: {r1}, {r2}, {r3}, {r4}, {r5}, {r6}");
 
             // Создаем правило для всего трафика
-            System.Diagnostics.Debug.WriteLine("Creating global proxy rule (* -> PROXY)...");
+            Log("[STEP 4] Creating global proxy rule (* -> PROXY)...");
             _globalRuleId = _proxyService.AddRule("*", "*", "*", "BOTH", "PROXY");
+            Log($"[STEP 4] Global rule ID: {_globalRuleId}");
 
             if (_globalRuleId > 0)
             {
-                System.Diagnostics.Debug.WriteLine($"✓ Global rule created (ID: {_globalRuleId})");
-                System.Diagnostics.Debug.WriteLine("=== PROXY CONNECTED ===\n");
+                Log("=== PROXY CONNECTED SUCCESSFULLY ===\n");
                 
                 _isProxyActive = true;
                 ConnectButtonText = "DISCONNECT";
@@ -470,15 +481,15 @@ public class MainWindowViewModel : ViewModelBase
             }
             else
             {
-                System.Diagnostics.Debug.WriteLine("ERROR: Failed to create routing rule (returned ID: 0)");
-                StatusText = "❌ Failed to create routing rule";
+                Log(">>> FAILED at STEP 4: AddRule returned 0 (global rule not created)");
+                StatusText = "❌ Failed to create routing rule (global PROXY rule)";
                 _proxyService.Stop();
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"EXCEPTION: {ex.Message}");
-            System.Diagnostics.Debug.WriteLine($"Stack: {ex.StackTrace}");
+            Log($"!!! EXCEPTION in ConnectProxy: {ex.Message}");
+            Log($"Stack: {ex.StackTrace}");
             StatusText = $"❌ Error: {ex.Message}";
             try
             {
@@ -626,7 +637,7 @@ public class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            System.Diagnostics.Debug.WriteLine($"\n[PARSE] Input: {input}");
+            Log($"\n[PARSE] Input: {input}");
             input = input.Trim();
             
             // Формат: socks5://user:pass@ip:port или http://user:pass@ip:port
@@ -650,15 +661,15 @@ public class MainWindowViewModel : ViewModelBase
                     _currentProxyPassword = "";
                 }
                 
-                System.Diagnostics.Debug.WriteLine($"[PARSE] Type: {_currentProxyType}, IP: {_currentProxyIp}, Port: {_currentProxyPort}");
-                System.Diagnostics.Debug.WriteLine($"[PARSE] User: {_currentProxyUsername}, Pass: {(_currentProxyPassword != "" ? "***" : "empty")}");
+                Log($"[PARSE] Type: {_currentProxyType}, IP: {_currentProxyIp}, Port: {_currentProxyPort}");
+                Log($"[PARSE] User: {_currentProxyUsername}, Pass: {_currentProxyPassword}");
                 return true;
             }
             // Формат: ip:port или ip:port:pass или ip:port:user:pass
             else
             {
                 var parts = input.Split(':');
-                System.Diagnostics.Debug.WriteLine($"[PARSE] Parts count: {parts.Length}");
+                Log($"[PARSE] Parts count: {parts.Length}");
                 
                 if (parts.Length >= 2)
                 {
@@ -675,14 +686,14 @@ public class MainWindowViewModel : ViewModelBase
                         // ip:port:password (username пустой)
                         _currentProxyUsername = "";
                         _currentProxyPassword = parts[2].Trim();
-                        System.Diagnostics.Debug.WriteLine($"[PARSE] Format: IP:PORT:PASS (3 parts)");
+                        Log($"[PARSE] Format: IP:PORT:PASS (3 parts)");
                     }
                     else if (parts.Length == 4)
                     {
                         // ip:port:user:password (стандартный формат)
                         _currentProxyUsername = parts[2].Trim();
                         _currentProxyPassword = parts[3].Trim();
-                        System.Diagnostics.Debug.WriteLine($"[PARSE] Format: IP:PORT:USER:PASS (4 parts)");
+                        Log($"[PARSE] Format: IP:PORT:USER:PASS (4 parts)");
                     }
                     else if (parts.Length > 4)
                     {
@@ -690,17 +701,17 @@ public class MainWindowViewModel : ViewModelBase
                         _currentProxyUsername = parts[2].Trim();
                         // Объединяем все части после 3-й как пароль
                         _currentProxyPassword = string.Join(":", parts.Skip(3)).Trim();
-                        System.Diagnostics.Debug.WriteLine($"[PARSE] Format: IP:PORT:USER:PASS (password contains :)");
+                        Log($"[PARSE] Format: IP:PORT:USER:PASS (password contains :)");
                     }
                     else
                     {
                         _currentProxyUsername = "";
                         _currentProxyPassword = "";
-                        System.Diagnostics.Debug.WriteLine($"[PARSE] Format: IP:PORT (no auth)");
+                        Log($"[PARSE] Format: IP:PORT (no auth)");
                     }
                     
-                    System.Diagnostics.Debug.WriteLine($"[PARSE] Type: {_currentProxyType}, IP: {_currentProxyIp}, Port: {_currentProxyPort}");
-                    System.Diagnostics.Debug.WriteLine($"[PARSE] User: '{_currentProxyUsername}', Pass: '{(_currentProxyPassword != "" ? "***" : "empty")}'");
+                    Log($"[PARSE] Type: {_currentProxyType}, IP: {_currentProxyIp}, Port: {_currentProxyPort}");
+                    Log($"[PARSE] User: '{_currentProxyUsername}', Pass: '{_currentProxyPassword}'");
                     
                     // Проверяем, что IP и порт валидные
                     if (string.IsNullOrWhiteSpace(_currentProxyIp))
@@ -715,7 +726,7 @@ public class MainWindowViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[PARSE] ERROR: {ex.Message}");
+            Log($"[PARSE] ERROR: {ex.Message}\n{ex.StackTrace}");
             return false;
         }
 
@@ -861,6 +872,43 @@ public class MainWindowViewModel : ViewModelBase
         catch (Exception ex)
         {
             Debug.WriteLine($"Failed to save proxy history: {ex.Message}");
+        }
+    }
+
+    private void OpenSxProxyCreator()
+    {
+        try
+        {
+            var viewModel = new SxProxyCreatorViewModel(
+                onClose: () => { },
+                onProxyCreated: (proxyString) =>
+                {
+                    // Автоматически вставляем созданный прокси в поле ввода
+                    ProxyInputText = proxyString;
+                    StatusText = "✅ Прокси получен из SX.ORG";
+                }
+            );
+
+            var window = new Views.SxProxyCreatorWindow
+            {
+                DataContext = viewModel
+            };
+
+            // Передаём ссылку на закрытие окна в ViewModel
+            viewModel.SetCloseAction(() => window.Close());
+
+            if (_mainWindow != null)
+            {
+                window.ShowDialog(_mainWindow);
+            }
+            else
+            {
+                window.Show();
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"❌ Ошибка открытия окна: {ex.Message}";
         }
     }
 }

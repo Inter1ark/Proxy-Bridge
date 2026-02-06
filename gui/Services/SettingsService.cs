@@ -61,4 +61,5 @@ public class AppSettings
 {
     public bool CheckForUpdatesOnStartup { get; set; } = true;
     public DateTime LastUpdateCheck { get; set; } = DateTime.MinValue;
+    public string SxOrgApiKey { get; set; } = "";
 }
