@@ -1,5 +1,5 @@
-# Build ProxyBridge Installer
-# Автоматическая сборка установщика ProxyBridge v3.0.0
+﻿# Build ProxyBridge Installer
+# Автоматическая сборка установщика ProxyBridge v3.1.0
 # Запускать из корня проекта: .\build-installer.ps1
 
 param(
@@ -54,11 +54,15 @@ Write-Host "✓ WinDivert SDK найден: $WinDivertPath" -ForegroundColor Gre
 # 4. Проверяем наличие WinDivert64.sys
 $sysFile = "$WinDivertPath\x64\WinDivert64.sys"
 if (-not (Test-Path $sysFile)) {
-    Write-Host "ОШИБКА: WinDivert64.sys не найден: $sysFile" -ForegroundColor Red
-    Write-Host "Скачайте полный пакет WinDivert v2.2.2 с https://github.com/basil00/WinDivert/releases" -ForegroundColor Yellow
-    exit 1
+    # Ищем в корне проекта
+    $sysFile = "$projectRoot\WinDivert64.sys"
+    if (-not (Test-Path $sysFile)) {
+        Write-Host "ОШИБКА: WinDivert64.sys не найден ни в SDK, ни в корне проекта" -ForegroundColor Red
+        Write-Host "Скачайте полный пакет WinDivert v2.2.2 с https://github.com/basil00/WinDivert/releases" -ForegroundColor Yellow
+        exit 1
+    }
 }
-Write-Host "✓ WinDivert64.sys найден" -ForegroundColor Green
+Write-Host "✓ WinDivert64.sys найден: $sysFile" -ForegroundColor Green
 
 # Создание output директории
 if (-not (Test-Path $outputDir)) {
@@ -86,7 +90,10 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "✓ ProxyBridgeCore.dll скомпилирована" -ForegroundColor Green
 
 # Копируем WinDivert64.sys в корень проекта (csproj ссылается на него)
-Copy-Item $sysFile "$projectRoot\WinDivert64.sys" -Force
+$destSysFile = "$projectRoot\WinDivert64.sys"
+if ($sysFile -ne $destSysFile) {
+    Copy-Item $sysFile $destSysFile -Force
+}
 
 # ========================================
 # Шаг 2: Сборка .NET приложения (Self-Contained)
@@ -158,7 +165,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-$installerFile = "$outputDir\ProxyBridge-Setup-3.0.0.exe"
+$installerFile = "$outputDir\ProxyBridge-Setup-3.1.0.exe"
 if (Test-Path $installerFile) {
     $size = [math]::Round((Get-Item $installerFile).Length / 1MB, 1)
     Write-Host "✓ Установщик создан ($($size) МБ)" -ForegroundColor Green
