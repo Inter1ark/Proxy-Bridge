@@ -17,6 +17,13 @@ public class AppConfig
     public bool DnsViaProxy { get; set; } = true;
     public string Language { get; set; } = "en";
     public bool CloseToTray { get; set; } = true;
+    public bool StartWithWindows { get; set; } = false;
+    public bool AutoConnectLastProxy { get; set; } = false;
+    public bool ShowNotifications { get; set; } = true;
+    public bool DisableUdp { get; set; } = true;
+    public string LastProxyInput { get; set; } = "";
+    public List<string> ProxyHistory { get; set; } = new();
+    public List<string> LoadedProxyList { get; set; } = new();
     public List<ProxyRuleConfig> ProxyRules { get; set; } = new();
 }
 
@@ -30,9 +37,11 @@ public class ProxyRuleConfig
     public bool IsEnabled { get; set; } = true;
 }
 
+[JsonSourceGenerationOptions(WriteIndented = true)]
 [JsonSerializable(typeof(AppConfig))]
 [JsonSerializable(typeof(ProxyRuleConfig))]
 [JsonSerializable(typeof(List<ProxyRuleConfig>))]
+[JsonSerializable(typeof(List<string>))]
 internal partial class AppConfigJsonContext : JsonSerializerContext
 {
 }

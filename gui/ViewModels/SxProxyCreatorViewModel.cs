@@ -416,7 +416,7 @@ public class SxProxyCreatorViewModel : ViewModelBase
     {
         try
         {
-            Process.Start(new ProcessStartInfo { FileName = "https://sx.org/?c=proxybridge", UseShellExecute = true });
+            Process.Start(new ProcessStartInfo { FileName = "https://sx.org/c/proxybridgesx", UseShellExecute = true });
         }
         catch { }
     }

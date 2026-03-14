@@ -5,6 +5,8 @@ namespace ProxyBridge.GUI.Views;
 
 public partial class MainWindow : Window
 {
+    private bool _forceClose = false;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -18,10 +20,23 @@ public partial class MainWindow : Window
         };
     }
 
+    public void ForceClose()
+    {
+        _forceClose = true;
+        Close();
+    }
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         if (DataContext is MainWindowViewModel vm)
         {
+            if (vm.MinimizeToTray && !_forceClose)
+            {
+                e.Cancel = true;
+                this.Hide();
+                return;
+            }
+
             vm.Cleanup();
         }
         base.OnClosing(e);

@@ -14,6 +14,7 @@ using Avalonia.Threading;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Microsoft.Win32;
 using ProxyBridge.GUI.Services;
 
 namespace ProxyBridge.GUI.ViewModels;
@@ -224,37 +225,37 @@ public class MainWindowViewModel : ViewModelBase
     public bool MinimizeToTray
     {
         get => _minimizeToTray;
-        set => SetProperty(ref _minimizeToTray, value);
+        set { if (SetProperty(ref _minimizeToTray, value)) SaveSettings(); }
     }
 
     public bool StartWithWindows
     {
         get => _startWithWindows;
-        set => SetProperty(ref _startWithWindows, value);
+        set { if (SetProperty(ref _startWithWindows, value)) { UpdateAutoStart(value); SaveSettings(); } }
     }
 
     public bool AutoConnectLastProxy
     {
         get => _autoConnectLastProxy;
-        set => SetProperty(ref _autoConnectLastProxy, value);
+        set { if (SetProperty(ref _autoConnectLastProxy, value)) SaveSettings(); }
     }
 
     public bool ShowNotifications
     {
         get => _showNotifications;
-        set => SetProperty(ref _showNotifications, value);
+        set { if (SetProperty(ref _showNotifications, value)) SaveSettings(); }
     }
 
     public bool DnsBypass
     {
         get => _dnsBypass;
-        set => SetProperty(ref _dnsBypass, value);
+        set { if (SetProperty(ref _dnsBypass, value)) SaveSettings(); }
     }
 
     public bool DisableUdp
     {
         get => _disableUdp;
-        set => SetProperty(ref _disableUdp, value);
+        set { if (SetProperty(ref _disableUdp, value)) SaveSettings(); }
     }
 
     // Commands
@@ -280,8 +281,8 @@ public class MainWindowViewModel : ViewModelBase
         ShowSettingsCommand = new RelayCommand(() => ShowTab("Settings"));
         ShowHelpCommand = new RelayCommand(() => ShowTab("Help"));
         LoadProxyListCommand = new RelayCommand(async () => await LoadProxyList());
-        ClearProxyListCommand = new RelayCommand(() => LoadedProxyList.Clear());
-        ClearProxyHistoryCommand = new RelayCommand(() => ProxyHistory.Clear());
+        ClearProxyListCommand = new RelayCommand(() => { LoadedProxyList.Clear(); SaveSettings(); });
+        ClearProxyHistoryCommand = new RelayCommand(() => { ProxyHistory.Clear(); SaveSettings(); });
         OpenTelegramCommand = new RelayCommand(() => OpenTelegram());
         SelectProxyFromHistoryCommand = new RelayCommand<string>((proxy) => SelectProxyFromHistory(proxy));
         OpenSxProxyCreatorCommand = new RelayCommand(() => OpenSxProxyCreator());
@@ -319,6 +320,8 @@ public class MainWindowViewModel : ViewModelBase
 
     public void Cleanup()
     {
+        SaveSettings();
+        
         _statsTimer?.Stop();
         _connectionTimer?.Stop();
         
@@ -330,6 +333,8 @@ public class MainWindowViewModel : ViewModelBase
             }
             catch { }
         }
+        
+        try { _proxyService?.Stop(); } catch { }
     }
 
     private void ShowTab(string tabName)
@@ -798,6 +803,7 @@ public class MainWindowViewModel : ViewModelBase
                 }
 
                 StatusText = $"✅ Loaded {LoadedProxyList.Count} proxies";
+                SaveSettings();
             }
         }
         catch (Exception ex)
@@ -834,27 +840,49 @@ public class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ProxyBridge");
-            Directory.CreateDirectory(appDataPath);
-            
-            var historyFile = Path.Combine(appDataPath, "proxy_history.json");
-            if (File.Exists(historyFile))
+            var config = ConfigManager.LoadConfig();
+
+            _minimizeToTray = config.CloseToTray;
+            _startWithWindows = config.StartWithWindows;
+            _autoConnectLastProxy = config.AutoConnectLastProxy;
+            _showNotifications = config.ShowNotifications;
+            _dnsBypass = !config.DnsViaProxy; // DnsBypass = true means DNS direct (NOT via proxy)
+            _disableUdp = config.DisableUdp;
+
+            // Load last proxy input
+            if (!string.IsNullOrWhiteSpace(config.LastProxyInput))
             {
-                var json = File.ReadAllText(historyFile);
-                var history = JsonSerializer.Deserialize<List<string>>(json);
-                if (history != null)
+                _proxyInputText = config.LastProxyInput;
+            }
+
+            // Load proxy history
+            ProxyHistory.Clear();
+            if (config.ProxyHistory != null)
+            {
+                foreach (var proxy in config.ProxyHistory)
                 {
-                    ProxyHistory.Clear();
-                    foreach (var proxy in history)
-                    {
-                        ProxyHistory.Add(proxy);
-                    }
+                    ProxyHistory.Add(proxy);
                 }
             }
+
+            // Load proxy list
+            LoadedProxyList.Clear();
+            if (config.LoadedProxyList != null)
+            {
+                foreach (var proxy in config.LoadedProxyList)
+                {
+                    LoadedProxyList.Add(proxy);
+                }
+            }
+
+            // Check actual registry state for StartWithWindows
+            _startWithWindows = IsAutoStartEnabled();
+
+            Log($"Settings loaded: Tray={_minimizeToTray}, AutoStart={_startWithWindows}, AutoConnect={_autoConnectLastProxy}, LastProxy={_proxyInputText}");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to load proxy history: {ex.Message}");
+            Debug.WriteLine($"Failed to load settings: {ex.Message}");
         }
     }
 
@@ -862,16 +890,78 @@ public class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ProxyBridge");
-            Directory.CreateDirectory(appDataPath);
-            
-            var historyFile = Path.Combine(appDataPath, "proxy_history.json");
-            var json = JsonSerializer.Serialize(ProxyHistory.ToList(), new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(historyFile, json);
+            var config = new AppConfig
+            {
+                CloseToTray = _minimizeToTray,
+                StartWithWindows = _startWithWindows,
+                AutoConnectLastProxy = _autoConnectLastProxy,
+                ShowNotifications = _showNotifications,
+                DnsViaProxy = !_dnsBypass,
+                DisableUdp = _disableUdp,
+                LastProxyInput = _proxyInputText ?? "",
+                ProxyHistory = ProxyHistory.ToList(),
+                LoadedProxyList = LoadedProxyList.ToList(),
+            };
+
+            ConfigManager.SaveConfig(config);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to save proxy history: {ex.Message}");
+            Debug.WriteLine($"Failed to save settings: {ex.Message}");
+        }
+    }
+
+    private void UpdateAutoStart(bool enable)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
+            if (key == null) return;
+
+            if (enable)
+            {
+                var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+                if (!string.IsNullOrEmpty(exePath))
+                {
+                    key.SetValue("ProxyBridge", $"\"{exePath}\"");
+                }
+            }
+            else
+            {
+                key.DeleteValue("ProxyBridge", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to update autostart: {ex.Message}");
+        }
+    }
+
+    private bool IsAutoStartEnabled()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false);
+            return key?.GetValue("ProxyBridge") != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task AutoConnectIfNeeded()
+    {
+        if (_autoConnectLastProxy && !string.IsNullOrWhiteSpace(_proxyInputText) && _proxyService != null)
+        {
+            Log($"Auto-connecting to last proxy: {_proxyInputText}");
+            // Need to parse first
+            if (ParseProxyInput(_proxyInputText))
+            {
+                await ConnectProxy();
+            }
         }
     }
 
