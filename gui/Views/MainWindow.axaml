@@ -1,0 +1,1063 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+        x:Class="ProxyBridge.GUI.Views.MainWindow"
+        Width="900" Height="600"
+        Title="ProxyBridge"
+        CanResize="False"
+        Background="#2b2d42">
+
+    <Grid ColumnDefinitions="90,*">
+        
+        <!-- Левая боковая панель -->
+        <Border Grid.Column="0" Background="#1a1d29" BorderBrush="#33364a" BorderThickness="0,0,1,0">
+            <StackPanel Spacing="0" VerticalAlignment="Top">
+                
+                <!-- Логотип -->
+                <Border Height="80" Background="#1a1d29">
+                    <Viewbox Width="36" Height="36" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Canvas Width="40" Height="40">
+                            <Path Data="M5 20L15 10L25 20L35 10" Stroke="#00d9ff" StrokeThickness="2.5" StrokeLineCap="Round"/>
+                            <Path Data="M5 30L15 20L25 30L35 20" Stroke="#00d9ff" StrokeThickness="2.5" StrokeLineCap="Round" Opacity="0.6"/>
+                            <Ellipse Canvas.Left="2.5" Canvas.Top="17.5" Width="5" Height="5" Fill="#00d9ff"/>
+                            <Ellipse Canvas.Left="12.5" Canvas.Top="7.5" Width="5" Height="5" Fill="#00d9ff"/>
+                            <Ellipse Canvas.Left="22.5" Canvas.Top="17.5" Width="5" Height="5" Fill="#00d9ff"/>
+                            <Ellipse Canvas.Left="32.5" Canvas.Top="7.5" Width="5" Height="5" Fill="#00d9ff"/>
+                        </Canvas>
+                    </Viewbox>
+                </Border>
+                
+                <!-- Dashboard -->
+                <Border Height="80" Background="{Binding DashboardBg}" Cursor="Hand">
+                    <Border.Styles>
+                        <Style Selector="Border:pointerover">
+                            <Setter Property="Background" Value="#252836"/>
+                        </Style>
+                    </Border.Styles>
+                    <Button Command="{Binding ShowDashboardCommand}" 
+                            Background="Transparent" 
+                            BorderThickness="0"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Padding="0">
+                        <StackPanel Spacing="8">
+                            <Viewbox Width="28" Height="28" HorizontalAlignment="Center">
+                                <Canvas Width="32" Height="32">
+                                    <Rectangle Canvas.Left="4" Canvas.Top="4" Width="10" Height="10" RadiusX="2" RadiusY="2" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Rectangle Canvas.Left="18" Canvas.Top="4" Width="10" Height="10" RadiusX="2" RadiusY="2" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Rectangle Canvas.Left="4" Canvas.Top="18" Width="10" Height="10" RadiusX="2" RadiusY="2" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Rectangle Canvas.Left="18" Canvas.Top="18" Width="10" Height="10" RadiusX="2" RadiusY="2" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="7" Canvas.Top="7" Width="4" Height="4" Fill="#00d9ff" Opacity="0.5"/>
+                                    <Ellipse Canvas.Left="21" Canvas.Top="7" Width="4" Height="4" Fill="#00d9ff" Opacity="0.5"/>
+                                    <Ellipse Canvas.Left="7" Canvas.Top="21" Width="4" Height="4" Fill="#00d9ff" Opacity="0.5"/>
+                                    <Ellipse Canvas.Left="21" Canvas.Top="21" Width="4" Height="4" Fill="#00d9ff" Opacity="0.5"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Dashboard" FontSize="9" Foreground="#6c7086" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+                
+                <!-- Proxy List -->
+                <Border Height="80" Background="{Binding ProxyListBg}" Cursor="Hand">
+                    <Border.Styles>
+                        <Style Selector="Border:pointerover">
+                            <Setter Property="Background" Value="#252836"/>
+                        </Style>
+                    </Border.Styles>
+                    <Button Command="{Binding ShowProxyListCommand}" 
+                            Background="Transparent" 
+                            BorderThickness="0"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Padding="0">
+                        <StackPanel Spacing="8">
+                            <Viewbox Width="28" Height="28" HorizontalAlignment="Center">
+                                <Canvas Width="32" Height="32">
+                                    <Ellipse Canvas.Left="3" Canvas.Top="5" Width="6" Height="6" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="13" Canvas.Top="5" Width="6" Height="6" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="23" Canvas.Top="5" Width="6" Height="6" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="3" Canvas.Top="13" Width="6" Height="6" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="13" Canvas.Top="13" Width="6" Height="6" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="23" Canvas.Top="13" Width="6" Height="6" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="3" Canvas.Top="21" Width="6" Height="6" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="13" Canvas.Top="21" Width="6" Height="6" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="23" Canvas.Top="21" Width="6" Height="6" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Rectangle Canvas.Left="9" Canvas.Top="7.5" Width="4" Height="1.5" Fill="#00d9ff" Opacity="0.6"/>
+                                    <Rectangle Canvas.Left="19" Canvas.Top="7.5" Width="4" Height="1.5" Fill="#00d9ff" Opacity="0.6"/>
+                                    <Rectangle Canvas.Left="9" Canvas.Top="15.5" Width="4" Height="1.5" Fill="#00d9ff" Opacity="0.6"/>
+                                    <Rectangle Canvas.Left="19" Canvas.Top="15.5" Width="4" Height="1.5" Fill="#00d9ff" Opacity="0.6"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Proxy List" FontSize="9" Foreground="#6c7086" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+                
+                <!-- Разветвление -->
+                <Border Height="80" Background="{Binding BranchingBg}" Cursor="Hand">
+                    <Border.Styles>
+                        <Style Selector="Border:pointerover">
+                            <Setter Property="Background" Value="#252836"/>
+                        </Style>
+                    </Border.Styles>
+                    <Button Command="{Binding ShowBranchingCommand}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Padding="0">
+                        <StackPanel Spacing="8">
+                            <Viewbox Width="28" Height="28" HorizontalAlignment="Center">
+                                <Canvas Width="32" Height="32">
+                                    <Ellipse Canvas.Left="4" Canvas.Top="4" Width="8" Height="8" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="20" Canvas.Top="20" Width="8" Height="8" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="4" Canvas.Top="20" Width="8" Height="8" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Path Data="M8 12 L8 24" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Path Data="M8 16 C8 22 12 24 20 24" Stroke="#00d9ff" StrokeThickness="2" Fill="Transparent"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Split Tunnel" FontSize="9" Foreground="#6c7086" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+
+                <!-- Settings -->
+                <Border Height="80" Background="{Binding SettingsBg}" Cursor="Hand">
+                    <Border.Styles>
+                        <Style Selector="Border:pointerover">
+                            <Setter Property="Background" Value="#252836"/>
+                        </Style>
+                    </Border.Styles>
+                    <Button Command="{Binding ShowSettingsCommand}" 
+                            Background="Transparent" 
+                            BorderThickness="0"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Padding="0">
+                        <StackPanel Spacing="8">
+                            <Viewbox Width="28" Height="28" HorizontalAlignment="Center">
+                                <Canvas Width="32" Height="32">
+                                    <Ellipse Canvas.Left="4" Canvas.Top="4" Width="24" Height="24" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="7" Canvas.Top="7" Width="18" Height="18" Stroke="#00d9ff" StrokeThickness="1" Opacity="0.4"/>
+                                    <Ellipse Canvas.Left="13" Canvas.Top="13" Width="6" Height="6" Fill="#00d9ff" Opacity="0.3"/>
+                                    <Path Data="M16 3L17.5 6.5L21 8L17.5 9.5L16 13L14.5 9.5L11 8L14.5 6.5L16 3Z" Fill="#00d9ff" Opacity="0.7"/>
+                                    <Path Data="M16 29L17.5 25.5L21 24L17.5 22.5L16 19L14.5 22.5L11 24L14.5 25.5L16 29Z" Fill="#00d9ff" Opacity="0.7"/>
+                                    <Path Data="M29 16L25.5 17.5L24 21L22.5 17.5L19 16L22.5 14.5L24 11L25.5 14.5L29 16Z" Fill="#00d9ff" Opacity="0.7"/>
+                                    <Path Data="M3 16L6.5 17.5L8 21L9.5 17.5L13 16L9.5 14.5L8 11L6.5 14.5L3 16Z" Fill="#00d9ff" Opacity="0.7"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Settings" FontSize="9" Foreground="#6c7086" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+                
+                <!-- Help -->
+                <Border Height="80" Background="{Binding HelpBg}" Cursor="Hand">
+                    <Border.Styles>
+                        <Style Selector="Border:pointerover">
+                            <Setter Property="Background" Value="#252836"/>
+                        </Style>
+                    </Border.Styles>
+                    <Button Command="{Binding ShowHelpCommand}" 
+                            Background="Transparent" 
+                            BorderThickness="0"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Padding="0">
+                        <StackPanel Spacing="8">
+                            <Viewbox Width="28" Height="28" HorizontalAlignment="Center">
+                                <Canvas Width="32" Height="32">
+                                    <Ellipse Canvas.Left="4" Canvas.Top="4" Width="24" Height="24" Stroke="#00d9ff" StrokeThickness="2"/>
+                                    <Ellipse Canvas.Left="7" Canvas.Top="7" Width="18" Height="18" Stroke="#00d9ff" StrokeThickness="1" Opacity="0.4"/>
+                                    <Path Data="M14 11C14 9.89543 14.8954 9 16 9C17.1046 9 18 9.89543 18 11C18 11.8638 17.4693 12.5977 16.7094 12.8889C16.3091 13.0497 16 13.4379 16 13.8889V15" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round"/>
+                                    <Ellipse Canvas.Left="14.5" Canvas.Top="18.5" Width="3" Height="3" Fill="#00d9ff"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Help" FontSize="9" Foreground="#6c7086" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+                
+            </StackPanel>
+        </Border>
+
+        <!-- Основная область контента -->
+        <Border Grid.Column="1" Background="#2b2d42">
+            
+            <!-- Переключаемый контент вкладок -->
+            <Panel>
+                
+                <!-- Dashboard View -->
+                <Border IsVisible="{Binding IsDashboardVisible}">
+                    <Grid RowDefinitions="*,Auto">
+                        
+                        <!-- Основной контент Dashboard -->
+                        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="50,40,50,20" Spacing="25">
+                                
+                                <!-- Неоновая круглая кнопка CONNECT -->
+                                <Border Width="200" Height="200" 
+                                        HorizontalAlignment="Center"
+                                        Margin="0,20,0,0">
+                                    
+                                    <Button Command="{Binding ToggleConnectionCommand}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Padding="0"
+                                            Width="200"
+                                            Height="200"
+                                            Cursor="Hand">
+                                        <Button.Styles>
+                                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                            </Style>
+                                        </Button.Styles>
+                                        
+                                        <Grid>
+                                            <!-- Внешнее свечение -->
+                                            <Ellipse Width="200" Height="200" 
+                                                     Fill="#2b2d42"
+                                                     Stroke="#00d9ff"
+                                                     StrokeThickness="4"
+                                                     Opacity="0.3"/>
+                                            
+                                            <!-- Среднее кольцо -->
+                                            <Ellipse Width="185" Height="185" 
+                                                     Fill="Transparent"
+                                                     Stroke="#00d9ff"
+                                                     StrokeThickness="3"
+                                                     Opacity="0.6"/>
+                                            
+                                            <!-- Основная кнопка -->
+                                            <Ellipse Width="170" Height="170">
+                                                <Ellipse.Fill>
+                                                    <RadialGradientBrush>
+                                                        <GradientStop Color="#00d9ff" Offset="0"/>
+                                                        <GradientStop Color="#0099cc" Offset="1"/>
+                                                    </RadialGradientBrush>
+                                                </Ellipse.Fill>
+                                            </Ellipse>
+                                            
+                                            <!-- Текст CONNECT -->
+                                            <TextBlock Text="{Binding ConnectButtonText}" 
+                                                       FontSize="20" 
+                                                       FontWeight="Bold"
+                                                       Foreground="#FFFFFF"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Button>
+                                </Border>
+
+                                <!-- Статус -->
+                                <TextBlock Text="{Binding StatusText}" 
+                                           FontSize="14" 
+                                           Foreground="#8b9dc3"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,10,0,0"/>
+
+                                <!-- Поле ввода прокси с кнопкой VERIFY -->
+                                <Border Background="#1f2937" 
+                                        CornerRadius="10" 
+                                        BorderBrush="#374151" 
+                                        BorderThickness="1"
+                                        Height="50">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBox Grid.Column="0"
+                                                 Text="{Binding ProxyInputText}"
+                                                 Watermark="http://user:pass@ip:port"
+                                                 FontSize="14"
+                                                 Padding="15,0"
+                                                 Background="Transparent"
+                                                 Foreground="#FFFFFF"
+                                                 BorderThickness="0"
+                                                 VerticalAlignment="Center"/>
+                                        
+                                        <Button Grid.Column="1"
+                                                Content="VERIFY"
+                                                Command="{Binding TestProxyCommand}"
+                                                Background="#00d9ff"
+                                                Foreground="#1a1d29"
+                                                BorderThickness="0"
+                                                Padding="25,0"
+                                                Height="40"
+                                                FontSize="13"
+                                                FontWeight="Bold"
+                                                CornerRadius="8"
+                                                Margin="0,0,5,0"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Подсказка форматов -->
+                                <TextBlock FontSize="11" Foreground="#6c7086" HorizontalAlignment="Center">
+                                    <Run Text="Поддерживается форматы: "/>
+                                    <Run Text="http://user:pass@ip:port" Foreground="#00d9ff"/>
+                                    <Run Text=" или "/>
+                                    <Run Text="socks5://user:pass@ip:port" Foreground="#00d9ff"/>
+                                </TextBlock>
+
+                                <!-- GEO Information Display -->
+                                <Border Background="#1f2937" 
+                                        CornerRadius="10" 
+                                        BorderBrush="#374151" 
+                                        BorderThickness="1"
+                                        Padding="15"
+                                        Margin="0,10,0,0"
+                                        IsVisible="{Binding IsProxyGeoVisible}">
+                                    <TextBlock Text="{Binding ProxyGeoInfo}"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="#ffffff"
+                                               TextWrapping="Wrap"
+                                               HorizontalAlignment="Center"/>
+                                </Border>
+
+                                <!-- DNS Bypass и Disable UDP скрыты (работают автоматически) -->
+
+                                <!-- История использованных прокси -->
+                                <Grid RowDefinitions="Auto,*">
+                                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                                        <TextBlock Grid.Column="0" 
+                                                   Text="История прокси" 
+                                                   FontSize="12" 
+                                                   Foreground="#8b9dc3"
+                                                   VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1"
+                                                Content="Очистить"
+                                                Command="{Binding ClearProxyHistoryCommand}"
+                                                Background="#ef4444"
+                                                Foreground="#FFFFFF"
+                                                BorderThickness="0"
+                                                Padding="12,6"
+                                                FontSize="11"
+                                                FontWeight="SemiBold"
+                                                CornerRadius="6"
+                                                Cursor="Hand"/>
+                                    </Grid>
+                                    
+                                    <Border Grid.Row="1"
+                                            Background="#1f2937" 
+                                            CornerRadius="10" 
+                                            BorderBrush="#374151" 
+                                            BorderThickness="1"
+                                            Padding="15"
+                                            MaxHeight="150">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding ProxyHistory}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Background="#2b2d42" 
+                                                                CornerRadius="6" 
+                                                                Padding="12,8" 
+                                                                Margin="0,4"
+                                                                BorderThickness="0"
+                                                                HorizontalAlignment="Stretch"
+                                                                HorizontalContentAlignment="Left"
+                                                                Command="{Binding $parent[ItemsControl].DataContext.SelectProxyFromHistoryCommand}"
+                                                                CommandParameter="{Binding}"
+                                                                Cursor="Hand">
+                                                            <TextBlock Text="{Binding}" 
+                                                                       FontSize="12" 
+                                                                       Foreground="#ffffff"
+                                                                       FontFamily="Consolas"/>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Grid>
+
+                                <!-- How it works -->
+                                <TextBlock Text="How it works" 
+                                           FontSize="16" 
+                                           FontWeight="SemiBold" 
+                                           Foreground="#ffffff"
+                                           Margin="0,15,0,10"/>
+
+                                <Grid ColumnDefinitions="*,*,*">
+                                    <!-- Traffic Tunneled -->
+                                    <Border Grid.Column="0" 
+                                            Background="#1f2937" 
+                                            CornerRadius="10" 
+                                            Padding="20"
+                                            Margin="0,0,10,0">
+                                        <StackPanel Spacing="12">
+                                            <Border Width="50" Height="50" CornerRadius="25" Background="#2b2d42" HorizontalAlignment="Center">
+                                                <Viewbox Width="26" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Data="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round" Fill="Transparent"/>
+                                                    </Canvas>
+                                                </Viewbox>
+                                            </Border>
+                                            <TextBlock Text="Traffic Tunneled" 
+                                                       FontSize="13" 
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#ffffff"
+                                                       TextAlignment="Center"/>
+                                            <TextBlock Text="Весь трафик компьютера идет через прокси" 
+                                                       FontSize="10" 
+                                                       Foreground="#6c7086"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- IP Masked -->
+                                    <Border Grid.Column="1" 
+                                            Background="#1f2937" 
+                                            CornerRadius="10" 
+                                            Padding="20"
+                                            Margin="5,0">
+                                        <StackPanel Spacing="12">
+                                            <Border Width="50" Height="50" CornerRadius="25" Background="#2b2d42" HorizontalAlignment="Center">
+                                                <Viewbox Width="26" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Ellipse Canvas.Left="2" Canvas.Top="2" Width="20" Height="20" Stroke="#00d9ff" StrokeThickness="2"/>
+                                                        <Path Data="M8 14s1.5 2 4 2 4-2 4-2" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round" Fill="Transparent"/>
+                                                        <Ellipse Canvas.Left="8" Canvas.Top="8.5" Width="1.5" Height="1.5" Fill="#00d9ff"/>
+                                                        <Ellipse Canvas.Left="14.5" Canvas.Top="8.5" Width="1.5" Height="1.5" Fill="#00d9ff"/>
+                                                    </Canvas>
+                                                </Viewbox>
+                                            </Border>
+                                            <TextBlock Text="IP Masked" 
+                                                       FontSize="13" 
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#ffffff"
+                                                       TextAlignment="Center"/>
+                                            <TextBlock Text="Скройте ваш IP и оставайтесь анонимными" 
+                                                       FontSize="10" 
+                                                       Foreground="#6c7086"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Secure Connection -->
+                                    <Border Grid.Column="2" 
+                                            Background="#1f2937" 
+                                            CornerRadius="10" 
+                                            Padding="20"
+                                            Margin="10,0,0,0">
+                                        <StackPanel Spacing="12">
+                                            <Border Width="50" Height="50" CornerRadius="25" Background="#2b2d42" HorizontalAlignment="Center">
+                                                <Viewbox Width="26" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Data="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" Stroke="#00d9ff" StrokeThickness="2" Fill="Transparent"/>
+                                                        <Path Data="M9 12l2 2 4-4" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round" Fill="Transparent"/>
+                                                    </Canvas>
+                                                </Viewbox>
+                                            </Border>
+                                            <TextBlock Text="Secure Connection" 
+                                                       FontSize="13" 
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#ffffff"
+                                                       TextAlignment="Center"/>
+                                            <TextBlock Text="Защищённое подключение через прокси-сервер" 
+                                                       FontSize="10" 
+                                                       Foreground="#6c7086"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Статистика внизу -->
+                        <Border Grid.Row="1" 
+                                Background="#1a1d29" 
+                                BorderBrush="#33364a" 
+                                BorderThickness="0,1,0,0"
+                                Height="60">
+                            <Grid ColumnDefinitions="*,*,*">
+                                
+                                <!-- Current stats -->
+                                <StackPanel Grid.Column="0" 
+                                            VerticalAlignment="Center" 
+                                            HorizontalAlignment="Center"
+                                            Spacing="4">
+                                    <TextBlock Text="Current stats" 
+                                               FontSize="10" 
+                                               Foreground="#6c7086"
+                                               HorizontalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                        <TextBlock FontSize="13" Foreground="#28a745">
+                                            <Run Text="↑"/>
+                                            <Run Text="{Binding UploadSpeed}"/>
+                                        </TextBlock>
+                                        <TextBlock FontSize="13" Foreground="#007bff">
+                                            <Run Text="↓"/>
+                                            <Run Text="{Binding DownloadSpeed}"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Current port -->
+                                <StackPanel Grid.Column="1" 
+                                            VerticalAlignment="Center" 
+                                            HorizontalAlignment="Center"
+                                            Spacing="4">
+                                    <TextBlock Text="Connection time" 
+                                               FontSize="10" 
+                                               Foreground="#6c7086"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="{Binding ConnectionTime}" 
+                                               FontSize="13" 
+                                               Foreground="#00d9ff"
+                                               HorizontalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- Connection -->
+                                <StackPanel Grid.Column="2" 
+                                            VerticalAlignment="Center" 
+                                            HorizontalAlignment="Center"
+                                            Spacing="4">
+                                    <TextBlock Text="Ping" 
+                                               FontSize="10" 
+                                               Foreground="#6c7086"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Ping}" 
+                                               FontSize="13" 
+                                               Foreground="#ffc107"
+                                               HorizontalAlignment="Center"/>
+                                </StackPanel>
+
+                            </Grid>
+                        </Border>
+
+                    </Grid>
+                </Border>
+
+                <!-- Proxy List View -->
+                <Border IsVisible="{Binding IsProxyListVisible}" Padding="40">
+                    <StackPanel Spacing="20">
+                        <TextBlock Text="Proxy List" 
+                                   FontSize="24" 
+                                   FontWeight="Bold" 
+                                   Foreground="#ffffff"/>
+                        
+                        <!-- Кнопки управления -->
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBlock Grid.Column="0" 
+                                       Text="Загрузите список прокси для быстрого выбора" 
+                                       FontSize="13" 
+                                       Foreground="#6c7086"
+                                       VerticalAlignment="Center"/>
+                            
+                            <Button Grid.Column="1"
+                                    Content="Load from File"
+                                    Command="{Binding LoadProxyListCommand}"
+                                    Background="#00d9ff"
+                                    Foreground="#1a1d29"
+                                    BorderThickness="0"
+                                    Padding="20,10"
+                                    FontSize="13"
+                                    FontWeight="SemiBold"
+                                    CornerRadius="8"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Margin="0,0,10,0"/>
+                            
+                            <Button Grid.Column="2"
+                                    Content="Clear List"
+                                    Command="{Binding ClearProxyListCommand}"
+                                    Background="#dc3545"
+                                    Foreground="#ffffff"
+                                    BorderThickness="0"
+                                    Padding="20,10"
+                                    FontSize="13"
+                                    FontWeight="SemiBold"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    CornerRadius="8"/>
+                        </Grid>
+
+                        <!-- Список прокси -->
+                        <Border Background="#1f2937" 
+                                CornerRadius="10" 
+                                BorderBrush="#374151" 
+                                BorderThickness="1"
+                                MinHeight="350">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding LoadedProxyList}" Margin="15">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#2b2d42" 
+                                                    CornerRadius="8" 
+                                                    Padding="15,12" 
+                                                    Margin="0,6"
+                                                    Cursor="Hand">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding}" 
+                                                               FontSize="13" 
+                                                               Foreground="#ffffff"
+                                                               FontFamily="Consolas"
+                                                               VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="1"
+                                                            Content="Connect"
+                                                            Command="{Binding $parent[ItemsControl].DataContext.SelectProxyFromHistoryCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            Background="#28a745"
+                                                            Foreground="#ffffff"
+                                                            BorderThickness="0"
+                                                            Padding="15,6"
+                                                            FontSize="11"
+                                                            FontWeight="SemiBold"
+                                                            HorizontalContentAlignment="Center"
+                                                            VerticalContentAlignment="Center"
+                                                            CornerRadius="6"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Split Tunneling View -->
+                <Border IsVisible="{Binding IsBranchingVisible}" Padding="40,30">
+                    <Grid RowDefinitions="Auto,Auto,*">
+
+                        <TextBlock Grid.Row="0"
+                                   Text="Split Tunneling"
+                                   FontSize="24"
+                                   FontWeight="Bold"
+                                   Foreground="#ffffff"/>
+
+                        <TextBlock Grid.Row="1"
+                                   Text="Assign a separate proxy to each program. Listed programs use their own proxy; all other traffic goes direct. TCP only."
+                                   FontSize="13"
+                                   Foreground="#6c7086"
+                                   TextWrapping="Wrap"
+                                   Margin="0,6,0,16"/>
+
+                        <!-- Two columns: form (left) + assignments list (right) -->
+                        <Grid Grid.Row="2" ColumnDefinitions="360,24,*">
+
+                            <!-- Left: add form + status + apply -->
+                            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto,Auto">
+
+                                <Border Grid.Row="0" Background="#1f2937" CornerRadius="10" Padding="18">
+                                    <StackPanel Spacing="12">
+                                        <TextBlock Text="Add a program" FontSize="14" FontWeight="SemiBold" Foreground="#00d9ff"/>
+
+                                        <!-- Program (.exe) -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBox Grid.Column="0"
+                                                     Text="{Binding NewMappingProcess}"
+                                                     Watermark="Program name, e.g. chrome.exe"
+                                                     FontSize="13"
+                                                     Background="#2b2d42"
+                                                     Foreground="#ffffff"
+                                                     BorderThickness="0"
+                                                     CornerRadius="8"
+                                                     Padding="12,10"
+                                                     VerticalAlignment="Center"/>
+                                            <Button Grid.Column="1"
+                                                    Content="Browse"
+                                                    Command="{Binding BrowseExeForMappingCommand}"
+                                                    Background="#374151"
+                                                    Foreground="#ffffff"
+                                                    BorderThickness="0"
+                                                    Padding="14,10"
+                                                    FontSize="12"
+                                                    FontWeight="SemiBold"
+                                                    CornerRadius="8"
+                                                    Margin="8,0,0,0"
+                                                    Cursor="Hand"/>
+                                        </Grid>
+
+                                        <!-- Proxy (manual entry) -->
+                                        <TextBox Text="{Binding NewMappingProxy}"
+                                                 Watermark="Proxy: socks5://user:pass@ip:port"
+                                                 FontSize="13"
+                                                 Background="#2b2d42"
+                                                 Foreground="#ffffff"
+                                                 BorderThickness="0"
+                                                 CornerRadius="8"
+                                                 Padding="12,10"/>
+
+                                        <!-- Proxy (pick from saved) -->
+                                        <ComboBox ItemsSource="{Binding AvailableProxies}"
+                                                  SelectedItem="{Binding NewMappingProxy}"
+                                                  PlaceholderText="…or pick a saved proxy"
+                                                  HorizontalAlignment="Stretch"
+                                                  Background="#2b2d42"
+                                                  Foreground="#ffffff"
+                                                  CornerRadius="8"
+                                                  Padding="12,8"/>
+
+                                        <Button Content="Add to list"
+                                                Command="{Binding AddMappingCommand}"
+                                                Background="#00d9ff"
+                                                Foreground="#1a1d29"
+                                                BorderThickness="0"
+                                                Padding="18,10"
+                                                FontSize="13"
+                                                FontWeight="Bold"
+                                                CornerRadius="8"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                Cursor="Hand"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Status -->
+                                <TextBlock Grid.Row="2"
+                                           Text="{Binding BranchingStatus}"
+                                           FontSize="12"
+                                           Foreground="#8b9dc3"
+                                           TextWrapping="Wrap"
+                                           Margin="0,14,0,10"/>
+
+                                <!-- Apply / Stop -->
+                                <Button Grid.Row="3"
+                                        Content="{Binding BranchingButtonText}"
+                                        Command="{Binding ToggleBranchingCommand}"
+                                        Background="#00d9ff"
+                                        Foreground="#1a1d29"
+                                        BorderThickness="0"
+                                        Padding="20,14"
+                                        FontSize="14"
+                                        FontWeight="Bold"
+                                        CornerRadius="10"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        Cursor="Hand"/>
+                            </Grid>
+
+                            <!-- Right: assignments list -->
+                            <Grid Grid.Column="2" RowDefinitions="Auto,*">
+                                <TextBlock Grid.Row="0"
+                                           Text="Assignments"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="#8b9dc3"
+                                           Margin="2,0,0,8"/>
+
+                                <Border Grid.Row="1"
+                                        Background="#1f2937"
+                                        CornerRadius="10"
+                                        BorderBrush="#374151"
+                                        BorderThickness="1"
+                                        Padding="10">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl ItemsSource="{Binding BranchingMappings}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#2b2d42" CornerRadius="8" Padding="14,10" Margin="0,4">
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding ProcessName}"
+                                                                           FontSize="13"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="#ffffff"
+                                                                           FontFamily="Consolas"
+                                                                           TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding ProxyMasked}"
+                                                                           FontSize="11"
+                                                                           Foreground="#8b9dc3"
+                                                                           FontFamily="Consolas"
+                                                                           TextTrimming="CharacterEllipsis"/>
+                                                            </StackPanel>
+                                                            <Button Grid.Column="1"
+                                                                    Content="Remove"
+                                                                    Command="{Binding $parent[ItemsControl].DataContext.RemoveMappingCommand}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Background="#ef4444"
+                                                                    Foreground="#ffffff"
+                                                                    BorderThickness="0"
+                                                                    Padding="12,6"
+                                                                    FontSize="11"
+                                                                    FontWeight="SemiBold"
+                                                                    CornerRadius="6"
+                                                                    VerticalAlignment="Center"
+                                                                    Margin="10,0,0,0"
+                                                                    Cursor="Hand"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- Settings View -->
+                <Border IsVisible="{Binding IsSettingsVisible}" Padding="40">
+                    <StackPanel Spacing="25">
+                        <TextBlock Text="Settings" 
+                                   FontSize="24" 
+                                   FontWeight="Bold" 
+                                   Foreground="#ffffff"/>
+
+                        <!-- Minimize to Tray -->
+                        <Border Background="#1f2937" 
+                                CornerRadius="10" 
+                                Padding="20">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="5">
+                                    <TextBlock Text="Minimize to Tray" 
+                                               FontSize="15" 
+                                               FontWeight="SemiBold" 
+                                               Foreground="#ffffff"/>
+                                    <TextBlock Text="Сворачивать приложение в системный трей при закрытии" 
+                                               FontSize="12" 
+                                               Foreground="#6c7086"/>
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" 
+                                          IsChecked="{Binding MinimizeToTray}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Auto-start -->
+                        <Border Background="#1f2937" 
+                                CornerRadius="10" 
+                                Padding="20">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="5">
+                                    <TextBlock Text="Start with Windows" 
+                                               FontSize="15" 
+                                               FontWeight="SemiBold" 
+                                               Foreground="#ffffff"/>
+                                    <TextBlock Text="Запускать ProxyBridge при старте системы" 
+                                               FontSize="12" 
+                                               Foreground="#6c7086"/>
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" 
+                                          IsChecked="{Binding StartWithWindows}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Auto-connect last proxy -->
+                        <Border Background="#1f2937" 
+                                CornerRadius="10" 
+                                Padding="20">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="5">
+                                    <TextBlock Text="Auto-connect Last Proxy" 
+                                               FontSize="15" 
+                                               FontWeight="SemiBold" 
+                                               Foreground="#ffffff"/>
+                                    <TextBlock Text="Автоматически подключаться к последнему использованному прокси" 
+                                               FontSize="12" 
+                                               Foreground="#6c7086"/>
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" 
+                                          IsChecked="{Binding AutoConnectLastProxy}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Show notifications -->
+                        <Border Background="#1f2937" 
+                                CornerRadius="10" 
+                                Padding="20">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="5">
+                                    <TextBlock Text="Show Notifications" 
+                                               FontSize="15" 
+                                               FontWeight="SemiBold" 
+                                               Foreground="#ffffff"/>
+                                    <TextBlock Text="Показывать уведомления о подключении/отключении" 
+                                               FontSize="12" 
+                                               Foreground="#6c7086"/>
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" 
+                                          IsChecked="{Binding ShowNotifications}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- DNS bypass port 53 -->
+                        <Border Background="#1f2937" 
+                                CornerRadius="10" 
+                                Padding="20">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="5">
+                                    <TextBlock Text="DNS Bypass (Port 53)" 
+                                               FontSize="15" 
+                                               FontWeight="SemiBold" 
+                                               Foreground="#ffffff"/>
+                                    <TextBlock Text="Пропускать DNS запросы напрямую (предотвращение DNS утечек)" 
+                                               FontSize="12" 
+                                               Foreground="#6c7086"/>
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" 
+                                          IsChecked="{Binding DnsBypass}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+                </Border>
+
+                <!-- Help View -->
+                <Border IsVisible="{Binding IsHelpVisible}" Padding="40">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="25">
+                            <TextBlock Text="Help" 
+                                       FontSize="24" 
+                                       FontWeight="Bold" 
+                                       Foreground="#ffffff"/>
+
+                            <!-- Инструкция по использованию -->
+                            <Border Background="#1f2937" 
+                                    CornerRadius="10" 
+                                    Padding="25">
+                                <StackPanel Spacing="15">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Viewbox Width="20" Height="20" VerticalAlignment="Center">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" Stroke="#00d9ff" StrokeThickness="2" Fill="Transparent"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="Как использовать ProxyBridge" 
+                                               FontSize="18" 
+                                               FontWeight="SemiBold" 
+                                               Foreground="#00d9ff"/>
+                                    </StackPanel>
+                                    
+                                    <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#c9d1d9">
+                                        <Run Text="1. Введите данные прокси" FontWeight="Bold"/>
+                                        <LineBreak/>
+                                        <Run Text="   Поддерживаемые форматы:" Foreground="#6c7086"/>
+                                        <LineBreak/>
+                                        <Run Text="   • ip:port:user:pass" Foreground="#00d9ff"/>
+                                        <LineBreak/>
+                                        <Run Text="   • socks5://user:pass@ip:port" Foreground="#00d9ff"/>
+                                        <LineBreak/>
+                                        <LineBreak/>
+                                        <Run Text="2. Нажмите VERIFY" FontWeight="Bold"/>
+                                        <LineBreak/>
+                                        <Run Text="   Проверьте работоспособность прокси перед подключением" Foreground="#6c7086"/>
+                                        <LineBreak/>
+                                        <LineBreak/>
+                                        <Run Text="3. Нажмите круглую кнопку CONNECT" FontWeight="Bold"/>
+                                        <LineBreak/>
+                                        <Run Text="   Весь трафик вашего компьютера будет проксирован" Foreground="#6c7086"/>
+                                        <LineBreak/>
+                                        <LineBreak/>
+                                        <Run Text="4. Используйте Proxy List" FontWeight="Bold"/>
+                                        <LineBreak/>
+                                        <Run Text="   Загрузите список прокси из файла для быстрого переключения" Foreground="#6c7086"/>
+                                        <LineBreak/>
+                                        <LineBreak/>
+                                        <Run Text="5. Настройте в Settings" FontWeight="Bold"/>
+                                        <LineBreak/>
+                                        <Run Text="   Включите автозапуск, сворачивание в трей и другие опции" Foreground="#6c7086"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Контакты -->
+                            <Border Background="#1f2937" 
+                                    CornerRadius="10" 
+                                    Padding="25">
+                                <StackPanel Spacing="15">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Viewbox Width="20" Height="20" VerticalAlignment="Center">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" Stroke="#00d9ff" StrokeThickness="2" Fill="Transparent"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="Контакты для связи" 
+                                               FontSize="18" 
+                                               FontWeight="SemiBold" 
+                                               Foreground="#00d9ff"/>
+                                    </StackPanel>
+                                    
+                                    <StackPanel Spacing="12">
+                                        <Border Background="#2b2d42" 
+                                                CornerRadius="8" 
+                                                Padding="15">
+                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                                <Viewbox Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,15,0">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Data="M22 2L11 13M22 2l-7 20-4-9-9-4z" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round" Fill="Transparent"/>
+                                                    </Canvas>
+                                                </Viewbox>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="Telegram" 
+                                                               FontSize="14" 
+                                                               FontWeight="SemiBold" 
+                                                               Foreground="#ffffff"/>
+                                                    <TextBlock Text="@inter1ark" 
+                                                               FontSize="12" 
+                                                               Foreground="#6c7086"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="2"
+                                                        Content="Open"
+                                                        Command="{Binding OpenTelegramCommand}"
+                                                        Background="#00d9ff"
+                                                        Foreground="#1a1d29"
+                                                        BorderThickness="0"
+                                                        Padding="20,8"
+                                                        FontSize="12"
+                                                        FontWeight="SemiBold"
+                                                        HorizontalContentAlignment="Center"
+                                                        VerticalContentAlignment="Center"
+                                                        CornerRadius="6"/>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- О программе -->
+                            <Border Background="#1f2937" 
+                                    CornerRadius="10" 
+                                    Padding="25">
+                                <StackPanel Spacing="10">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Viewbox Width="20" Height="20" VerticalAlignment="Center">
+                                            <Canvas Width="24" Height="24">
+                                                <Ellipse Canvas.Left="2" Canvas.Top="2" Width="20" Height="20" Stroke="#00d9ff" StrokeThickness="2"/>
+                                                <Path Data="M12 16V12M12 8h.01" Stroke="#00d9ff" StrokeThickness="2" StrokeLineCap="Round"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="О программе" 
+                                               FontSize="18" 
+                                               FontWeight="SemiBold" 
+                                               Foreground="#00d9ff"/>
+                                    </StackPanel>
+                                    <TextBlock Text="ProxyBridge v3.0.0" 
+                                               FontSize="14" 
+                                               Foreground="#ffffff"/>
+                                    <TextBlock Text="Система проксирования всего трафика компьютера" 
+                                               FontSize="12" 
+                                               Foreground="#6c7086"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock Text="© 2026 ProxyBridge. All rights reserved." 
+                                               FontSize="11" 
+                                               Foreground="#6c7086"
+                                               Margin="0,10,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+            </Panel>
+            
+        </Border>
+
+    </Grid>
+</Window>

@@ -1,0 +1,347 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ProxyBridge.GUI.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="750"
+        x:Class="ProxyBridge.GUI.Views.ProxySettingsWindow"
+        x:DataType="vm:ProxySettingsViewModel"
+        x:CompileBindings="True"
+        Title="{Binding Loc.ProxySettingsTitle}"
+        Icon="/Assets/logo.ico"
+        Width="700" Height="750"
+        MinHeight="600"
+        CanResize="True"
+        Background="#FF2D2D30"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="#FFE0E0E0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+
+        <Style Selector="TextBlock.error">
+            <Setter Property="Foreground" Value="#FFF48771"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+
+        <Style Selector="TextBlock.success">
+            <Setter Property="Foreground" Value="#FF4EC9B0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#FF1E1E1E"/>
+            <Setter Property="Foreground" Value="#FFE0E0E0"/>
+            <Setter Property="BorderBrush" Value="#FF3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="FontFamily" Value="Consolas,monospace"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+
+        <Style Selector="TextBox:focus">
+            <Setter Property="BorderBrush" Value="#FF007ACC"/>
+        </Style>
+
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#FF1E1E1E"/>
+            <Setter Property="Foreground" Value="#FFE0E0E0"/>
+            <Setter Property="BorderBrush" Value="#FF3F3F46"/>
+            <Setter Property="Padding" Value="10,8"/>
+        </Style>
+
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#FF0E639C"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="#FF1177BB"/>
+        </Style>
+
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#FF3E3E42"/>
+        </Style>
+
+        <Style Selector="Button.secondary:pointerover">
+            <Setter Property="Background" Value="#FF4E4E52"/>
+        </Style>
+
+        <Style Selector="Button.small">
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="#FF1E1E1E"/>
+            <Setter Property="BorderBrush" Value="#FF3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="10,8"/>
+        </Style>
+
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FF007ACC"/>
+        </Style>
+    </Window.Styles>
+
+    <DockPanel>
+        <!-- Header -->
+        <Border DockPanel.Dock="Top" Background="#FF1E1E1E" Padding="20,16">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Text="" FontSize="22" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Loc.ProxySettingsTitle}"
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           Foreground="#FFE0E0E0"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Main Content with ScrollViewer -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <Grid ColumnDefinitions="2*,3*" Margin="24,20">
+                
+                <!-- Left Panel: Saved Proxies -->
+                <StackPanel Grid.Column="0" Spacing="12" Margin="0,0,10,0">
+                    <TextBlock Text=" Saved Proxies"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="#FFE0E0E0"/>
+                    
+                    <ListBox ItemsSource="{Binding SavedProxies}"
+                             SelectedItem="{Binding SelectedProxy}"
+                             Height="500"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontWeight="SemiBold"
+                                               Foreground="#FFE0E0E0"/>
+                                    <TextBlock>
+                                        <Run Text="{Binding Type}"/>
+                                        <Run Text="  " Foreground="#FF999999"/>
+                                        <Run Text="{Binding Ip}"/>
+                                        <Run Text=":" Foreground="#FF999999"/>
+                                        <Run Text="{Binding Port}"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <Button Content=" Delete Selected"
+                            Command="{Binding DeleteProxyCommand}"
+                            Classes="secondary small"
+                            HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <!-- Right Panel: Proxy Configuration -->
+                <StackPanel Grid.Column="1" Spacing="20" Margin="10,0,0,0">
+                    
+                    <!-- Quick Input Section -->
+                    <Border BorderBrush="#FF007ACC"
+                            BorderThickness="2"
+                            Padding="16"
+                            CornerRadius="4"
+                            Background="#FF1E1E1E">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text=" Quick Input"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="#FF4EC9B0"/>
+                            
+                            <TextBox Text="{Binding QuickInput}"
+                                     Watermark="ip:port:user:pass or socks5://user:pass@ip:port"
+                                     FontSize="14"/>
+                            
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding QuickInputError}"
+                                           Classes="error"
+                                           VerticalAlignment="Center"
+                                           IsVisible="{Binding QuickInputError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                
+                                <Button Grid.Column="1"
+                                        Content="Parse"
+                                        Command="{Binding ParseQuickInputCommand}"
+                                        Classes="small"
+                                        Margin="4,0"/>
+                                
+                                <Button Grid.Column="2"
+                                        Content="Test"
+                                        Command="{Binding QuickTestCommand}"
+                                        Classes="small"
+                                        Margin="4,0"
+                                        IsEnabled="{Binding !IsTesting}"/>
+                                
+                                <Button Grid.Column="3"
+                                        Content="Save"
+                                        Command="{Binding SaveToListCommand}"
+                                        Classes="small"
+                                        Margin="4,0"/>
+                            </Grid>
+                            
+                            <TextBlock Text="Examples: 192.168.1.1:1080:user:pass  socks5://192.168.1.1:1080  http://user:pass@proxy.com:8080"
+                                       Foreground="#FF999999"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Manual Settings -->
+                    <StackPanel Spacing="16">
+                        <TextBlock Text=" Manual Configuration"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FFE0E0E0"/>
+                        
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Loc.ProxyTypeLabel}" Classes="label"/>
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      x:Name="ProxyTypeComboBox">
+                                <ComboBoxItem Content="SOCKS5" Tag="SOCKS5"/>
+                                <ComboBoxItem Content="HTTP" Tag="HTTP"/>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Loc.ProxyIpLabel}" Classes="label"/>
+                            <TextBox Text="{Binding ProxyIp}"
+                                     Watermark="{Binding Loc.ProxyIpPlaceholder}"/>
+                            <TextBlock Text="{Binding IpError}"
+                                       Classes="error"
+                                       IsVisible="{Binding IpError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Loc.ProxyPortLabel}" Classes="label"/>
+                            <TextBox Text="{Binding ProxyPort}"
+                                     Watermark="{Binding Loc.ProxyPortPlaceholder}"/>
+                            <TextBlock Text="{Binding PortError}"
+                                       Classes="error"
+                                       IsVisible="{Binding PortError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Loc.UsernameLabel}" Classes="label"/>
+                            <TextBox Text="{Binding ProxyUsername}"
+                                     Watermark="{Binding Loc.UsernamePlaceholder}"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Loc.PasswordLabel}" Classes="label"/>
+                            <TextBox Text="{Binding ProxyPassword}"
+                                     Watermark="{Binding Loc.PasswordPlaceholder}"
+                                     PasswordChar=""/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Test Connection Section -->
+                    <Border BorderBrush="#FF3F3F46"
+                            BorderThickness="0,1,0,0"
+                            Padding="0,16,0,0"
+                            Margin="0,16,0,0"
+                            IsVisible="{Binding !IsTestViewOpen}">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="{Binding Loc.TestConnectionTitle}"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="#FFE0E0E0"/>
+                            <Button Content="{Binding Loc.TestConnectionButton}"
+                                    Command="{Binding OpenTestCommand}"
+                                    Classes="secondary"
+                                    HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Test Connection Form -->
+                    <Border BorderBrush="#FF3F3F46"
+                            BorderThickness="0,1,0,0"
+                            Padding="0,16,0,0"
+                            Margin="0,16,0,0"
+                            IsVisible="{Binding IsTestViewOpen}">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding Loc.TestConnectionTitle}"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#FFE0E0E0"
+                                           VerticalAlignment="Center"/>
+                                <Button Grid.Column="1"
+                                        Content=""
+                                        Classes="secondary"
+                                        Command="{Binding CloseTestCommand}"
+                                        Width="32"
+                                        Height="32"
+                                        Padding="0"/>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="3*,2*">
+                                <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,6,0">
+                                    <TextBlock Text="{Binding Loc.TargetHostLabel}" Classes="label"/>
+                                    <TextBox Text="{Binding TestTargetHost}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="6" Margin="6,0,0,0">
+                                    <TextBlock Text="{Binding Loc.PortLabel}" Classes="label"/>
+                                    <TextBox Text="{Binding TestTargetPort}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Button Content="{Binding Loc.StartTestButton}"
+                                    Command="{Binding StartTestCommand}"
+                                    IsEnabled="{Binding !IsTesting}"
+                                    HorizontalAlignment="Left"/>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="{Binding Loc.OutputLabel}" Classes="label"/>
+                                <Border Background="#FF1E1E1E"
+                                        BorderBrush="#FF3F3F46"
+                                        BorderThickness="1"
+                                        Padding="10"
+                                        MinHeight="150"
+                                        MaxHeight="200">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <TextBlock Text="{Binding TestOutput}"
+                                                   FontFamily="Consolas,monospace"
+                                                   FontSize="12"
+                                                   Foreground="#FFE0E0E0"
+                                                   TextWrapping="Wrap"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Action Buttons -->
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Spacing="12"
+                                Margin="0,16,0,20">
+                        <Button Content="{Binding Loc.ButtonCancel}"
+                                Classes="secondary"
+                                Command="{Binding CancelCommand}"
+                                Width="100"/>
+                        <Button Content="{Binding Loc.SaveChangesButton}"
+                                Command="{Binding SaveCommand}"
+                                Width="130"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </DockPanel>
+</Window>
+

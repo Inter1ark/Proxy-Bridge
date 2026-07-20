@@ -1,0 +1,137 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using ProxyBridge.GUI.ViewModels;
+
+namespace ProxyBridge.GUI.Services;
+
+public class AppConfig
+{
+    public string ProxyType { get; set; } = "SOCKS5";
+    public string ProxyIp { get; set; } = "";
+    public string ProxyPort { get; set; } = "";
+    public string ProxyUsername { get; set; } = "";
+    public string ProxyPassword { get; set; } = "";
+    public bool DnsViaProxy { get; set; } = true;
+    public string Language { get; set; } = "en";
+    public bool CloseToTray { get; set; } = true;
+    public bool StartWithWindows { get; set; } = false;
+    public bool AutoConnectLastProxy { get; set; } = false;
+    public bool ShowNotifications { get; set; } = true;
+    public bool DisableUdp { get; set; } = true;
+    public string LastProxyInput { get; set; } = "";
+    public List<string> ProxyHistory { get; set; } = new();
+    public List<string> LoadedProxyList { get; set; } = new();
+    public List<ProxyRuleConfig> ProxyRules { get; set; } = new();
+    // "Branching" mode: per-program proxy assignments
+    public List<AppProxyMapping> ProxyMappings { get; set; } = new();
+}
+
+/// <summary>Per-application proxy assignment used by the "Разветвление" (branching) tab.</summary>
+public class AppProxyMapping
+{
+    public string ProcessName { get; set; } = "";   // e.g. "chrome.exe"
+    public string ProxyString { get; set; } = "";    // e.g. "socks5://user:pass@ip:port"
+
+    [JsonIgnore]
+    public string Display => $"{ProcessName}   →   {MaskProxy(ProxyString)}";
+
+    [JsonIgnore]
+    public string ProxyMasked => MaskProxy(ProxyString);
+
+    private static string MaskProxy(string proxy)
+    {
+        if (string.IsNullOrWhiteSpace(proxy)) return "";
+        // Hide credentials in the UI: keep scheme + host:port only
+        try
+        {
+            var s = proxy.Trim();
+            var at = s.LastIndexOf('@');
+            if (at >= 0)
+            {
+                var schemeEnd = s.IndexOf("://", StringComparison.Ordinal);
+                var scheme = schemeEnd >= 0 ? s.Substring(0, schemeEnd + 3) : "";
+                return scheme + s.Substring(at + 1);
+            }
+            return s;
+        }
+        catch { return proxy; }
+    }
+}
+
+public class ProxyRuleConfig
+{
+    public string ProcessName { get; set; } = "";
+    public string TargetHosts { get; set; } = "*";
+    public string TargetPorts { get; set; } = "*";
+    public string Protocol { get; set; } = "TCP";
+    public string Action { get; set; } = "PROXY";
+    public bool IsEnabled { get; set; } = true;
+}
+
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(AppConfig))]
+[JsonSerializable(typeof(ProxyRuleConfig))]
+[JsonSerializable(typeof(List<ProxyRuleConfig>))]
+[JsonSerializable(typeof(AppProxyMapping))]
+[JsonSerializable(typeof(List<AppProxyMapping>))]
+[JsonSerializable(typeof(List<string>))]
+internal partial class AppConfigJsonContext : JsonSerializerContext
+{
+}
+
+public static class ConfigManager
+{
+    private static readonly string ConfigDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "ProxyBridge"
+    );
+    // C:\Users\<username>\AppData\Roaming\ProxyBridge\config.json
+
+    private static readonly string ConfigFilePath = Path.Combine(ConfigDirectory, "config.json");
+
+    public static bool SaveConfig(AppConfig config)
+    {
+        try
+        {
+            if (!Directory.Exists(ConfigDirectory))
+            {
+                Directory.CreateDirectory(ConfigDirectory);
+            }
+
+            var json = JsonSerializer.Serialize(config, AppConfigJsonContext.Default.AppConfig);
+            File.WriteAllText(ConfigFilePath, json);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static AppConfig LoadConfig()
+    {
+        try
+        {
+            if (!File.Exists(ConfigFilePath))
+            {
+                return new AppConfig();
+            }
+
+            var json = File.ReadAllText(ConfigFilePath);
+            var config = JsonSerializer.Deserialize(json, AppConfigJsonContext.Default.AppConfig);
+            return config ?? new AppConfig();
+        }
+        catch
+        {
+            return new AppConfig();
+        }
+    }
+
+    public static bool ConfigExists()
+    {
+        return File.Exists(ConfigFilePath);
+    }
+}

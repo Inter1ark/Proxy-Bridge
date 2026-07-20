@@ -1,0 +1,266 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Menu Items -->
+  <data name="MenuProxy" xml:space="preserve">
+    <value>Прокси</value>
+  </data>
+  <data name="MenuProxySettings" xml:space="preserve">
+    <value>Настройки прокси</value>
+  </data>
+  <data name="MenuProxyRules" xml:space="preserve">
+    <value>Правила прокси</value>
+  </data>
+  <data name="MenuDnsViaProxy" xml:space="preserve">
+    <value>DNS через прокси</value>
+  </data>
+  <data name="MenuSettings" xml:space="preserve">
+    <value>Настройки</value>
+  </data>
+  <data name="MenuCloseToTray" xml:space="preserve">
+    <value>Сворачивать в трей</value>
+  </data>
+  <data name="MenuLanguage" xml:space="preserve">
+    <value>Язык</value>
+  </data>
+  <data name="MenuAbout" xml:space="preserve">
+    <value>О программе</value>
+  </data>
+  <data name="MenuAboutProxyBridge" xml:space="preserve">
+    <value>О ProxyBridge</value>
+  </data>
+  <data name="MenuCheckUpdates" xml:space="preserve">
+    <value>Проверить обновления</value>
+  </data>
+
+  <!-- Tabs -->
+  <data name="TabConnections" xml:space="preserve">
+    <value> Соединения</value>
+  </data>
+  <data name="TabActivity" xml:space="preserve">
+    <value> Логи активности</value>
+  </data>
+
+  <!-- Buttons -->
+  <data name="ButtonClear" xml:space="preserve">
+    <value>Очистить</value>
+  </data>
+  <data name="ButtonSave" xml:space="preserve">
+    <value>Сохранить</value>
+  </data>
+  <data name="ButtonCancel" xml:space="preserve">
+    <value>Отмена</value>
+  </data>
+  <data name="ButtonClose" xml:space="preserve">
+    <value>Закрыть</value>
+  </data>
+  <data name="ButtonAdd" xml:space="preserve">
+    <value>Добавить</value>
+  </data>
+  <data name="ButtonEdit" xml:space="preserve">
+    <value>Изменить</value>
+  </data>
+  <data name="ButtonDelete" xml:space="preserve">
+    <value>Удалить</value>
+  </data>
+
+  <!-- Search Placeholders -->
+  <data name="SearchConnectionsPlaceholder" xml:space="preserve">
+    <value> Поиск соединений...</value>
+  </data>
+  <data name="SearchActivityPlaceholder" xml:space="preserve">
+    <value> Поиск в логах...</value>
+  </data>
+
+  <!-- Log Messages -->
+  <data name="LogInitialized" xml:space="preserve">
+    <value>ProxyBridge успешно инициализирован</value>
+  </data>
+  <data name="LogServiceStarted" xml:space="preserve">
+    <value>Сервис ProxyBridge успешно запущен</value>
+  </data>
+  <data name="LogServiceStartFailed" xml:space="preserve">
+    <value>ОШИБКА: Не удалось запустить сервис ProxyBridge</value>
+  </data>
+  <data name="LogRestoredProxySettings" xml:space="preserve">
+    <value>Настройки прокси восстановлены</value>
+  </data>
+  <data name="LogRestoredRules" xml:space="preserve">
+    <value>Восстановлены правила</value>
+  </data>
+  <data name="LogConfigSaved" xml:space="preserve">
+    <value>Конфигурация сохранена</value>
+  </data>
+  <data name="LogConfigLoadFailed" xml:space="preserve">
+    <value>Не удалось загрузить конфигурацию</value>
+  </data>
+  <data name="LogConfigSaveFailed" xml:space="preserve">
+    <value>Не удалось сохранить конфигурацию</value>
+  </data>
+  <data name="LogProxySettingsSaved" xml:space="preserve">
+    <value>Настройки прокси сохранены</value>
+  </data>
+  <data name="LogProxySettingsFailed" xml:space="preserve">
+    <value>ОШИБКА: Не удалось применить настройки прокси</value>
+  </data>
+  <data name="LogRuleAdded" xml:space="preserve">
+    <value>Правило добавлено</value>
+  </data>
+  <data name="LogRuleAddFailed" xml:space="preserve">
+    <value>ОШИБКА: Не удалось добавить правило</value>
+  </data>
+  <data name="LogDnsViaProxyEnabled" xml:space="preserve">
+    <value>DNS через прокси включен</value>
+  </data>
+  <data name="LogDnsViaProxyDisabled" xml:space="preserve">
+    <value>DNS через прокси выключен</value>
+  </data>
+  <data name="LogLanguageChanged" xml:space="preserve">
+    <value>Язык изменен на</value>
+  </data>
+  <data name="LogWithAuth" xml:space="preserve">
+    <value>с авторизацией</value>
+  </data>
+
+  <!-- Proxy Settings Window -->
+  <data name="WindowProxySettings" xml:space="preserve">
+    <value>Настройки прокси</value>
+  </data>
+  <data name="LabelProxyType" xml:space="preserve">
+    <value>Тип прокси</value>
+  </data>
+  <data name="LabelProxyIp" xml:space="preserve">
+    <value>IP адрес или хост</value>
+  </data>
+  <data name="LabelProxyPort" xml:space="preserve">
+    <value>Порт</value>
+  </data>
+  <data name="LabelUsername" xml:space="preserve">
+    <value>Имя пользователя (необязательно)</value>
+  </data>
+  <data name="LabelPassword" xml:space="preserve">
+    <value>Пароль (необязательно)</value>
+  </data>
+  <data name="LabelRequiredFields" xml:space="preserve">
+    <value>* IP адрес и порт обязательны</value>
+  </data>
+  <data name="LabelTestConnection" xml:space="preserve">
+    <value>Тестирование соединения</value>
+  </data>
+  <data name="ButtonTestProxy" xml:space="preserve">
+    <value>Тестировать прокси</value>
+  </data>
+  <data name="LabelTargetHost" xml:space="preserve">
+    <value>Целевой хост</value>
+  </data>
+  <data name="LabelPort" xml:space="preserve">
+    <value>Порт</value>
+  </data>
+  <data name="ButtonStartTest" xml:space="preserve">
+    <value>Начать тест</value>
+  </data>
+  <data name="LabelOutput" xml:space="preserve">
+    <value>Вывод</value>
+  </data>
+  <data name="ButtonSaveChanges" xml:space="preserve">
+    <value>Сохранить изменения</value>
+  </data>
+  <data name="PlaceholderIpAddress" xml:space="preserve">
+    <value>127.0.0.1 или proxy.example.com</value>
+  </data>
+  <data name="PlaceholderPort" xml:space="preserve">
+    <value>1080</value>
+  </data>
+  <data name="PlaceholderNoAuth" xml:space="preserve">
+    <value>Оставьте пустым если не требуется</value>
+  </data>
+
+  <!-- Proxy Rules Window -->
+  <data name="WindowProxyRules" xml:space="preserve">
+    <value>Правила прокси</value>
+  </data>
+  <data name="LabelEnabled" xml:space="preserve">
+    <value>Вкл.</value>
+  </data>
+  <data name="LabelActions" xml:space="preserve">
+    <value>Действия</value>
+  </data>
+  <data name="LabelSR" xml:space="preserve">
+    <value>№</value>
+  </data>
+  <data name="LabelProcess" xml:space="preserve">
+    <value>Процесс</value>
+  </data>
+  <data name="LabelTargetHosts" xml:space="preserve">
+    <value>Целевые хосты</value>
+  </data>
+  <data name="LabelTargetPorts" xml:space="preserve">
+    <value>Целевые порты</value>
+  </data>
+  <data name="LabelProtocol" xml:space="preserve">
+    <value>Протокол</value>
+  </data>
+  <data name="LabelAction" xml:space="preserve">
+    <value>Действие</value>
+  </data>
+  <data name="LabelApplications" xml:space="preserve">
+    <value>Приложения</value>
+  </data>
+  <data name="ButtonBrowse" xml:space="preserve">
+    <value>Обзор</value>
+  </data>
+  <data name="ExampleApplications" xml:space="preserve">
+    <value>* для всех | chrome.exe | firefox.exe; chrome.exe</value>
+  </data>
+  <data name="ExampleTargetHosts" xml:space="preserve">
+    <value>* для всех | 192.168.*.* | 127.0.0.1; 10.10.1.1</value>
+  </data>
+  <data name="ExampleTargetPorts" xml:space="preserve">
+    <value>* для всех | 80; 443 | 80-8000</value>
+  </data>
+  <data name="ProtocolTCP" xml:space="preserve">
+    <value>TCP</value>
+  </data>
+  <data name="ProtocolUDP" xml:space="preserve">
+    <value>UDP</value>
+  </data>
+  <data name="ProtocolBoth" xml:space="preserve">
+    <value>TCP + UDP</value>
+  </data>
+  <data name="ActionProxy" xml:space="preserve">
+    <value>ПРОКСИ</value>
+  </data>
+  <data name="ActionDirect" xml:space="preserve">
+    <value>ПРЯМОЕ</value>
+  </data>
+  <data name="ActionBlock" xml:space="preserve">
+    <value>БЛОК</value>
+  </data>
+  <data name="ButtonSaveRule" xml:space="preserve">
+    <value>Сохранить правило</value>
+  </data>
+  <data name="ButtonImport" xml:space="preserve">
+    <value>Импорт</value>
+  </data>
+  <data name="ButtonExport" xml:space="preserve">
+    <value>Экспорт</value>
+  </data>
+  <data name="ButtonSelectAll" xml:space="preserve">
+    <value>Выбрать все</value>
+  </data>
+  <data name="LabelSelect" xml:space="preserve">
+    <value>Выбор</value>
+  </data>
+</root>
