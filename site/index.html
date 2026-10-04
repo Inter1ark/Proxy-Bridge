@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProxyBridge: прокси-клиент для Windows</title>
+  <meta name="description" content="ProxyBridge направляет трафик всей системы или отдельных программ через HTTP и SOCKS5 прокси. Windows 10/11, open source.">
+  <meta property="og:title" content="ProxyBridge: прокси-клиент для Windows">
+  <meta property="og:description" content="Вся система или отдельные приложения. Один клиент для твоих прокси. HTTP и SOCKS5, Windows 10/11, open source.">
+  <meta property="og:image" content="https://www.proxybridge.org/og-image.jpg">
+  <meta property="og:url" content="https://www.proxybridge.org/">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="logo" viewBox="0 0 48 32">
+      <path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/>
+      <path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="index.html" aria-label="ProxyBridge">
+      <svg><use href="#logo"/></svg>
+      ProxyBridge
+    </a>
+    <nav class="nav-links" id="navLinks">
+      <a href="#product" data-i18n="nav.product">Продукт</a>
+      <a href="#features" data-i18n="nav.features">Возможности</a>
+      <a href="#inside" data-i18n="nav.inside">Интерфейс</a>
+      <a href="#pricing" data-i18n="nav.pricing">Подписка</a>
+      <a href="partners.html" data-i18n="nav.partners">Партнёры</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <div class="lang" id="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="ru" class="active">RU</button>
+        <button type="button" data-lang="en">EN</button>
+      </div>
+      <a class="btn btn-blue" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-Setup-3.2.0.exe"><span data-i18n="nav.download">Скачать</span> <span class="arrow">↗</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section class="hero" id="product">
+  <div class="container hero-head">
+    <div class="eyebrow" data-i18n="hero.eyebrow">Прокси-клиент для Windows</div>
+    <h1 class="display" data-i18n="hero.title">Соединение по<br><span class="mark">твоим</span> правилам.</h1>
+    <p class="hero-sub" data-i18n="hero.sub">Вся система или отдельные приложения.<br>Один клиент для твоих прокси.</p>
+    <div class="hero-actions">
+      <a class="btn btn-blue" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-Setup-3.2.0.exe"><span data-i18n="hero.download">Скачать для Windows</span> <span class="arrow">↘</span></a>
+      <a class="btn-link" href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener"><span data-i18n="hero.github">Посмотреть на GitHub</span> <span class="arrow">↗</span></a>
+    </div>
+    <div class="hero-meta">Windows 10/11 · macOS 12+ (beta) · HTTP / SOCKS5 · Open Source</div>
+  </div>
+
+  <div class="hero-stage">
+    <div class="container">
+      <div class="demo-wrap" id="demoWrap">
+        <div class="demo-badge" data-i18n="demo.badge">Визуализация</div>
+        <div class="demo-scale" id="demoScale">
+        <img class="demo-bg" src="images/hero-bg.jpg" alt="" aria-hidden="true">
+        <div class="app" id="app" aria-label="Визуализация интерфейса ProxyBridge">
+          <div class="app-titlebar">
+            <div class="t"><svg viewBox="0 0 48 32"><use href="#logo"/></svg> ProxyBridge</div>
+            <div class="c"><span>-</span><span>&#9633;</span><span>&#10005;</span></div>
+          </div>
+          <div class="app-body">
+            <aside class="app-side">
+              <div class="app-logo">
+                <svg viewBox="0 0 32 32" fill="none" stroke="#00d9ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20l7-8 6 8 7-10 6 6"/></svg>
+              </div>
+              <button class="app-tab active" data-panel="dash">
+                <svg viewBox="0 0 32 32"><rect x="4" y="4" width="10" height="10" rx="2"/><rect x="18" y="4" width="10" height="10" rx="2"/><rect x="4" y="18" width="10" height="10" rx="2"/><rect x="18" y="18" width="10" height="10" rx="2"/></svg>
+                Dashboard
+              </button>
+              <button class="app-tab" data-panel="list">
+                <svg viewBox="0 0 32 32"><circle cx="6" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><circle cx="26" cy="8" r="3"/><circle cx="6" cy="16" r="3"/><circle cx="16" cy="16" r="3"/><circle cx="26" cy="16" r="3"/><circle cx="6" cy="24" r="3"/><circle cx="16" cy="24" r="3"/><circle cx="26" cy="24" r="3"/></svg>
+                Proxy List
+              </button>
+              <button class="app-tab" data-panel="split">
+                <svg viewBox="0 0 32 32"><circle cx="8" cy="8" r="4"/><circle cx="8" cy="24" r="4"/><circle cx="24" cy="24" r="4"/><path d="M8 12v8M8 16h8a4 4 0 0 1 4 4v0"/></svg>
+                Split Tunnel
+              </button>
+              <button class="app-tab" data-panel="settings">
+                <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><circle cx="16" cy="16" r="4"/><path d="M16 4v6M16 22v6M4 16h6M22 16h6"/></svg>
+                Settings
+              </button>
+              <button class="app-tab" data-panel="help">
+                <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><path d="M12 12a4 4 0 1 1 6 3.5c-1.5.9-2 1.6-2 3"/><circle cx="16" cy="23" r="0.8" fill="#00d9ff"/></svg>
+                Help
+              </button>
+            </aside>
+
+            <div class="app-main">
+              <section class="panel active" data-panel="dash">
+                <div class="panel-scroll">
+                  <button class="connect-ring" id="connectBtn">CONNECT</button>
+                  <div class="status" id="status">ProxyBridge Stopped. Add proxy to start.</div>
+                  <div class="proxy-input">
+                    <input id="proxyInput" type="text" placeholder="http://user:pass@ip:port" spellcheck="false" autocomplete="off">
+                    <button class="btn-verify" id="verifyBtn">VERIFY</button>
+                  </div>
+                  <p class="hint" data-i18n="demo.hint">Поддерживаются форматы: <code>http://user:pass@ip:port</code> или <code>socks5://user:pass@ip:port</code></p>
+                  <div class="geo" id="geo"></div>
+                  <div class="hist-head">
+                    <span data-i18n="demo.history">История прокси</span>
+                    <button class="btn-danger" id="clearHist" data-i18n="demo.clear">Очистить</button>
+                  </div>
+                  <div class="hist" id="hist"></div>
+                </div>
+                <div class="app-stats">
+                  <div>Current stats<b><span class="up">↑ <span id="stUp">0</span> MB/s</span> &nbsp; <span class="dn">↓ <span id="stDn">0</span> MB/s</span></b></div>
+                  <div>Connection time<b id="stTime">00:00:00</b></div>
+                  <div>Ping<b class="pg" id="stPing">-- ms</b></div>
+                </div>
+              </section>
+
+              <section class="panel" data-panel="list">
+                <div class="panel-scroll">
+                  <h3>Proxy List</h3>
+                  <p class="sub" data-i18n="demo.listSub">Загрузи список прокси для быстрого выбора</p>
+                  <div class="plist-actions">
+                    <button class="btn-cyan" id="loadList">Load from File</button>
+                    <button class="btn-red" id="clearList">Clear List</button>
+                  </div>
+                  <div class="plist" id="plist"></div>
+                </div>
+              </section>
+
+              <section class="panel" data-panel="split">
+                <div class="panel-scroll">
+                  <h3>Split Tunneling</h3>
+                  <p class="sub" data-i18n="demo.splitSub">Каждой программе свой прокси. Остальной трафик идёт напрямую. Только TCP.</p>
+                  <div class="split">
+                    <div>
+                      <div class="card-dark">
+                        <h4>Add a program</h4>
+                        <div class="field"><input id="mapProc" placeholder="Program name, e.g. chrome.exe"></div>
+                        <div class="field"><input id="mapProxy" placeholder="Proxy: socks5://user:pass@ip:port"></div>
+                        <button class="btn-wide" id="mapAdd">Add to list</button>
+                      </div>
+                      <div class="split-status" id="splitStatus">Assign proxies to programs, then press Apply.</div>
+                      <button class="btn-wide" id="splitApply">APPLY SPLIT TUNNELING</button>
+                    </div>
+                    <div>
+                      <h4 style="margin:0 0 10px;font-size:14px;color:#8b9dc3">Assignments</h4>
+                      <div class="assign" id="assign"></div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel" data-panel="settings">
+                <div class="panel-scroll">
+                  <h3>Settings</h3>
+                  <p class="sub" data-i18n="demo.settingsSub">Поведение программы</p>
+                  <div class="setting on"><div><b>Minimize to Tray</b><span data-i18n="demo.s1">Сворачивать приложение в системный трей при закрытии</span></div><div class="check"></div></div>
+                  <div class="setting"><div><b>Start with Windows</b><span data-i18n="demo.s2">Запускать ProxyBridge при старте системы</span></div><div class="check"></div></div>
+                  <div class="setting"><div><b>Auto-connect Last Proxy</b><span data-i18n="demo.s3">Автоматически подключаться к последнему использованному прокси</span></div><div class="check"></div></div>
+                  <div class="setting on"><div><b>Show Notifications</b><span data-i18n="demo.s4">Показывать уведомления о подключении и отключении</span></div><div class="check"></div></div>
+                  <div class="setting on"><div><b>DNS Bypass (Port 53)</b><span data-i18n="demo.s5">Пропускать DNS-запросы напрямую, без утечек</span></div><div class="check"></div></div>
+                </div>
+              </section>
+
+              <section class="panel" data-panel="help">
+                <div class="panel-scroll">
+                  <h3>Help</h3>
+                  <p class="sub" data-i18n="demo.helpSub">Коротко о том, как пользоваться</p>
+                  <div class="help-card">
+                    <h4 data-i18n="demo.howTitle">Как использовать ProxyBridge</h4>
+                    <ol data-i18n="demo.howList">
+                      <li>Введи данные прокси<span>http://user:pass@ip:port или socks5://user:pass@ip:port</span></li>
+                      <li>Нажми VERIFY<span>Проверка доступности и страны прокси</span></li>
+                      <li>Нажми круглую кнопку CONNECT<span>Весь TCP-трафик пойдёт через прокси</span></li>
+                      <li>Используй Proxy List<span>Загрузи список из файла и переключайся одной кнопкой</span></li>
+                      <li>Настрой Split Tunnel<span>Отдельный прокси для каждой программы</span></li>
+                    </ol>
+                  </div>
+                  <div class="help-card">
+                    <h4 data-i18n="demo.contactsTitle">Контакты</h4>
+                    <ol>
+                      <li>Telegram: <a href="https://t.me/inter1ark" target="_blank" rel="noopener">@inter1ark</a></li>
+                      <li>Email: <a href="mailto:support@proxybridge.org">support@proxybridge.org</a></li>
+                    </ol>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <div class="demo-caption">
+        <span class="demo-note" data-i18n="demo.note">Это визуализация интерфейса, собранная на HTML. Настоящие скриншоты программы ниже.</span>
+        <span class="demo-steps" data-i18n="demo.steps"><span>1. Добавь прокси</span><span>2. Verify</span><span>3. Connect</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="band">
+  <div class="container">
+    <div class="band-title" data-i18n="band.title">ТВОЙ ПРОКСИ. ТВОЙ МАРШРУТ.</div>
+    <div class="band-right">HTTP / SOCKS5 <span class="arrow">↗</span></div>
+  </div>
+</div>
+
+<section class="routes" id="features">
+  <div class="container">
+    <div class="routes-head">
+      <h2 class="display" data-i18n="routes.title">Один клиент.<br>Разные маршруты.</h2>
+      <p data-i18n="routes.sub">Подключи всю систему или назначь отдельный прокси каждой программе.</p>
+    </div>
+
+    <div class="route-cards">
+      <div class="rcard dark">
+        <div class="rcard-head"><span data-i18n="routes.sysTitle">Системный режим</span><small data-i18n="routes.sysTag">Весь ПК</small></div>
+        <div class="flow">
+          <div class="all">ALL</div>
+          <div class="arrow-solid">→</div>
+          <div class="node">
+            <svg viewBox="0 0 34 34" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="7" width="26" height="17" rx="2"/><path d="M2 27h30"/></svg>
+            <span data-i18n="routes.apps">Приложения</span>
+          </div>
+          <div class="dots"></div>
+          <div class="node">
+            <svg viewBox="0 0 48 32"><use href="#logo"/></svg>
+            ProxyBridge
+          </div>
+          <div class="dots"></div>
+          <div class="node">
+            <svg viewBox="0 0 34 34" fill="none" stroke="#fff" stroke-width="2"><circle cx="17" cy="17" r="13"/><path d="M4 17h26M17 4c5 5 5 21 0 26M17 4c-5 5-5 21 0 26"/></svg>
+            <span data-i18n="routes.yourProxy">Твой прокси</span>
+          </div>
+        </div>
+        <div class="rcard-foot" data-i18n="routes.sysFoot">TCP-трафик системы через выбранный прокси. DNS можно пустить напрямую.</div>
+      </div>
+
+      <div class="rcard light">
+        <div class="rcard-head"><span>Split Tunnel</span><small data-i18n="routes.splitTag">По программам</small></div>
+        <div class="perapp">
+          <div class="perapp-badge">PER<br>APP</div>
+          <div class="perapp-rows">
+            <div class="perapp-row">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2d5bff"/><circle cx="12" cy="12" r="4" fill="#fff"/></svg>
+              <span>browser.exe</span><span class="to">→</span><span class="dst" data-i18n="routes.proxy1">Прокси 1</span>
+            </div>
+            <div class="perapp-row">
+              <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5" fill="#0a0e1a"/><rect x="13" y="3" width="8" height="8" rx="1.5" fill="#2d5bff"/><rect x="3" y="13" width="8" height="8" rx="1.5" fill="#2d5bff"/><rect x="13" y="13" width="8" height="8" rx="1.5" fill="#0a0e1a"/></svg>
+              <span>app.exe</span><span class="to">→</span><span class="dst" data-i18n="routes.proxy2">Прокси 2</span>
+            </div>
+            <div class="perapp-row">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#0a0e1a" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>
+              <span data-i18n="routes.others">Остальные</span><span class="to">→</span><span class="dst" data-i18n="routes.direct">Напрямую</span>
+            </div>
+          </div>
+        </div>
+        <div class="rcard-foot" data-i18n="routes.splitFoot">Отдельный маршрут для каждой программы. Правила применяются одной кнопкой.</div>
+      </div>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature">
+        <svg viewBox="0 0 26 26" fill="none" stroke="#2d5bff" stroke-width="2"><circle cx="13" cy="13" r="10"/><path d="M3 13h20M13 3c4 4 4 16 0 20M13 3c-4 4-4 16 0 20"/></svg>
+        <div><h3 data-i18n="f1.title">Проверка GEO</h3><p data-i18n="f1.text">Страна, город и доступность прокси до подключения. Флаг страны прямо в окне.</p></div>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 26 26" fill="none" stroke="#2d5bff" stroke-width="2"><path d="M4 6h18M4 13h18M4 20h12"/></svg>
+        <div><h3 data-i18n="f2.title">История и импорт</h3><p data-i18n="f2.text">Последние прокси сохраняются сами. Списки загружаются из файла и переключаются одной кнопкой.</p></div>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 26 26" fill="none" stroke="#2d5bff" stroke-width="2"><path d="M14 2L5 15h8l-1 9 9-13h-8z"/></svg>
+        <div><h3 data-i18n="f3.title">Автоподключение</h3><p data-i18n="f3.text">Запуск вместе с Windows, работа из трея и подключение к последнему прокси без твоего участия.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="inside" id="inside">
+  <div class="container">
+    <div class="inside-head">
+      <h2 class="display" data-i18n="inside.title">Внутри программы.</h2>
+      <p data-i18n="inside.sub">Настоящие скриншоты ProxyBridge 3.2. Шесть экранов, ничего лишнего.</p>
+    </div>
+    <div class="shot-tabs" id="shotTabs">
+      <button class="active" data-shot="dashboard">Dashboard</button>
+      <button data-shot="proxylist">Proxy List</button>
+      <button data-shot="splittunnel">Split Tunnel</button>
+      <button data-shot="settings">Settings</button>
+      <button data-shot="help">Help</button>
+      <button data-shot="activation" data-i18n="shot.tabAct">Активация</button>
+    </div>
+    <div class="shot-frame" id="shotFrame">
+      <img class="active" data-shot="dashboard" src="images/app/dashboard.png" alt="ProxyBridge Dashboard">
+      <img data-shot="proxylist" src="images/app/proxylist.png" alt="ProxyBridge Proxy List" loading="lazy">
+      <img data-shot="splittunnel" src="images/app/splittunnel.png" alt="ProxyBridge Split Tunneling" loading="lazy">
+      <img data-shot="settings" src="images/app/settings.png" alt="ProxyBridge Settings" loading="lazy">
+      <img data-shot="help" src="images/app/help.png" alt="ProxyBridge Help" loading="lazy">
+      <img data-shot="activation" src="images/app/activation.png" alt="ProxyBridge: окно активации лицензии" loading="lazy" style="object-fit: contain; background: #0d1020">
+    </div>
+    <div class="shot-note">
+      <span id="shotNote"><b>Dashboard</b> · <span data-i18n="shot.dashboard">вставь прокси, проверь, подключись</span></span>
+      <span>ProxyBridge 3.2.0 · Windows 11</span>
+    </div>
+  </div>
+</section>
+
+<section class="start" id="start">
+  <div class="container">
+    <div>
+      <div class="eyebrow" data-i18n="start.eyebrow">Как начать</div>
+      <div class="start-num">3<small data-i18n="start.sub">шага до подключения</small></div>
+    </div>
+    <ol class="steps" data-i18n="start.steps">
+      <li>Вставь адрес прокси.</li>
+      <li>Проверь через <code>VERIFY</code>.</li>
+      <li>Нажми <code>CONNECT</code>.</li>
+    </ol>
+    <div>
+      <div class="start-input">
+        <span>socks5://user:pass@127.0.0.1:1080</span>
+        <button class="btn-verify" type="button" onclick="document.getElementById('proxyInput').value=this.previousElementSibling.textContent;document.getElementById('product').scrollIntoView({behavior:'smooth'});">VERIFY</button>
+      </div>
+      <p class="start-note" data-i18n="start.note">Для работы нужен собственный прокси-сервер. ProxyBridge его не предоставляет. На время работы выключи VPN-клиенты (WireGuard, Amnezia и подобные): два перехватчика трафика одновременно конфликтуют.</p>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <div class="container">
+    <div class="pricing-head">
+      <h2 class="display" data-i18n="pricing.title">Подписка.</h2>
+      <p data-i18n="pricing.sub">Один ключ, до двух устройств. Ключ приходит сразу после оплаты, активация в окне программы при запуске.</p>
+    </div>
+    <div class="plans3">
+      <div class="plan">
+        <div class="plan-top"><b data-i18n="plan.m">1 месяц</b><small data-i18n="plan.mTag">30 дней</small></div>
+        <div class="plan-price sm">99 ₽</div>
+        <div class="plan-sub" data-i18n="plan.mSub">Попробовать и оценить</div>
+        <ul data-i18n="plan.list">
+          <li>Все функции программы</li>
+          <li>До 2 устройств на ключ</li>
+          <li>Обновления и поддержка</li>
+        </ul>
+        <a class="btn btn-white" href="buy.html?plan=month"><span data-i18n="plan.buy">Купить</span> <span class="arrow">↗</span></a>
+        <div class="plan-foot">99 ₽ / <span data-i18n="plan.mFoot">месяц</span></div>
+      </div>
+      <div class="plan best">
+        <div class="plan-top"><b data-i18n="plan.q">3 месяца</b><span class="tag" data-i18n="plan.qTag">Выгодно</span></div>
+        <div class="plan-price sm">249 ₽</div>
+        <div class="plan-sub" data-i18n="plan.qSub">83 ₽ в месяц, экономия 16%</div>
+        <ul data-i18n="plan.list">
+          <li>Все функции программы</li>
+          <li>До 2 устройств на ключ</li>
+          <li>Обновления и поддержка</li>
+        </ul>
+        <a class="btn btn-blue" href="buy.html?plan=3months"><span data-i18n="plan.buy">Купить</span> <span class="arrow">↗</span></a>
+        <div class="plan-foot">249 ₽ / <span data-i18n="plan.qFoot">90 дней</span></div>
+      </div>
+      <div class="plan">
+        <div class="plan-top"><b data-i18n="plan.l">Навсегда</b><small data-i18n="plan.lTag">Без срока</small></div>
+        <div class="plan-price sm">699 ₽</div>
+        <div class="plan-sub" data-i18n="plan.lSub">Одна оплата, окупается за 7 месяцев</div>
+        <ul data-i18n="plan.list">
+          <li>Все функции программы</li>
+          <li>До 2 устройств на ключ</li>
+          <li>Обновления и поддержка</li>
+        </ul>
+        <a class="btn btn-white" href="buy.html?plan=lifetime"><span data-i18n="plan.buy">Купить</span> <span class="arrow">↗</span></a>
+        <div class="plan-foot" data-i18n="plan.lFoot">Бессрочная лицензия</div>
+      </div>
+    </div>
+    <div class="pay-row">
+      <div class="pay-head"><span data-i18n="pricing.payTitle">Способы оплаты</span></div>
+      <a class="pay-item" href="buy.html?method=yookassa">
+        <span class="ico" style="background:#0a0e1a">₽</span>
+        <span><b data-i18n="pay.rub">Рублями</b><span data-i18n="pay.rubSub">Карта, СБП и другие способы через ЮKassa</span></span>
+        <span class="arrow">↗</span>
+      </a>
+      <a class="pay-item" href="buy.html?method=cryptobot">
+        <span class="ico" style="background:#2d5bff">₿</span>
+        <span><b data-i18n="pay.crypto">Криптовалютой</b><span data-i18n="pay.cryptoSub">USDT, TON, BTC и другие через CryptoBot</span></span>
+        <span class="arrow">↗</span>
+      </a>
+      <p class="pay-note" data-i18n="pricing.payNote">Ключ появляется на странице после оплаты и дублируется на email. Вопросы по оплате: support@proxybridge.org.</p>
+    </div>
+    <p class="pricing-legal" data-i18n="pricing.legal">Оплачивая, ты принимаешь <a href="legal/offer.html">публичную оферту</a>, <a href="legal/privacy.html">политику конфиденциальности</a> и <a href="legal/refund.html">условия возврата</a>.</p>
+  </div>
+</section>
+
+<section class="partners" id="partners">
+  <div class="container">
+    <div class="partners-label">
+      <b data-i18n="partners.title">Прокси-провайдеры</b>
+      <span data-i18n="partners.sub">Надёжные источники для твоих прокси</span>
+    </div>
+    <div class="partner-logos">
+      <a href="https://sx.org/?c=bridge" target="_blank" rel="noopener">SX.ORG</a><i>/</i>
+      <a href="https://proxy6.net/?r=428516" target="_blank" rel="noopener">Proxy6.net</a><i>/</i>
+      <a href="https://proxys.io/?ref=inter1ark" target="_blank" rel="noopener">Proxys.io</a><i>/</i>
+      <a href="https://www.webshare.io/?referral_code=inter1ark" target="_blank" rel="noopener">Webshare</a>
+    </div>
+    <a class="partners-all" href="partners.html"><span data-i18n="partners.all">Все партнёры</span> <span class="arrow">↗</span></a>
+  </div>
+</section>
+
+<section class="help" id="contact">
+  <div class="container">
+    <div class="help-head">
+      <h2 class="display" data-i18n="help.title">Нужна <span class="mark">помощь</span>?</h2>
+      <p data-i18n="help.sub">Свяжись удобным способом</p>
+    </div>
+    <div class="help-grid">
+      <div class="hcard">
+        <div class="hcard-icon tg">
+          <svg viewBox="0 0 24 24" fill="#fff"><path d="M21.9 4.6L18.9 19c-.2 1-.8 1.2-1.6.8l-4.5-3.3-2.2 2.1c-.2.2-.4.4-.9.4l.3-4.5 8.3-7.5c.4-.3-.1-.5-.6-.2L7.5 13.3 3.1 12c-1-.3-1-1 .2-1.4L20.6 3.9c.8-.3 1.5.2 1.3.7z"/></svg>
+        </div>
+        <h3>Telegram</h3>
+        <p data-i18n="help.tg">Задай вопрос или сообщи о проблеме</p>
+        <a class="btn" href="https://t.me/inter1ark" target="_blank" rel="noopener">@inter1ark</a>
+      </div>
+      <div class="hcard">
+        <div class="hcard-icon lz"><img src="https://i.postimg.cc/Pq23FLS5/lolz.webp" alt="Lolz.live" loading="lazy"></div>
+        <h3>Lolz.live</h3>
+        <p data-i18n="help.lz">Профиль на крупнейшем форуме</p>
+        <a class="btn" href="https://lolz.live/members/10011845/" target="_blank" rel="noopener">inter1ark <span class="arrow">↗</span></a>
+      </div>
+      <div class="hcard">
+        <div class="hcard-icon mail">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+        </div>
+        <h3>Email</h3>
+        <p data-i18n="help.mail">Техническая поддержка и вопросы</p>
+        <a class="btn" href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="contact" id="download">
+  <div class="container">
+    <h2 class="display" data-i18n="cta.title">На связи.</h2>
+    <div class="contact-cta">
+      <a class="btn btn-blue" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-Setup-3.2.0.exe"><span data-i18n="cta.download">Скачать для Windows</span> <span class="arrow">↘</span></a>
+      <p data-i18n="cta.note">Windows 10/11, 64-bit · Установка от имени администратора</p>
+      <p class="mac-links"><span data-i18n="cta.mac">macOS 12+ (бета):</span> <a href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-3.2.0-macOS-arm64.zip">Apple Silicon</a> · <a href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-3.2.0-macOS-x64.zip">Intel</a></p>
+      <p class="mac-note" data-i18n="cta.macNote">Приложение не подписано Apple: при первом запуске открой его через правый клик и «Открыть». Понадобится пароль администратора. Только системный режим, без Split Tunnel.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="index.html"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+      <a href="https://t.me/inter1ark" target="_blank" rel="noopener">Telegram <span class="arrow">↗</span></a>
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="partners.html" data-i18n="nav.partners">Партнёры</a>
+      <a href="legal/offer.html" data-i18n="foot.offer">Оферта</a>
+      <a href="legal/privacy.html" data-i18n="foot.privacy">Конфиденциальность</a>
+      <a href="legal/refund.html" data-i18n="foot.refund">Возврат</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge · MIT</div>
+  </div>
+</footer>
+
+<script src="i18n.js"></script>
+<script src="script.js"></script>
+<script defer data-domain="www.proxybridge.org" src="https://analytics.tiiny.net/js/plausible.js"></script>
+</body>
+</html>

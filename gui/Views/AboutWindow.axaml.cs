@@ -13,12 +13,22 @@ public partial class AboutWindow : Window
 
     private void OnWebsiteClick(object? sender, PointerPressedEventArgs e)
     {
-        OpenUrl("https://interceptsuite.com");
+        OpenUrl("https://www.proxybridge.org");
+    }
+
+    private void OnSupportClick(object? sender, PointerPressedEventArgs e)
+    {
+        OpenUrl("mailto:support@proxybridge.org");
+    }
+
+    private void OnTelegramClick(object? sender, PointerPressedEventArgs e)
+    {
+        OpenUrl("https://t.me/inter1ark");
     }
 
     private void OnGitHubClick(object? sender, PointerPressedEventArgs e)
     {
-        OpenUrl("https://github.com/InterceptSuite/ProxyBridge");
+        OpenUrl("https://github.com/Inter1ark/Proxy-Bridge");
     }
 
     private void OpenUrl(string url)
@@ -33,7 +43,7 @@ public partial class AboutWindow : Window
         }
         catch
         {
-            // Silently fail if browser can't be opened
+            // Silently ignore when the browser or mail client cannot be opened
         }
     }
 }

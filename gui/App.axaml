@@ -6,18 +6,5 @@
         <FluentTheme />
     </Application.Styles>
 
-    <TrayIcon.Icons>
-        <TrayIcons>
-            <TrayIcon Icon="/Assets/logo.ico"
-                      ToolTipText="ProxyBridge">
-                <TrayIcon.Menu>
-                    <NativeMenu>
-                        <NativeMenuItem Header="Open" Click="TrayIcon_Show" />
-                        <NativeMenuItemSeparator />
-                        <NativeMenuItem Header="Exit" Click="TrayIcon_Exit" />
-                    </NativeMenu>
-                </TrayIcon.Menu>
-            </TrayIcon>
-        </TrayIcons>
-    </TrayIcon.Icons>
+    <!-- The tray icon is created in App.axaml.cs (SetupTrayIcon) inside a try/catch. -->
 </Application>

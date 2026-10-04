@@ -7,6 +7,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$Version = (Select-String -Path "$PSScriptRoot\installer\ProxyBridge.nsi" -Pattern 'PRODUCT_VERSION "([^"]+)"').Matches[0].Groups[1].Value
 
 Write-Host "=== ProxyBridge Installer Builder ===" -ForegroundColor Cyan
 Write-Host ""
@@ -165,7 +166,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-$installerFile = "$outputDir\ProxyBridge-Setup-3.1.0.exe"
+$installerFile = "$outputDir\ProxyBridge-Setup-$Version.exe"
 if (Test-Path $installerFile) {
     $size = [math]::Round((Get-Item $installerFile).Length / 1MB, 1)
     Write-Host "✓ Установщик создан ($($size) МБ)" -ForegroundColor Green

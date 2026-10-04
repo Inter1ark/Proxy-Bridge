@@ -43,3 +43,8 @@ gui/Assets/icon-*.svg
 # System files
 .DS_Store
 Thumbs.db
+_removed_from_repo/
+
+# macOS / Go core build outputs
+core-go/dist/
+mac/dist/

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ключ ProxyBridge</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="logo" viewBox="0 0 48 32">
+      <path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/>
+      <path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="index.html" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="index.html#product" data-i18n="nav.product">Продукт</a>
+      <a href="index.html#pricing" data-i18n="nav.pricing">Подписка</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <div class="lang" id="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="ru" class="active">RU</button>
+        <button type="button" data-lang="en">EN</button>
+      </div>
+      <a class="btn btn-blue" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-Setup-3.2.0.exe"><span data-i18n="nav.download">Скачать</span> <span class="arrow">↗</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="success">
+  <div class="container">
+    <h1 class="display" data-i18n="suc.title">Спасибо.</h1>
+
+    <div id="stWait">
+      <p data-i18n="suc.waiting">Ждём подтверждение оплаты. Страница обновится сама, не закрывай её.</p>
+      <div class="spin"></div>
+      <p style="margin-top:22px"><button class="btn btn-white btn-small" type="button" id="checkBtn" data-i18n="suc.check">Я оплатил, проверить сейчас</button></p>
+    </div>
+
+    <div id="stPaid" class="hidden">
+      <p data-i18n="suc.paid">Оплата получена. Твой ключ лицензии:</p>
+      <div class="keybox">
+        <div class="key" id="key">PB-XXXX-XXXX-XXXX-XXXX</div>
+        <button class="btn btn-blue" type="button" id="copyBtn"><span data-i18n="suc.copy">Скопировать ключ</span></button>
+      </div>
+      <ol class="next-steps" data-i18n="suc.steps">
+        <li>1. Установи ProxyBridge и запусти от имени администратора.</li>
+        <li>2. Вставь ключ в окно активации и нажми «Активировать».</li>
+        <li>3. Ключ работает на 2 устройствах. Он также отправлен на твой email.</li>
+      </ol>
+      <p style="margin-top:28px"><a class="btn btn-white" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-Setup-3.2.0.exe"><span data-i18n="suc.download">Скачать ProxyBridge</span> <span class="arrow">↘</span></a></p>
+    </div>
+
+    <div id="stCanceled" class="hidden">
+      <p data-i18n="suc.canceled">Оплата отменена. Можно начать заново.</p>
+      <p style="margin-top:22px"><a class="btn btn-white" href="buy.html" data-i18n="suc.back">Вернуться к оформлению</a></p>
+    </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="index.html"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="legal/offer.html" data-i18n="foot.offer">Оферта</a>
+      <a href="legal/refund.html" data-i18n="foot.refund">Возврат</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge</div>
+  </div>
+</footer>
+
+<script src="i18n.js"></script>
+<script src="script.js"></script>
+<script>
+(function () {
+  var API = window.PB_API || '';
+  var token = new URLSearchParams(location.search).get('token');
+  var wait = document.getElementById('stWait'), paid = document.getElementById('stPaid'), canc = document.getElementById('stCanceled');
+  var tick = 0, timer = null;
+
+  function show(el) { [wait, paid, canc].forEach(function (x) { x.classList.toggle('hidden', x !== el); }); }
+
+  function apply(d) {
+    if (!d) return;
+    if (d.status === 'paid' && d.key) {
+      document.getElementById('key').textContent = d.key;
+      show(paid);
+      if (timer) { clearInterval(timer); timer = null; }
+    } else if (d.status === 'canceled') {
+      show(canc);
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+  }
+
+  function poll(force) {
+    if (!token) return;
+    var opts = force ? { method: 'POST' } : {};
+    fetch(API + '/api/order/' + encodeURIComponent(token) + (force ? '/check' : ''), opts)
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(apply)
+      .catch(function () {});
+  }
+
+  if (!token) { show(canc); }
+  else {
+    poll(true);
+    timer = setInterval(function () { tick++; poll(tick % 4 === 0); }, 3000);
+  }
+
+  document.getElementById('checkBtn').addEventListener('click', function () { poll(true); });
+  document.getElementById('copyBtn').addEventListener('click', function () {
+    var k = document.getElementById('key').textContent;
+    var span = this.firstElementChild, old = span.textContent;
+    var done = function () { span.textContent = (window.PB_I18N && window.PB_I18N.lang() === 'en') ? 'Copied' : 'Скопировано'; setTimeout(function () { span.textContent = old; }, 1500); };
+    if (navigator.clipboard) navigator.clipboard.writeText(k).then(done, done); else done();
+  });
+})();
+</script>
+</body>
+</html>

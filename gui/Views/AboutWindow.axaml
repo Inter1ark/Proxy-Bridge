@@ -4,9 +4,9 @@
         x:Class="ProxyBridge.GUI.Views.AboutWindow"
         x:DataType="vm:AboutViewModel"
         x:CompileBindings="True"
-        Title="About ProxyBridge"
+        Title="О программе"
         Icon="/Assets/logo.ico"
-        Width="500" Height="400"
+        Width="500" Height="470"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="#FF1E1E1E">
@@ -17,10 +17,15 @@
 
     <Grid RowDefinitions="Auto,*">
         <!-- Header -->
-        <Border Grid.Row="0" Background="#FF252526" BorderBrush="#FF007ACC" BorderThickness="0,0,0,1" Padding="20,16">
+        <Border Grid.Row="0" Background="#FF252526" BorderBrush="#FF2D5BFF" BorderThickness="0,0,0,1" Padding="20,16">
             <StackPanel Orientation="Horizontal" Spacing="12">
-                <TextBlock Text="ℹ" FontSize="24" Foreground="#FF007ACC" VerticalAlignment="Center"/>
-                <TextBlock Text="About ProxyBridge"
+                <Viewbox Width="36" Height="24" VerticalAlignment="Center">
+                    <Canvas Width="48" Height="32">
+                        <Path Data="M0 32 L15 9 L27 24 L21 32 Z" Fill="#FFFFFF"/>
+                        <Path Data="M13 32 L30 1 L48 32 Z" Fill="#2d5bff"/>
+                    </Canvas>
+                </Viewbox>
+                <TextBlock Text="О программе"
                            FontSize="18"
                            FontWeight="SemiBold"
                            VerticalAlignment="Center"/>
@@ -28,57 +33,69 @@
         </Border>
 
         <!-- Content -->
-        <StackPanel Grid.Row="1" Margin="32,24" Spacing="16">
+        <StackPanel Grid.Row="1" Margin="32,24" Spacing="14">
             <TextBlock Text="ProxyBridge"
                        FontSize="28"
                        FontWeight="Bold"
                        HorizontalAlignment="Center"
-                       Foreground="#FF007ACC"/>
+                       Foreground="#FF2D5BFF"/>
 
             <TextBlock Text="{Binding Version}"
                        FontSize="14"
                        HorizontalAlignment="Center"
                        Foreground="#FFB0B0B0"/>
 
-            <TextBlock Text="Universal proxy client for Windows applications"
+            <TextBlock Text="Прокси-клиент для Windows: вся система или отдельные программы через HTTP и SOCKS5"
                        FontSize="14"
                        HorizontalAlignment="Center"
+                       TextAlignment="Center"
                        Foreground="#FFB0B0B0"
                        TextWrapping="Wrap"
                        Margin="0,0,0,8"/>
 
-
-            <TextBlock Text="Author: Sourav Kalal / InterceptSuite"
-                       FontSize="13"
-                       HorizontalAlignment="Center"
-                       Foreground="#FFB0B0B0"
-                       Margin="0,4,0,0"/>
-
             <!-- Clickable Links -->
-            <StackPanel Spacing="12">
+            <StackPanel Spacing="10">
                 <TextBlock HorizontalAlignment="Center">
-                    <Run Text="Website: " Foreground="#FFB0B0B0"/>
-                    <TextBlock Text="interceptsuite.com"
-                               Foreground="#FF007ACC"
+                    <Run Text="Сайт: " Foreground="#FFB0B0B0"/>
+                    <TextBlock Text="www.proxybridge.org"
+                               Foreground="#FF2D5BFF"
                                TextDecorations="Underline"
                                Cursor="Hand"
                                PointerPressed="OnWebsiteClick"/>
                 </TextBlock>
 
                 <TextBlock HorizontalAlignment="Center">
+                    <Run Text="Поддержка: " Foreground="#FFB0B0B0"/>
+                    <TextBlock Text="support@proxybridge.org"
+                               Foreground="#FF2D5BFF"
+                               TextDecorations="Underline"
+                               Cursor="Hand"
+                               PointerPressed="OnSupportClick"/>
+                </TextBlock>
+
+                <TextBlock HorizontalAlignment="Center">
+                    <Run Text="Telegram: " Foreground="#FFB0B0B0"/>
+                    <TextBlock Text="t.me/inter1ark"
+                               Foreground="#FF2D5BFF"
+                               TextDecorations="Underline"
+                               Cursor="Hand"
+                               PointerPressed="OnTelegramClick"/>
+                </TextBlock>
+
+                <TextBlock HorizontalAlignment="Center">
                     <Run Text="GitHub: " Foreground="#FFB0B0B0"/>
-                    <TextBlock Text="github.com/InterceptSuite/ProxyBridge"
-                               Foreground="#FF007ACC"
+                    <TextBlock Text="github.com/Inter1ark/Proxy-Bridge"
+                               Foreground="#FF2D5BFF"
                                TextDecorations="Underline"
                                Cursor="Hand"
                                PointerPressed="OnGitHubClick"/>
                 </TextBlock>
             </StackPanel>
 
-            <TextBlock Text="License: MIT"
-                       FontSize="13"
+            <TextBlock Text="Лицензия кода: MIT"
+                       FontSize="12"
                        HorizontalAlignment="Center"
-                       Foreground="#FFB0B0B0"
+                       Foreground="#FF808080"
                        Margin="0,8,0,0"/>
 
         </StackPanel>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Купить ключ ProxyBridge</title>
+  <meta name="description" content="Оформление подписки ProxyBridge: 99 ₽ за месяц, 249 ₽ за 3 месяца, 699 ₽ навсегда. Оплата картой, СБП или криптовалютой.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="logo" viewBox="0 0 48 32">
+      <path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/>
+      <path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="index.html" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="index.html#product" data-i18n="nav.product">Продукт</a>
+      <a href="index.html#features" data-i18n="nav.features">Возможности</a>
+      <a href="index.html#pricing" data-i18n="nav.pricing">Подписка</a>
+      <a href="partners.html" data-i18n="nav.partners">Партнёры</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <div class="lang" id="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="ru" class="active">RU</button>
+        <button type="button" data-lang="en">EN</button>
+      </div>
+      <a class="btn btn-blue" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-Setup-3.2.0.exe"><span data-i18n="nav.download">Скачать</span> <span class="arrow">↗</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="buy">
+  <div class="container">
+    <div class="buy-head">
+      <div class="eyebrow" data-i18n="buy.eyebrow">Оформление</div>
+      <h1 class="display" data-i18n="buy.title">Получить ключ.</h1>
+      <p data-i18n="buy.sub">Выбери тариф и способ оплаты. Ключ появится на следующей странице сразу после оплаты и продублируется на email.</p>
+    </div>
+
+    <form class="buy-grid" id="buyForm" novalidate>
+      <div>
+        <div class="form-block">
+          <h3 data-i18n="buy.plan">Тариф</h3>
+          <div class="choice" id="planChoice">
+            <label data-plan="month"><b data-i18n="buy.m">1 месяц</b><div class="price">99 ₽</div><small data-i18n="buy.mSub">30 дней доступа</small></label>
+            <label data-plan="3months"><b data-i18n="buy.q">3 месяца</b><div class="price">249 ₽</div><small data-i18n="buy.qSub">90 дней, экономия 16%</small></label>
+            <label data-plan="lifetime"><b data-i18n="buy.l">Навсегда</b><div class="price">699 ₽</div><small data-i18n="buy.lSub">Без срока действия</small></label>
+          </div>
+        </div>
+
+        <div class="form-block">
+          <h3 data-i18n="buy.email">Email для ключа</h3>
+          <input class="input" type="email" id="email" placeholder="you@example.com" autocomplete="email" required>
+        </div>
+
+        <div class="form-block">
+          <h3 data-i18n="buy.method">Способ оплаты</h3>
+          <div class="choice two" id="methodChoice">
+            <label data-method="yookassa"><span class="ico" style="background:#0a0e1a;border:1px solid var(--line)">₽</span><span><b data-i18n="pay.rub">Рублями</b><small data-i18n="pay.rubSub">Карта, СБП и другие способы через ЮKassa</small></span></label>
+            <label data-method="cryptobot"><span class="ico" style="background:#2d5bff">₿</span><span><b data-i18n="pay.crypto">Криптовалютой</b><small data-i18n="pay.cryptoSub">USDT, TON, BTC и другие через CryptoBot</small></span></label>
+          </div>
+        </div>
+      </div>
+
+      <aside class="summary">
+        <h3 data-i18n="buy.summary">Заказ</h3>
+        <div class="row"><span data-i18n="buy.plan">Тариф</span><b id="sumPlan">3 месяца</b></div>
+        <div class="row"><span data-i18n="buy.method">Способ оплаты</span><b id="sumMethod">ЮKassa</b></div>
+        <div class="total"><span data-i18n="buy.total">Итого</span><b id="sumTotal">249 ₽</b></div>
+        <button class="btn btn-blue" type="submit" id="payBtn"><span data-i18n="buy.pay">Перейти к оплате</span> <span class="arrow">↗</span></button>
+        <div class="form-err" id="err"></div>
+        <p class="fine" data-i18n="buy.fine">Нажимая кнопку, ты принимаешь <a href="legal/offer.html">оферту</a> и <a href="legal/privacy.html">политику конфиденциальности</a>. Цифровой товар, доставка мгновенная.</p>
+      </aside>
+    </form>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="index.html"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="legal/offer.html" data-i18n="foot.offer">Оферта</a>
+      <a href="legal/privacy.html" data-i18n="foot.privacy">Конфиденциальность</a>
+      <a href="legal/refund.html" data-i18n="foot.refund">Возврат</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge</div>
+  </div>
+</footer>
+
+<script src="i18n.js"></script>
+<script src="script.js"></script>
+<script>
+(function () {
+  var API = window.PB_API || '';
+  var PLANS = {
+    month: { price: 99, ru: '1 месяц', en: '1 month' },
+    '3months': { price: 249, ru: '3 месяца', en: '3 months' },
+    lifetime: { price: 699, ru: 'Навсегда', en: 'Lifetime' }
+  };
+  var METHODS = { yookassa: 'ЮKassa', cryptobot: 'CryptoBot' };
+  var q = new URLSearchParams(location.search);
+  var plan = PLANS[q.get('plan')] ? q.get('plan') : '3months';
+  var method = METHODS[q.get('method')] ? q.get('method') : 'yookassa';
+
+  function lang() { return (window.PB_I18N && window.PB_I18N.lang()) || 'ru'; }
+  function t(k, ru) { return lang() === 'en' && window.PB_I18N ? (window.PB_I18N.t(k) || ru) : ru; }
+
+  function render() {
+    document.querySelectorAll('#planChoice label').forEach(function (l) { l.classList.toggle('on', l.getAttribute('data-plan') === plan); });
+    document.querySelectorAll('#methodChoice label').forEach(function (l) { l.classList.toggle('on', l.getAttribute('data-method') === method); });
+    document.getElementById('sumPlan').textContent = PLANS[plan][lang() === 'en' ? 'en' : 'ru'];
+    document.getElementById('sumMethod').textContent = METHODS[method];
+    document.getElementById('sumTotal').textContent = PLANS[plan].price + ' ₽';
+  }
+  document.getElementById('planChoice').addEventListener('click', function (e) {
+    var l = e.target.closest('label'); if (!l) return; plan = l.getAttribute('data-plan'); render();
+  });
+  document.getElementById('methodChoice').addEventListener('click', function (e) {
+    var l = e.target.closest('label'); if (!l) return; method = l.getAttribute('data-method'); render();
+  });
+  document.addEventListener('langchange', render);
+  render();
+
+  document.getElementById('buyForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = document.getElementById('email').value.trim();
+    var err = document.getElementById('err');
+    var btn = document.getElementById('payBtn');
+    err.textContent = '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { err.textContent = t('buy.errEmail', 'Введи корректный email'); return; }
+    btn.disabled = true;
+    var label = btn.firstElementChild; var old = label.textContent;
+    label.textContent = t('buy.wait', 'Создаём платёж...');
+    fetch(API + '/api/checkout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan_id: plan, email: email, method: method, lang: lang() })
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d.pay_url) throw new Error(res.d && res.d.error || 'server');
+        location.href = res.d.pay_url;
+      })
+      .catch(function () {
+        err.textContent = t('buy.errServer', 'Сервис оплаты недоступен, попробуй позже');
+        btn.disabled = false; label.textContent = old;
+      });
+  });
+})();
+</script>
+</body>
+</html>

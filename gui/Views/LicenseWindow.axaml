@@ -1,0 +1,164 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ProxyBridge.GUI.ViewModels"
+        x:Class="ProxyBridge.GUI.Views.LicenseWindow"
+        x:DataType="vm:LicenseViewModel"
+        x:CompileBindings="True"
+        Title="ProxyBridge - Активация лицензии"
+        Icon="/Assets/logo.ico"
+        Width="520" Height="400"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Background="#1a1d2e">
+
+    <Design.DataContext>
+        <vm:LicenseViewModel/>
+    </Design.DataContext>
+
+    <Window.Styles>
+        <Style Selector="TextBox.key">
+            <Setter Property="Background" Value="#1f2937"/>
+            <Setter Property="BorderBrush" Value="#33364a"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Foreground" Value="#ffffff"/>
+            <Setter Property="CaretBrush" Value="#00d9ff"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="LetterSpacing" Value="1.5"/>
+        </Style>
+        <Style Selector="TextBox.key:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="#00d9ff"/>
+            <Setter Property="Background" Value="#1f2937"/>
+        </Style>
+        <Style Selector="TextBox.key:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="#00d9ff"/>
+            <Setter Property="Background" Value="#1f2937"/>
+        </Style>
+
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#00d9ff"/>
+            <Setter Property="Foreground" Value="#1a1d2e"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#33e1ff"/>
+            <Setter Property="Foreground" Value="#1a1d2e"/>
+        </Style>
+        <Style Selector="Button.primary:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#00b8d9"/>
+            <Setter Property="Foreground" Value="#1a1d2e"/>
+        </Style>
+        <Style Selector="Button.primary:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2a4d58"/>
+            <Setter Property="Foreground" Value="#8b9dc3"/>
+        </Style>
+
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#00d9ff"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#66e8ff"/>
+            <Setter Property="TextBlock.TextDecorations" Value="Underline"/>
+        </Style>
+        <Style Selector="Button.link:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#00b8d9"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="36,26,36,18">
+
+        <!-- Header: logo + title -->
+        <StackPanel Grid.Row="0" Spacing="6">
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                <Viewbox Width="26" Height="26" VerticalAlignment="Center">
+                    <Canvas Width="48" Height="32">
+                        <Path Data="M0 32 L15 9 L27 24 L21 32 Z" Fill="#FFFFFF"/>
+                        <Path Data="M13 32 L30 1 L48 32 Z" Fill="#2d5bff"/>
+                    </Canvas>
+                </Viewbox>
+                <TextBlock Text="ProxyBridge"
+                           FontSize="22"
+                           FontWeight="Bold"
+                           Foreground="#00d9ff"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <TextBlock Text="Активация лицензии"
+                       FontSize="18"
+                       FontWeight="SemiBold"
+                       Foreground="#ffffff"
+                       HorizontalAlignment="Center"
+                       Margin="0,10,0,0"/>
+
+            <TextBlock Text="Для работы ProxyBridge нужен ключ лицензии. Введите ключ, который пришёл на почту после оплаты."
+                       FontSize="12"
+                       Foreground="#8b9dc3"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center"
+                       MaxWidth="420"/>
+        </StackPanel>
+
+        <!-- Card: key input, button, status -->
+        <Border Grid.Row="1"
+                Background="#1f2937"
+                CornerRadius="12"
+                Padding="20,18"
+                Margin="0,18,0,12"
+                VerticalAlignment="Center">
+            <StackPanel Spacing="12">
+                <TextBox Classes="key"
+                         Text="{Binding KeyText}"
+                         Watermark="PB-XXXX-XXXX-XXXX-XXXX"
+                         MaxLength="32"
+                         IsEnabled="{Binding IsNotBusy}"
+                         HorizontalContentAlignment="Center"
+                         x:Name="KeyBox"/>
+
+                <Button Classes="primary"
+                        Content="Активировать"
+                        Command="{Binding ActivateCommand}"
+                        IsEnabled="{Binding IsNotBusy}"
+                        IsDefault="True"/>
+
+                <TextBlock Text="{Binding StatusText}"
+                           Foreground="{Binding StatusColor}"
+                           FontSize="12"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           HorizontalAlignment="Center"
+                           MinHeight="18"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Footer: buy link + prices -->
+        <StackPanel Grid.Row="2" Spacing="4">
+            <Button Classes="link"
+                    Content="Купить лицензию"
+                    Command="{Binding BuyCommand}"/>
+            <TextBlock Text="99 ₽ в месяц · 249 ₽ за 3 месяца · 699 ₽ навсегда"
+                       FontSize="11"
+                       Foreground="#8b9dc3"
+                       HorizontalAlignment="Center"/>
+        </StackPanel>
+    </Grid>
+</Window>

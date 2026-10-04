@@ -1,7 +1,7 @@
 !define PRODUCT_NAME "ProxyBridge"
-!define PRODUCT_VERSION "3.1.0"
-!define PRODUCT_PUBLISHER "InterceptSuite"
-!define PRODUCT_WEB_SITE "https://github.com/Inter1ark/Proxy-Bridge"
+!define PRODUCT_VERSION "3.2.0"
+!define PRODUCT_PUBLISHER "ProxyBridge Team"
+!define PRODUCT_WEB_SITE "https://www.proxybridge.org"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
 
