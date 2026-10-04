@@ -1,0 +1,15 @@
+services:
+  proxybridge:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    container_name: proxybridge-server
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite:////app/server/data/proxybridge.db
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./data:/app/server/data

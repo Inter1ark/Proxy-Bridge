@@ -1,0 +1,109 @@
+name: macOS build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    runs-on: macos-14
+    env:
+      VERSION: "3.2.0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: core-go/go.mod
+
+      - name: Resolve version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Test and build pbcore
+        working-directory: core-go
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          go test ./...
+          mkdir -p dist
+          GOOS=darwin GOARCH=arm64 go vet ./...
+          GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o dist/pbcore-darwin-arm64 .
+          GOOS=darwin GOARCH=amd64 go vet ./...
+          GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/pbcore-darwin-amd64 .
+
+      - name: Publish GUI and assemble bundles
+        run: |
+          set -euo pipefail
+          mkdir -p mac/dist
+          build_one() {
+            rid="$1"; suffix="$2"; core="$3"
+            pub="mac/dist/publish-$rid"
+            rm -rf "$pub"
+            dotnet publish gui/ProxyBridge.GUI.csproj -c Release -r "$rid" --self-contained \
+              -p:PublishSingleFile=false -p:DebugType=none -o "$pub"
+            app="mac/dist/ProxyBridge-$suffix.app"
+            rm -rf "$app"
+            mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+            cp -R "$pub"/. "$app/Contents/MacOS/"
+            rm -f "$app/Contents/MacOS/ProxyBridgeCore.dll" "$app/Contents/MacOS/WinDivert.dll" "$app/Contents/MacOS/WinDivert64.sys"
+            cp "core-go/dist/$core" "$app/Contents/MacOS/pbcore"
+            cp branding/logo.icns "$app/Contents/Resources/logo.icns"
+            printf 'APPL????' > "$app/Contents/PkgInfo"
+            cat > "$app/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleName</key><string>ProxyBridge</string>
+              <key>CFBundleDisplayName</key><string>ProxyBridge</string>
+              <key>CFBundleIdentifier</key><string>org.proxybridge.app</string>
+              <key>CFBundleVersion</key><string>${VERSION}</string>
+              <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+              <key>CFBundlePackageType</key><string>APPL</string>
+              <key>CFBundleExecutable</key><string>ProxyBridge</string>
+              <key>CFBundleIconFile</key><string>logo.icns</string>
+              <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+              <key>LSMinimumSystemVersion</key><string>12.0</string>
+              <key>NSHighResolutionCapable</key><true/>
+              <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+          </dict>
+          </plist>
+          EOF
+            chmod +x "$app/Contents/MacOS/ProxyBridge" "$app/Contents/MacOS/pbcore"
+            chmod +x "$app"/Contents/MacOS/*.dylib || true
+            cp mac/fix-perms.sh mac/dist/fix-perms.sh
+            (cd mac/dist && rm -f "ProxyBridge-${VERSION}-macOS-$suffix.zip" && \
+              zip -r -y -q "ProxyBridge-${VERSION}-macOS-$suffix.zip" "ProxyBridge-$suffix.app" fix-perms.sh)
+            rm -rf "$pub"
+          }
+          build_one osx-arm64 arm64 pbcore-darwin-arm64
+          build_one osx-x64 x64 pbcore-darwin-amd64
+          ls -la mac/dist
+
+      - name: Smoke test the arm64 bundle
+        run: |
+          set -euo pipefail
+          app="mac/dist/ProxyBridge-arm64.app"
+          file "$app/Contents/MacOS/pbcore"
+          "$app/Contents/MacOS/pbcore" --version
+          plutil -lint "$app/Contents/Info.plist"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ProxyBridge-macOS
+          path: |
+            mac/dist/*.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            mac/dist/*.zip

@@ -27,6 +27,16 @@ public class AppConfig
     public List<ProxyRuleConfig> ProxyRules { get; set; } = new();
     // "Branching" mode: per-program proxy assignments
     public List<AppProxyMapping> ProxyMappings { get; set; } = new();
+
+    // License cache (see Services/LicenseService.cs and docs/LICENSE_API.md)
+    public string LicenseKey { get; set; } = "";
+    public string LicensePlan { get; set; } = "";
+    /// <summary>ISO 8601 UTC or empty for lifetime.</summary>
+    public string LicenseExpiresAt { get; set; } = "";
+    /// <summary>ISO 8601 UTC time of the last successful server check.</summary>
+    public string LicenseLastCheckUtc { get; set; } = "";
+    /// <summary>SHA-256 hex hardware id (64 chars).</summary>
+    public string LicenseHwid { get; set; } = "";
 }
 
 /// <summary>Per-application proxy assignment used by the "Разветвление" (branching) tab.</summary>

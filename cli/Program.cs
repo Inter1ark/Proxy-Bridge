@@ -413,8 +413,8 @@ class Program
         Console.WriteLine();
         Console.WriteLine("  Universal proxy client for Windows applications");
         Console.WriteLine();
-        Console.WriteLine("\tAuthor: Sourav Kalal/InterceptSuite");
-        Console.WriteLine("\tGitHub: https://github.com/InterceptSuite/ProxyBridge");
+        Console.WriteLine("\tAuthor: ProxyBridge Team");
+        Console.WriteLine("\tGitHub: https://github.com/Inter1ark/Proxy-Bridge");
         Console.WriteLine();
     }
 
@@ -427,8 +427,8 @@ class Program
         var currentVersion = System.Reflection.Assembly.GetExecutingAssembly()
             .GetName().Version?.ToString(3) ?? "0.0.0";
 
-        const string repoOwner = "InterceptSuite";
-        const string repoName = "ProxyBridge";
+        const string repoOwner = "Inter1ark";
+        const string repoName = "Proxy-Bridge";
 
         try
         {

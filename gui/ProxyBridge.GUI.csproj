@@ -1,13 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <!-- macOS publish (-r osx-arm64 / osx-x64) uses the neutral TFM; everything else keeps net9.0-windows. -->
+    <IsMacPublish Condition="$(RuntimeIdentifier.StartsWith('osx'))">true</IsMacPublish>
+    <TargetFramework Condition="'$(IsMacPublish)' == 'true'">net9.0</TargetFramework>
+    <TargetFramework Condition="'$(IsMacPublish)' != 'true'">net9.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>ProxyBridge</AssemblyName>
     <RootNamespace>ProxyBridge.GUI</RootNamespace>
-    <Version>3.1.0</Version>
+    <Version>3.2.0</Version>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -43,14 +46,14 @@
     <PackageReference Include="Avalonia.Diagnostics" Version="11.2.0" Condition="'$(Configuration)' == 'Debug'" />
   </ItemGroup>
 
-  <!-- Нативные зависимости: ProxyBridgeCore.dll, WinDivert.dll, WinDivert64.sys -->
-  <ItemGroup>
+  <!-- Нативные зависимости: ProxyBridgeCore.dll, WinDivert.dll, WinDivert64.sys (Windows only) -->
+  <ItemGroup Condition="'$(IsMacPublish)' != 'true'">
     <None Include="..\ProxyBridgeCore.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="ProxyBridgeCore.dll" />
     <None Include="..\WinDivert64.sys" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="WinDivert64.sys" />
   </ItemGroup>
 
   <!-- WinDivert.dll из установленного пакета -->
-  <ItemGroup Condition="Exists('C:\WinDivert-2.2.2-A\x64\WinDivert.dll')">
+  <ItemGroup Condition="'$(IsMacPublish)' != 'true' And Exists('C:\WinDivert-2.2.2-A\x64\WinDivert.dll')">
     <None Include="C:\WinDivert-2.2.2-A\x64\WinDivert.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="WinDivert.dll" />
   </ItemGroup>
 </Project>

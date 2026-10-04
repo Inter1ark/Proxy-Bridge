@@ -26,7 +26,7 @@ public class MainWindowViewModel : ViewModelBase
         Debug.WriteLine($"[ProxyBridge] [{DateTime.Now:HH:mm:ss.fff}] {msg}");
     }
     
-    private ProxyBridgeService? _proxyService;
+    private IProxyEngine? _proxyService;
     private Window? _mainWindow;
     private DispatcherTimer? _statsTimer;
     private DispatcherTimer? _connectionTimer;
@@ -337,9 +337,88 @@ public class MainWindowViewModel : ViewModelBase
     public ICommand ClearProxyHistoryCommand { get; }
     public ICommand OpenTelegramCommand { get; }
     public ICommand SelectProxyFromHistoryCommand { get; }
+    public ICommand UnlinkDeviceCommand { get; }
+
+    // License (Settings card)
+    private string _licensePlanText = "";
+    private string _licenseExpiresText = "";
+    private string _licenseMaskedKey = "";
+    private bool _isUnlinking;
+
+    public string LicensePlanText
+    {
+        get => _licensePlanText;
+        private set => SetProperty(ref _licensePlanText, value);
+    }
+
+    public string LicenseExpiresText
+    {
+        get => _licenseExpiresText;
+        private set => SetProperty(ref _licenseExpiresText, value);
+    }
+
+    public string LicenseMaskedKey
+    {
+        get => _licenseMaskedKey;
+        private set => SetProperty(ref _licenseMaskedKey, value);
+    }
+
+    /// <summary>Re-reads the cached license (plan, expiry, masked key) for the Settings card.</summary>
+    public void RefreshLicenseInfo()
+    {
+        try
+        {
+            var state = LicenseService.Instance.GetCachedState();
+            if (!state.HasKey)
+            {
+                LicensePlanText = "Нет лицензии";
+                LicenseExpiresText = "";
+                LicenseMaskedKey = "";
+                return;
+            }
+            LicensePlanText = string.IsNullOrEmpty(state.PlanDisplayName) ? "Лицензия" : state.PlanDisplayName;
+            LicenseExpiresText = state.ExpiresAt.HasValue ? "Действует до " + state.ExpiresDisplay : "Действует бессрочно";
+            LicenseMaskedKey = state.MaskedKey;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to read license info: {ex.Message}");
+        }
+    }
+
+    private async Task UnlinkDevice()
+    {
+        if (_isUnlinking) return;
+        _isUnlinking = true;
+        try
+        {
+            if (_isProxyActive)
+            {
+                try { await ToggleConnection(); } catch { }
+            }
+
+            await LicenseService.Instance.DeactivateAsync();
+            LicenseService.Instance.ClearLicense();
+            RefreshLicenseInfo();
+
+            if (Avalonia.Application.Current is App app)
+            {
+                app.ShowLicenseWindow("Устройство отвязано. Введите ключ, чтобы активировать лицензию снова.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"Unlink device failed: {ex.Message}");
+        }
+        finally
+        {
+            _isUnlinking = false;
+        }
+    }
 
     public MainWindowViewModel()
     {
+        UnlinkDeviceCommand = new RelayCommand(async () => await UnlinkDevice());
         ToggleConnectionCommand = new RelayCommand(async () => await ToggleConnection());
         TestProxyCommand = new RelayCommand(async () => await TestProxy());
         ShowDashboardCommand = new RelayCommand(() => ShowTab("Dashboard"));
@@ -372,6 +451,7 @@ public class MainWindowViewModel : ViewModelBase
 
         // Загрузка сохраненных настроек
         LoadSettings();
+        RefreshLicenseInfo();
 
         // История прокси загружается из настроек
     }
@@ -381,11 +461,35 @@ public class MainWindowViewModel : ViewModelBase
         _mainWindow = window;
     }
 
-    public void Initialize(ProxyBridgeService proxyService)
+    public void Initialize(IProxyEngine proxyService)
     {
         _proxyService = proxyService;
         // Подписываемся на нативные логи — чтобы видеть ошибки WinDivert и т.д.
         _proxyService.LogReceived += (msg) => Log($"[NATIVE] {msg}");
+        // Engine stopped on its own (macOS helper exited): reset the UI state.
+        _proxyService.Stopped += (msg) => Dispatcher.UIThread.Post(() => OnEngineStopped(msg));
+
+        if (!_proxyService.SupportsSplitTunnel)
+        {
+            BranchingStatus = SplitTunnelUnavailableText;
+        }
+    }
+
+    private const string SplitTunnelUnavailableText = "На macOS пока недоступно";
+
+    private void OnEngineStopped(string message)
+    {
+        if (!_isProxyActive) return;
+        _isProxyActive = false;
+        _globalRuleId = 0;
+        ConnectButtonText = "CONNECT";
+        StatusText = string.IsNullOrWhiteSpace(message) ? "❌ Connection stopped" : $"❌ {message}";
+        _statsTimer?.Stop();
+        _connectionTimer?.Stop();
+        UploadSpeed = "0 MB/s";
+        DownloadSpeed = "0 MB/s";
+        ConnectionTime = "0 ms";
+        Ping = "-- ms";
     }
 
     public void Cleanup()
@@ -423,7 +527,11 @@ public class MainWindowViewModel : ViewModelBase
         HelpBg = tabName == "Help" ? "#252836" : "Transparent";
 
         if (tabName == "Branching")
+        {
             RefreshAvailableProxies();
+            if (_proxyService != null && !_proxyService.SupportsSplitTunnel)
+                BranchingStatus = SplitTunnelUnavailableText;
+        }
     }
 
     private async Task ToggleConnection()
@@ -513,10 +621,12 @@ public class MainWindowViewModel : ViewModelBase
 
             // Теперь запускаем сервис (WinDivert + relay)
             Log("[STEP 2] Starting ProxyBridge service...");
-            if (!_proxyService.Start())
+            if (!await _proxyService.StartAsync())
             {
                 Log(">>> FAILED at STEP 2: Start() returned false — see [NATIVE] logs above for WinDivert error");
-                StatusText = "❌ Failed to start service (WinDivert). Run as Administrator!";
+                StatusText = string.IsNullOrEmpty(_proxyService.LastError)
+                    ? "❌ Failed to start service (WinDivert). Run as Administrator!"
+                    : $"❌ {_proxyService.LastError}";
                 return;
             }
             Log("[STEP 2] ✓ Service started OK");
@@ -558,6 +668,9 @@ public class MainWindowViewModel : ViewModelBase
 
                 // Запускаем таймеры
                 _connectionStartTime = DateTime.Now;
+                _lastStatsAt = default;
+                _lastUpBytes = 0;
+                _lastDownBytes = 0;
                 _statsTimer?.Start();
                 _connectionTimer?.Start();
 
@@ -820,8 +933,30 @@ public class MainWindowViewModel : ViewModelBase
         return false;
     }
 
+    private long _lastUpBytes;
+    private long _lastDownBytes;
+    private DateTime _lastStatsAt;
+
     private void UpdateStats(object? sender, EventArgs e)
     {
+        if (_proxyService != null && _proxyService.ProvidesTrafficStats &&
+            _proxyService.TryGetTrafficStats(out var upBytes, out var downBytes))
+        {
+            var now = DateTime.Now;
+            var seconds = _lastStatsAt == default ? 0 : (now - _lastStatsAt).TotalSeconds;
+            if (seconds > 0)
+            {
+                var upRate = Math.Max(0, upBytes - _lastUpBytes) / seconds / (1024.0 * 1024.0);
+                var downRate = Math.Max(0, downBytes - _lastDownBytes) / seconds / (1024.0 * 1024.0);
+                UploadSpeed = $"{upRate:F2} MB/s";
+                DownloadSpeed = $"{downRate:F2} MB/s";
+            }
+            _lastUpBytes = upBytes;
+            _lastDownBytes = downBytes;
+            _lastStatsAt = now;
+            return;
+        }
+
         // Генерируем случайную статистику для демонстрации
         var uploadKb = _random.Next(100, 1000);
         var downloadKb = _random.Next(500, 5000);
@@ -915,9 +1050,19 @@ public class MainWindowViewModel : ViewModelBase
             if (!string.IsNullOrWhiteSpace(p) && seen.Add(p)) AvailableProxies.Add(p);
     }
 
+    private bool SplitTunnelUnavailable()
+    {
+        if (_proxyService != null && !_proxyService.SupportsSplitTunnel)
+        {
+            BranchingStatus = SplitTunnelUnavailableText;
+            return true;
+        }
+        return false;
+    }
+
     private async Task BrowseExeForMapping()
     {
-        if (_mainWindow == null)
+        if (_mainWindow == null || SplitTunnelUnavailable())
             return;
 
         try
@@ -948,6 +1093,8 @@ public class MainWindowViewModel : ViewModelBase
 
     private void AddMapping()
     {
+        if (SplitTunnelUnavailable())
+            return;
         var process = (NewMappingProcess ?? "").Trim();
         var proxy = (NewMappingProxy ?? "").Trim();
 
@@ -992,6 +1139,8 @@ public class MainWindowViewModel : ViewModelBase
 
     private async Task ToggleBranching()
     {
+        if (SplitTunnelUnavailable())
+            return;
         if (_isBranchingActive)
         {
             StopBranching();
@@ -1060,7 +1209,7 @@ public class MainWindowViewModel : ViewModelBase
             // Разветвление работает только по TCP (UDP relay поддерживает лишь глобальный прокси)
             _proxyService.SetDisableUdp(true);
 
-            if (!_proxyService.Start())
+            if (!await _proxyService.StartAsync())
             {
                 BranchingStatus = "❌ Failed to start service (WinDivert). Run as Administrator!";
                 _proxyService.ClearProxies();
@@ -1273,8 +1422,16 @@ public class MainWindowViewModel : ViewModelBase
     {
         try
         {
+            // Preserve the license cache written by LicenseService (this config is rebuilt from scratch).
+            var existing = ConfigManager.LoadConfig();
+
             var config = new AppConfig
             {
+                LicenseKey = existing.LicenseKey,
+                LicensePlan = existing.LicensePlan,
+                LicenseExpiresAt = existing.LicenseExpiresAt,
+                LicenseLastCheckUtc = existing.LicenseLastCheckUtc,
+                LicenseHwid = existing.LicenseHwid,
                 CloseToTray = _minimizeToTray,
                 StartWithWindows = _startWithWindows,
                 AutoConnectLastProxy = _autoConnectLastProxy,
