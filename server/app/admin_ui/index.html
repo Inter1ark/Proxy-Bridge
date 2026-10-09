@@ -1,0 +1,1002 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0a0e1a">
+<title>Админка ProxyBridge</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 32'%3E%3Cpath fill='%23fff' d='M0 32 L15 9 L27 24 L21 32 Z'/%3E%3Cpath fill='%232d5bff' d='M13 32 L30 1 L48 32 Z'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0e1a; --card:#0e1424; --card2:#121a2e; --line:rgba(255,255,255,0.12); --line2:rgba(255,255,255,0.07);
+  --text:#fff; --muted:#9aa6c4; --dim:#6b7695; --accent:#2d5bff; --accent-2:#5b7fff; --accent-soft:rgba(45,91,255,0.16);
+  --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+  --green-soft:rgba(34,197,94,0.14); --red-soft:rgba(239,68,68,0.14); --amber-soft:rgba(245,158,11,0.15);
+  --radius:16px; --radius-s:10px;
+  --head:"Unbounded",system-ui,sans-serif; --body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%}
+body{min-height:100vh;overflow-x:hidden}
+button,input,select{font:inherit;color:inherit}
+[hidden]{display:none!important}
+a{color:var(--accent-2)}
+.mono{font-family:var(--mono);font-size:13px;letter-spacing:.01em}
+.muted{color:var(--muted)}
+.dim{color:var(--dim)}
+.nowrap{white-space:nowrap}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- buttons & inputs ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,opacity .15s}
+.btn:hover{border-color:rgba(255,255,255,0.24);background:#17213a}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent)}
+.btn.primary:hover{background:#3d68ff}
+.btn.danger{color:#ff8a8a;border-color:rgba(239,68,68,0.35)}
+.btn.danger:hover{background:var(--red-soft)}
+.btn.ghost{background:transparent}
+.btn.sm{height:32px;padding:0 10px;font-size:13px;border-radius:8px}
+.btn.icon{width:38px;padding:0}
+.btn svg{width:16px;height:16px;flex:none}
+.btn.loading{pointer-events:none;opacity:.7}
+.btn.loading svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field label{font-size:12px;color:var(--muted);font-weight:500}
+.input,select.input{height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);outline:none;min-width:0;width:100%}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+select.input{appearance:none;padding-right:30px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239aa6c4' stroke-width='1.6' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+input[type=date].input{color-scheme:dark}
+.copy{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;flex:none}
+.copy:hover{border-color:var(--line);color:var(--text);background:var(--card2)}
+.copy svg{width:14px;height:14px}
+
+/* ---------- login ---------- */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:radial-gradient(700px 400px at 50% -10%,rgba(45,91,255,0.22),transparent 70%)}
+.login{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px 24px}
+.login .brand{margin-bottom:22px}
+.login h1{font-family:var(--head);font-weight:800;font-size:20px;margin:0 0 6px}
+.login p{margin:0 0 20px;color:var(--muted);font-size:14px}
+.login form{display:flex;flex-direction:column;gap:14px}
+.login .btn{height:44px;margin-top:4px}
+.form-error{background:var(--red-soft);border:1px solid rgba(239,68,68,0.35);color:#ffb4b4;border-radius:10px;padding:10px 12px;font-size:14px}
+
+/* ---------- top bar ---------- */
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand svg{width:34px;height:23px;flex:none}
+.brand b{font-family:var(--head);font-weight:800;font-size:15px;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar{position:sticky;top:0;z-index:30;background:rgba(10,14,26,0.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line2)}
+.topbar-in{max-width:1280px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.topbar .spacer{flex:1}
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--muted);height:30px;padding:0 12px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed=true]{background:var(--accent);color:#fff}
+.switch{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);user-select:none;white-space:nowrap}
+.switch input{position:absolute;opacity:0;pointer-events:none}
+.switch .track{width:36px;height:20px;border-radius:20px;background:#253050;position:relative;transition:background .15s;flex:none}
+.switch .track::after{content:"";position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .15s}
+.switch input:checked + .track{background:var(--accent)}
+.switch input:checked + .track::after{transform:translateX(16px)}
+.switch input:focus-visible + .track{box-shadow:0 0 0 3px var(--accent-soft)}
+.updated{font-size:12px;color:var(--dim);white-space:nowrap}
+
+/* ---------- layout ---------- */
+.wrap{max-width:1280px;margin:0 auto;padding:20px 24px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;min-width:0}
+.card h2,.section-title{font-family:var(--head);font-weight:800;font-size:15px;margin:0;letter-spacing:.01em}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.card-head .muted{font-size:13px}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:minmax(0,1.35fr) repeat(3,minmax(0,1fr));margin-bottom:14px}
+.kpis .kpi.hero{grid-row:span 2;display:flex;flex-direction:column;justify-content:center}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 16px 14px;min-width:0;position:relative;overflow:hidden}
+.kpi .lbl{font-size:12px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:7px}
+.kpi .lbl i{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.kpi .val{font-family:var(--head);font-weight:800;font-size:26px;margin-top:8px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .sub{font-size:12px;color:var(--muted);margin-top:6px;min-height:17px}
+.kpi.hero{background:linear-gradient(160deg,rgba(45,91,255,0.20),rgba(45,91,255,0.04) 60%),var(--card);border-color:rgba(45,91,255,0.4)}
+.kpi.hero .val{font-size:30px}
+.kpi.hero .sub b{color:var(--text);font-weight:600}
+.two{grid-template-columns:minmax(0,2fr) minmax(0,1fr);margin-bottom:14px;align-items:start}
+
+/* ---------- chart ---------- */
+.chart-box{position:relative;width:100%;min-height:200px}
+.chart-box svg{display:block;width:100%;overflow:visible}
+.chart-box .grid-l{stroke:rgba(255,255,255,0.07);stroke-width:1}
+.chart-box .axis-t{fill:var(--dim);font-size:11px;font-family:var(--body)}
+.chart-box .bar{fill:var(--accent);transition:opacity .12s}
+.chart-box .bar.zero{fill:rgba(255,255,255,0.10)}
+.chart-box.hovering .bar{opacity:.4}
+.chart-box.hovering .bar.on{opacity:1}
+.tip{position:absolute;pointer-events:none;background:#1a2440;border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-size:12px;line-height:1.5;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:5;transform:translate(-50%,-100%)}
+.tip b{font-size:14px;display:block}
+.tip .d{color:var(--muted)}
+
+/* ---------- breakdown ---------- */
+.bk-list{display:flex;flex-direction:column;gap:12px}
+.bk-row .top{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px}
+.bk-row .top span:first-child{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk-row .top span:last-child{color:var(--muted);white-space:nowrap}
+.bk-bar{height:6px;border-radius:6px;background:rgba(255,255,255,0.06);overflow:hidden}
+.bk-bar i{display:block;height:100%;border-radius:6px;background:var(--accent);min-width:3px}
+.bk-group + .bk-group{margin-top:20px;padding-top:18px;border-top:1px solid var(--line2)}
+.bk-group h3{font-size:12px;color:var(--muted);font-weight:600;margin:0 0 12px;text-transform:uppercase;letter-spacing:.06em}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:6px;margin:26px 0 14px;border-bottom:1px solid var(--line2)}
+.tabs button{background:none;border:0;padding:10px 4px 12px;margin-right:18px;color:var(--muted);font-family:var(--head);font-weight:800;font-size:15px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected=true]{color:var(--text);border-bottom-color:var(--accent)}
+.tabs .count{font-family:var(--body);font-size:12px;font-weight:600;color:var(--muted);background:var(--card2);border-radius:20px;padding:1px 8px;margin-left:6px;vertical-align:2px}
+
+/* ---------- filters ---------- */
+.filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{height:32px;padding:0 12px;border-radius:20px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.chip i{width:7px;height:7px;border-radius:50%}
+.chip[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:#fff}
+.filters .f-sel{width:150px}
+.filters .f-date{width:150px}
+.filters .f-q{flex:1;min-width:200px}
+.actions-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+.actions-row .spacer{flex:1}
+
+/* ---------- table ---------- */
+.tbl-card{padding:0;overflow:hidden}
+.tbl-scroll{overflow-x:auto}
+.count:empty{display:none}
+table.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);padding:12px 10px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--card)}
+.tbl td{padding:12px 10px;border-bottom:1px solid var(--line2);vertical-align:middle}
+.tbl tbody tr:last-child td{border-bottom:0}
+.tbl tr.click{cursor:pointer}
+.tbl tr.click:hover td{background:rgba(255,255,255,0.025)}
+.tbl .num{text-align:right;white-space:nowrap}
+.tbl .sub{display:block;font-size:12px;color:var(--muted)}
+.tbl .email{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tbl .reason{max-width:210px;min-width:140px;font-size:13px;color:var(--muted)}
+.keycell{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge.paid,.badge.active{background:var(--green-soft);color:var(--green)}
+.badge.canceled,.badge.revoked{background:var(--red-soft);color:#ff7b7b}
+.badge.pending,.badge.expired{background:var(--amber-soft);color:var(--amber)}
+.badge.test{background:rgba(154,166,196,0.14);color:var(--muted)}
+.badge.test::before{display:none}
+.devs{display:flex;flex-direction:column;gap:3px;font-size:12px}
+.devs .mono{font-size:12px}
+.devs > div{white-space:nowrap}
+.row-actions{display:flex;flex-wrap:wrap;gap:6px}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);flex-wrap:wrap}
+.pager .pg{display:flex;align-items:center;gap:8px}
+
+/* ---------- empty & skeleton ---------- */
+.empty{padding:44px 20px;text-align:center;color:var(--muted)}
+.empty svg{width:40px;height:40px;opacity:.5;margin-bottom:10px}
+.empty b{display:block;color:var(--text);font-size:15px;margin-bottom:4px}
+.sk{display:block;border-radius:8px;background:linear-gradient(90deg,rgba(255,255,255,0.05),rgba(255,255,255,0.10),rgba(255,255,255,0.05));background-size:200% 100%;animation:sk 1.3s ease-in-out infinite}
+@keyframes sk{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* ---------- issue form ---------- */
+.issue{display:grid;grid-template-columns:160px minmax(0,1fr) auto;gap:12px;align-items:end}
+.issued{margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--green-soft);border:1px solid rgba(34,197,94,0.35);border-radius:12px;padding:12px 14px}
+.issued .mono{font-size:16px;font-weight:600;word-break:break-all}
+
+/* ---------- drawer ---------- */
+.overlay{position:fixed;inset:0;background:rgba(3,6,14,0.62);z-index:50;opacity:0;transition:opacity .2s}
+.overlay.show{opacity:1}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--card);border-left:1px solid var(--line);z-index:51;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s ease}
+.drawer.show{transform:none}
+.drawer-head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.drawer-head h2{font-family:var(--head);font-weight:800;font-size:17px;margin:0;flex:1}
+.drawer-body{flex:1;overflow-y:auto;padding:18px 20px 28px}
+.drawer-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap}
+.dl{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px 14px;font-size:14px;margin:0}
+.dl dt{color:var(--muted)}
+.dl dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.sub-title{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin:24px 0 12px}
+.dev-card{background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:13px}
+.dev-card .mono{font-size:13px;color:var(--text)}
+
+/* ---------- modal & toasts ---------- */
+.modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(3,6,14,0.62)}
+.modal-box{width:100%;max-width:420px;background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:22px}
+.modal-box h3{font-family:var(--head);font-weight:800;font-size:16px;margin:0 0 8px}
+.modal-box p{margin:0 0 20px;color:var(--muted);font-size:14px}
+.modal-box .btns{display:flex;justify-content:flex-end;gap:10px}
+.toasts{position:fixed;right:16px;bottom:16px;z-index:70;display:flex;flex-direction:column;gap:8px;max-width:min(380px,calc(100vw - 32px))}
+.toast{background:#18223c;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:12px;padding:11px 14px;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,0.45);animation:tin .2s ease}
+.toast.ok{border-left-color:var(--green)}
+.toast.err{border-left-color:var(--red)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+
+/* ---------- responsive ---------- */
+@media (max-width:1000px){
+  .two{grid-template-columns:minmax(0,1fr)}
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .kpis .kpi.hero{grid-row:auto;grid-column:1 / -1}
+}
+@media (max-width:720px){
+  body{font-size:14px}
+  .topbar-in{padding:10px 16px;gap:10px}
+  .topbar .brand b{font-size:13px}
+  .topbar .seg{order:5;width:100%}
+  .topbar .seg button{flex:1;padding:0 6px}
+  .topbar .switch{order:6}
+  .topbar .updated{order:7;margin-left:auto}
+  .wrap{padding:14px 16px 60px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .kpi{padding:13px}
+  .kpi .val{font-size:21px}
+  .kpi.hero{grid-column:1 / -1}
+  .kpi.hero .val{font-size:26px}
+  .card{padding:15px}
+  .filters .f-sel,.filters .f-date{width:calc(50% - 6px)}
+  .filters .f-q{min-width:100%}
+  .issue{grid-template-columns:minmax(0,1fr)}
+  .actions-row .btn{flex:1 1 auto}
+  .actions-row .spacer{display:none}
+  .card.tbl-card{background:transparent;border:0;overflow:visible;padding:0}
+  table.tbl,table.tbl tbody,table.tbl tr{display:block;width:100%}
+  table.tbl thead{display:none}
+  .tbl tr{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-bottom:10px}
+  table.tbl td{border:0;padding:5px 0;display:flex;justify-content:space-between;align-items:baseline;gap:14px;text-align:right;min-width:0;width:100%}
+  table.tbl td::before{content:attr(data-label);color:var(--muted);font-size:12px;text-align:left;flex:none}
+  table.tbl td > .v{min-width:0}
+  table.tbl td.c-head{align-items:center;padding-bottom:9px;margin-bottom:5px;border-bottom:1px solid var(--line2)}
+  table.tbl td.c-head::before{display:none}
+  table.tbl td.c-head > .v{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;flex-wrap:wrap}
+  table.tbl td.c-wide{flex-direction:column;align-items:flex-start;text-align:left;gap:4px}
+  table.tbl td.c-wide > .v{width:100%}
+  table.tbl td.c-hide-m{display:none}
+  .tbl .email,.tbl .reason{max-width:none;white-space:normal;overflow-wrap:anywhere}
+  .tbl .num{text-align:right}
+  .tbl tr.click:hover td{background:transparent}
+  .pager{background:var(--card);border:1px solid var(--line);border-radius:14px}
+  .drawer{width:100%;border-left:0}
+  .dl{grid-template-columns:minmax(0,1fr);gap:2px}
+  .dl dd{margin-bottom:10px}
+  .toasts{left:16px;right:16px;max-width:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 48 32"><path fill="#fff" d="M0 32 L15 9 L27 24 L21 32 Z"/><path fill="#2d5bff" d="M13 32 L30 1 L48 32 Z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-2.64-6.36M21 4v5h-5"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></g></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3v12M7 10l5 5 5-5M4 20h16"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M3 7l9-4 9 4v10l-9 4-9-4V7zM3 7l9 4 9-4M12 11v10"/></symbol>
+</svg>
+
+<!-- ============ LOGIN ============ -->
+<div id="login" class="login-wrap" hidden>
+  <div class="login">
+    <div class="brand"><svg><use href="#logo"/></svg><b>ProxyBridge</b></div>
+    <h1>Вход в админку</h1>
+    <p>Продажи, ключи и активации в одном месте.</p>
+    <form id="loginForm" autocomplete="on">
+      <div class="field"><label for="lgLogin">Логин</label><input class="input" id="lgLogin" name="username" autocomplete="username" required></div>
+      <div class="field"><label for="lgPass">Пароль</label><input class="input" id="lgPass" name="password" type="password" autocomplete="current-password" required></div>
+      <div class="form-error" id="loginError" hidden></div>
+      <button class="btn primary" type="submit" id="loginBtn">Войти</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="brand"><svg><use href="#logo"/></svg><b>Админка ProxyBridge</b></div>
+      <div class="seg" id="periodSeg" role="group" aria-label="Период">
+        <button data-p="today">Сегодня</button><button data-p="7d">7 дней</button><button data-p="30d">30 дней</button><button data-p="all">Всё</button>
+      </div>
+      <label class="switch"><input type="checkbox" id="noTest" checked><span class="track"></span>Без тестовых</label>
+      <span class="spacer"></span>
+      <span class="updated" id="updated"></span>
+      <button class="btn icon" id="refreshBtn" title="Обновить" aria-label="Обновить"><svg><use href="#i-refresh"/></svg></button>
+      <button class="btn icon ghost" id="logoutBtn" title="Выйти" aria-label="Выйти"><svg><use href="#i-out"/></svg></button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="grid kpis" id="kpis" aria-label="Показатели"></section>
+
+    <section class="grid two">
+      <div class="card">
+        <div class="card-head"><h2>Выручка за 30 дней</h2><span class="muted" id="chartTotal"></span></div>
+        <div class="chart-box" id="chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Структура продаж</h2><span class="muted" id="bkPeriod"></span></div>
+        <div id="breakdown"></div>
+      </div>
+    </section>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tabOrders" data-tab="orders" aria-selected="true">Заказы<span class="count" id="ordersCount"></span></button>
+      <button role="tab" id="tabKeys" data-tab="keys" aria-selected="false">Ключи<span class="count" id="keysCount"></span></button>
+    </div>
+
+    <!-- orders -->
+    <section id="paneOrders">
+      <div class="filters">
+        <div class="field"><label>Статус</label>
+          <div class="chips" id="statusChips">
+            <button class="chip" data-v="" aria-pressed="true">Все</button>
+            <button class="chip" data-v="paid"><i style="background:var(--green)"></i>Оплачен</button>
+            <button class="chip" data-v="canceled"><i style="background:var(--red)"></i>Не оплачен</button>
+            <button class="chip" data-v="pending"><i style="background:var(--amber)"></i>Ожидает</button>
+          </div>
+        </div>
+        <div class="field f-sel"><label for="fMethod">Платёжка</label>
+          <select class="input" id="fMethod"><option value="">Все</option><option value="yookassa">ЮKassa</option><option value="cryptobot">CryptoBot</option></select></div>
+        <div class="field f-sel"><label for="fPlan">Тариф</label>
+          <select class="input" id="fPlan"><option value="">Все</option><option value="month">1 месяц</option><option value="3months">3 месяца</option><option value="lifetime">Навсегда</option></select></div>
+        <div class="field f-date"><label for="fFrom">С даты</label><input class="input" type="date" id="fFrom"></div>
+        <div class="field f-date"><label for="fTo">По дату</label><input class="input" type="date" id="fTo"></div>
+        <div class="field f-q"><label for="fQ">Поиск</label><input class="input" id="fQ" type="search" placeholder="Email, ключ, номер заказа или ID платежа"></div>
+      </div>
+      <div class="actions-row">
+        <button class="btn sm" id="xlsxBtn"><svg><use href="#i-down"/></svg>Скачать Excel</button>
+        <button class="btn sm" id="csvBtn"><svg><use href="#i-down"/></svg>Скачать CSV</button>
+        <span class="spacer"></span>
+        <button class="btn sm" id="backfillBtn"><svg><use href="#i-sync"/></svg>Подтянуть данные платёжек</button>
+      </div>
+      <div class="card tbl-card" id="ordersBox"></div>
+    </section>
+
+    <!-- keys -->
+    <section id="paneKeys" hidden>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-head"><h2>Выдать ключ</h2><span class="muted">Если указать email и настроена почта, ключ уйдёт письмом</span></div>
+        <form class="issue" id="issueForm">
+          <div class="field"><label for="iPlan">Тариф</label>
+            <select class="input" id="iPlan"><option value="month">1 месяц</option><option value="3months">3 месяца</option><option value="lifetime">Навсегда</option></select></div>
+          <div class="field"><label for="iEmail">Email (необязательно)</label><input class="input" id="iEmail" type="email" placeholder="user@example.com" autocomplete="off"></div>
+          <button class="btn primary" type="submit" id="issueBtn">Выдать ключ</button>
+        </form>
+        <div class="issued" id="issued" hidden></div>
+      </div>
+      <div class="filters">
+        <div class="field"><label>Состояние</label>
+          <div class="chips" id="stateChips">
+            <button class="chip" data-v="" aria-pressed="true">Все</button>
+            <button class="chip" data-v="active"><i style="background:var(--green)"></i>Активные</button>
+            <button class="chip" data-v="expired"><i style="background:var(--amber)"></i>Истёкшие</button>
+            <button class="chip" data-v="revoked"><i style="background:var(--red)"></i>Отозванные</button>
+          </div>
+        </div>
+        <div class="field f-q"><label for="kQ">Поиск</label><input class="input" id="kQ" type="search" placeholder="Ключ, email или номер заказа"></div>
+      </div>
+      <div class="card tbl-card" id="keysBox"></div>
+    </section>
+  </main>
+</div>
+
+<!-- drawer -->
+<div class="overlay" id="overlay" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-modal="true" role="dialog" aria-labelledby="drTitle">
+  <div class="drawer-head"><h2 id="drTitle">Заказ</h2><span id="drBadge"></span><button class="btn icon ghost" id="drClose" aria-label="Закрыть"><svg><use href="#i-x"/></svg></button></div>
+  <div class="drawer-body" id="drBody"></div>
+  <div class="drawer-foot" id="drFoot"></div>
+</aside>
+
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true">
+  <div class="modal-box"><h3 id="mTitle"></h3><p id="mText"></p>
+    <div class="btns"><button class="btn ghost" id="mCancel">Отмена</button><button class="btn primary" id="mOk">Да</button></div></div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- helpers ----------
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  function esc(v) {
+    return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem("pbadm." + k); localStorage.setItem("pbadm." + k, v); } catch (e) { return null; } }
+  var nf = new Intl.NumberFormat("ru-RU");
+  var nf2 = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 });
+  function rub(n) { return nf2.format(Math.round((Number(n) || 0) * 100) / 100) + " ₽"; }
+  function num(n) { return nf.format(Number(n) || 0); }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function msk(iso) { if (!iso) return null; var d = new Date(iso); if (isNaN(d)) return null; return new Date(d.getTime() + 3 * 3600 * 1000); }
+  function fmtShort(iso) { var d = msk(iso); return d ? pad(d.getUTCDate()) + "." + pad(d.getUTCMonth() + 1) + " " + pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()) : "-"; }
+  function fmtFull(iso) { var d = msk(iso); return d ? pad(d.getUTCDate()) + "." + pad(d.getUTCMonth() + 1) + "." + d.getUTCFullYear() + " " + pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()) : "-"; }
+  function fmtDate(iso) { var d = msk(iso); return d ? pad(d.getUTCDate()) + "." + pad(d.getUTCMonth() + 1) + "." + d.getUTCFullYear() : "-"; }
+  function ago(iso) {
+    if (!iso) return "";
+    var s = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (s < 90) return "только что";
+    if (s < 3600) return Math.round(s / 60) + " мин назад";
+    if (s < 86400) return Math.round(s / 3600) + " ч назад";
+    if (s < 86400 * 30) return Math.round(s / 86400) + " дн назад";
+    return fmtDate(iso);
+  }
+  function plural(n, one, few, many) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+  function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
+  function icon(id) { return '<svg><use href="#' + id + '"/></svg>'; }
+  function copyBtn(text) { return '<button class="copy" type="button" data-copy="' + esc(text) + '" title="Скопировать" aria-label="Скопировать">' + icon("i-copy") + "</button>"; }
+  function td(label, content, cls) {
+    return '<td data-label="' + esc(label) + '"' + (cls ? ' class="' + cls + '"' : "") + '><div class="v">' + content + "</div></td>";
+  }
+  function keyCell(key) { return key ? '<span class="keycell"><span class="mono">' + esc(key) + "</span>" + copyBtn(key) + "</span>" : '<span class="dim">-</span>'; }
+
+  var STATUS = { paid: "Оплачен", canceled: "Не оплачен", pending: "Ожидает" };
+  var LSTATE = { active: "Активен", expired: "Истёк", revoked: "Отозван" };
+  var PERIOD_TEXT = { today: "сегодня", "7d": "за 7 дней", "30d": "за 30 дней", all: "за всё время" };
+  var ERRORS = {
+    bad_credentials: "Неверный логин или пароль",
+    too_many_attempts: "Слишком много попыток входа. Подождите 10 минут",
+    login_disabled: "Вход отключён: на сервере не заданы ADMIN_LOGIN и ADMIN_PASSWORD",
+    provider_error: "Платёжка не ответила, попробуйте позже",
+    no_payment_id: "У заказа нет ID платежа",
+    lifetime: "Бессрочный ключ нельзя продлить",
+    not_found: "Не найдено",
+    bad_plan: "Неизвестный тариф",
+    bad_email: "Некорректный email",
+    bad_date: "Некорректная дата",
+    csrf: "Запрос отклонён защитой, обновите страницу",
+    network: "Нет связи с сервером"
+  };
+  function errText(code) { return ERRORS[code] || ("Ошибка: " + code); }
+
+  // ---------- api ----------
+  function ApiErr(code, status) { this.code = code; this.status = status; }
+  function api(path, opts) {
+    opts = opts || {};
+    var method = opts.method || "GET";
+    var headers = { "Accept": "application/json" };
+    if (method !== "GET") headers["X-Requested-With"] = "pb-admin";
+    if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+    return fetch(path, {
+      method: method, headers: headers, credentials: "same-origin", cache: "no-store",
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (r.ok) return data;
+        var code = (data && data.error) || ("http_" + r.status);
+        if (r.status === 401 && !opts.noAuthRedirect) showLogin();
+        throw new ApiErr(code, r.status);
+      });
+    }, function () { throw new ApiErr("network", 0); });
+  }
+  function qs(obj) {
+    var p = [];
+    Object.keys(obj).forEach(function (k) { if (obj[k] !== "" && obj[k] != null && obj[k] !== false) p.push(encodeURIComponent(k) + "=" + encodeURIComponent(obj[k] === true ? 1 : obj[k])); });
+    return p.length ? "?" + p.join("&") : "";
+  }
+
+  // ---------- toasts & confirm ----------
+  function toast(text, kind) {
+    var el = document.createElement("div");
+    el.className = "toast " + (kind || "");
+    el.textContent = text;
+    $("#toasts").appendChild(el);
+    setTimeout(function () { el.style.opacity = "0"; el.style.transition = "opacity .3s"; }, 3800);
+    setTimeout(function () { el.remove(); }, 4200);
+  }
+  function fail(e) { if (e && e.status === 401) return; toast(errText(e && e.code || "network"), "err"); }
+  function confirmDialog(title, text, okText, danger) {
+    return new Promise(function (resolve) {
+      var m = $("#modal"), ok = $("#mOk"), cancel = $("#mCancel");
+      $("#mTitle").textContent = title; $("#mText").textContent = text;
+      ok.textContent = okText || "Да";
+      ok.className = "btn " + (danger ? "danger" : "primary");
+      m.hidden = false; ok.focus();
+      function done(v) { m.hidden = true; ok.onclick = cancel.onclick = m.onclick = null; document.removeEventListener("keydown", onKey); resolve(v); }
+      function onKey(e) { if (e.key === "Escape") done(false); }
+      ok.onclick = function () { done(true); };
+      cancel.onclick = function () { done(false); };
+      m.onclick = function (e) { if (e.target === m) done(false); };
+      document.addEventListener("keydown", onKey);
+    });
+  }
+  function busy(btn, on) { if (!btn) return; btn.classList.toggle("loading", on); btn.disabled = on; }
+
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-copy]");
+    if (!b) return;
+    e.stopPropagation();
+    var text = b.getAttribute("data-copy");
+    var okFn = function () { toast("Скопировано", "ok"); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(okFn, function () { fallbackCopy(text) ? okFn() : toast("Не удалось скопировать", "err"); });
+    } else { fallbackCopy(text) ? okFn() : toast("Не удалось скопировать", "err"); }
+  }, true);
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    var ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    ta.remove(); return ok;
+  }
+
+  // ---------- state ----------
+  var S = {
+    period: store("period") || "today",
+    noTest: store("noTest") !== "0",
+    tab: store("tab") === "keys" ? "keys" : "orders",
+    of: { status: "", method: "", plan: "", date_from: "", date_to: "", q: "", page: 1 },
+    kf: { state: "", q: "", page: 1 },
+    stats: null, lastLoad: 0, started: false
+  };
+
+  // ---------- auth ----------
+  function showLogin() {
+    $("#app").hidden = true; $("#login").hidden = false; closeDrawer();
+    setTimeout(function () { $("#lgLogin").focus(); }, 30);
+  }
+  function showApp() {
+    $("#login").hidden = true; $("#app").hidden = false;
+    if (!S.started) { S.started = true; initUi(); }
+    refreshAll(true);
+  }
+  $("#loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var btn = $("#loginBtn"), err = $("#loginError");
+    err.hidden = true; busy(btn, true);
+    api("/api/admin/login", { method: "POST", body: { login: $("#lgLogin").value.trim(), password: $("#lgPass").value }, noAuthRedirect: true })
+      .then(function () { $("#lgPass").value = ""; showApp(); })
+      .catch(function (ex) { err.textContent = errText(ex.code); err.hidden = false; })
+      .then(function () { busy(btn, false); });
+  });
+  $("#logoutBtn").addEventListener("click", function () {
+    api("/api/admin/logout", { method: "POST", noAuthRedirect: true }).catch(function () {}).then(showLogin);
+  });
+
+  // ---------- loading ----------
+  function refreshAll(first) {
+    S.lastLoad = Date.now();
+    var btn = $("#refreshBtn");
+    busy(btn, true);
+    var jobs = [loadStats(first), S.tab === "orders" ? loadOrders(first) : loadKeys(first)];
+    return Promise.all(jobs).then(function () {
+      var d = new Date();
+      $("#updated").textContent = "Обновлено в " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+    }).catch(fail).then(function () { busy(btn, false); });
+  }
+
+  function loadStats(first) {
+    if (first && !S.stats) renderKpiSkeleton();
+    return api("/api/admin/stats" + qs({ exclude_test: S.noTest })).then(function (data) {
+      S.stats = data; renderStats();
+    });
+  }
+
+  // ---------- KPIs ----------
+  function renderKpiSkeleton() {
+    var h = "";
+    for (var i = 0; i < 7; i++) h += '<div class="kpi' + (i === 0 ? " hero" : "") + '"><span class="sk" style="width:60%;height:12px"></span><span class="sk" style="width:70%;height:26px;margin-top:12px"></span><span class="sk" style="width:50%;height:11px;margin-top:10px"></span></div>';
+    $("#kpis").innerHTML = h;
+    $("#chart").innerHTML = '<span class="sk" style="height:200px"></span>';
+    $("#breakdown").innerHTML = '<span class="sk" style="height:14px;width:70%"></span><span class="sk" style="height:6px;margin:10px 0 20px"></span><span class="sk" style="height:14px;width:55%"></span><span class="sk" style="height:6px;margin-top:10px"></span>';
+  }
+  function kpi(label, value, sub, dot, hero) {
+    return '<div class="kpi' + (hero ? " hero" : "") + '"><div class="lbl">' + (dot ? '<i style="background:' + dot + '"></i>' : "") + esc(label) +
+      '</div><div class="val">' + value + '</div><div class="sub">' + (sub || "") + "</div></div>";
+  }
+  function renderStats() {
+    var st = S.stats; if (!st) return;
+    var p = st.periods[S.period], L = st.licenses;
+    var netSub = "К зачислению: <b>" + esc(rub(p.net)) + "</b>";
+    if (p.paid && p.net_known < p.paid) netSub += ' <span class="dim">(комиссия известна по ' + p.net_known + " из " + p.paid + ")</span>";
+    var html =
+      kpi("Выручка " + PERIOD_TEXT[S.period], esc(rub(p.gross)), netSub, null, true) +
+      kpi("Оплачено", num(p.paid), p.orders ? "из " + num(p.orders) + " " + plural(p.orders, "заказа", "заказов", "заказов") : "заказов нет", "var(--green)") +
+      kpi("Не оплачено", num(p.canceled), "отменены или истекли", "var(--red)") +
+      kpi("Ожидают", num(p.pending), "ещё могут оплатить", "var(--amber)") +
+      kpi("Конверсия", String(p.conversion).replace(".", ",") + "%", "оплачено от всех заказов") +
+      kpi("Активных ключей", num(L.active), "с устройствами: " + num(L.with_devices) + " из " + num(L.total)) +
+      kpi("Активаций за 24 ч", num(L.activations_24h), "новые устройства");
+    $("#kpis").innerHTML = html;
+    renderChart();
+    renderBreakdown(p);
+    $("#bkPeriod").textContent = PERIOD_TEXT[S.period];
+  }
+
+  // ---------- chart ----------
+  function niceMax(v) {
+    if (v <= 0) return 100;
+    var p = Math.pow(10, Math.floor(Math.log10(v))), m = v / p;
+    var n = m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10;
+    return n * p;
+  }
+  function compact(v) {
+    if (v >= 1e6) return nf2.format(Math.round(v / 1e5) / 10) + " млн";
+    if (v >= 1e4) return nf2.format(Math.round(v / 100) / 10) + " тыс";
+    return nf.format(v);
+  }
+  var WD = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+  function renderChart() {
+    var st = S.stats; if (!st) return;
+    var days = st.revenue_by_day, box = $("#chart");
+    var total = 0, cnt = 0;
+    days.forEach(function (d) { total += d.gross; cnt += d.paid_count; });
+    $("#chartTotal").textContent = rub(total) + ", " + cnt + " " + plural(cnt, "оплата", "оплаты", "оплат");
+    var W = Math.max(280, box.clientWidth || 600), H = W < 520 ? 190 : 230;
+    var padL = 44, padR = 4, padT = 10, padB = 24;
+    var max = niceMax(Math.max.apply(null, days.map(function (d) { return d.gross; }).concat([0])));
+    var n = days.length, step = (W - padL - padR) / n, gap = Math.max(2, step * 0.28), bw = Math.max(2, step - gap);
+    var ih = H - padT - padB;
+    var y = function (v) { return padT + ih - (v / max) * ih; };
+    var s = '<svg viewBox="0 0 ' + W + " " + H + '" height="' + H + '" role="img" aria-label="Выручка по дням за 30 дней">';
+    [0, 0.5, 1].forEach(function (f) {
+      var yy = Math.round(y(max * f)) + 0.5;
+      s += '<line class="grid-l" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + yy + '" y2="' + yy + '"/>';
+      s += '<text class="axis-t" x="' + (padL - 8) + '" y="' + (yy + 4) + '" text-anchor="end">' + compact(max * f) + "</text>";
+    });
+    var every = W < 520 ? 7 : 5;
+    days.forEach(function (d, i) {
+      var x = padL + i * step + gap / 2;
+      if (d.gross > 0) {
+        var top = y(d.gross), h = padT + ih - top, r = Math.min(4, bw / 2, h);
+        s += '<path class="bar" data-i="' + i + '" d="M' + x + "," + (top + h) + "V" + (top + r) + "Q" + x + "," + top + " " + (x + r) + "," + top +
+          "H" + (x + bw - r) + "Q" + (x + bw) + "," + top + " " + (x + bw) + "," + (top + r) + "V" + (top + h) + 'Z"/>';
+      } else {
+        s += '<rect class="bar zero" data-i="' + i + '" x="' + x + '" y="' + (padT + ih - 2) + '" width="' + bw + '" height="2" rx="1"/>';
+      }
+      if ((n - 1 - i) % every === 0) {
+        var p = d.date.split("-");
+        s += '<text class="axis-t" x="' + (x + bw / 2) + '" y="' + (H - 6) + '" text-anchor="middle">' + p[2] + "." + p[1] + "</text>";
+      }
+    });
+    s += '<rect id="chartHit" x="' + padL + '" y="0" width="' + (W - padL - padR) + '" height="' + H + '" fill="transparent"/></svg><div class="tip" id="tip" hidden></div>';
+    box.innerHTML = s;
+    var svg = box.querySelector("svg"), tip = $("#tip");
+    function show(ev) {
+      var rect = svg.getBoundingClientRect(), scale = W / rect.width;
+      var xx = (ev.clientX - rect.left) * scale;
+      var i = Math.floor((xx - padL) / step);
+      if (i < 0 || i >= n) { hide(); return; }
+      var d = days[i], p = d.date.split("-");
+      var wd = WD[new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])).getUTCDay()];
+      tip.innerHTML = '<span class="d">' + wd + ", " + p[2] + "." + p[1] + "." + p[0] + "</span><b>" + esc(rub(d.gross)) + "</b>" +
+        d.paid_count + " " + plural(d.paid_count, "оплата", "оплаты", "оплат");
+      tip.hidden = false;
+      var cx = (padL + i * step + step / 2) / scale, top = Math.min(y(d.gross), padT + ih - 2) / scale;
+      var tw = tip.offsetWidth, bx = rect.width;
+      cx = Math.max(tw / 2 + 2, Math.min(bx - tw / 2 - 2, cx));
+      tip.style.left = cx + "px"; tip.style.top = Math.max(tip.offsetHeight + 2, top - 8) + "px";
+      box.classList.add("hovering");
+      $$(".bar", svg).forEach(function (b) { b.classList.toggle("on", +b.getAttribute("data-i") === i); });
+    }
+    function hide() { tip.hidden = true; box.classList.remove("hovering"); }
+    svg.addEventListener("pointermove", show);
+    svg.addEventListener("pointerdown", show);
+    svg.addEventListener("pointerleave", function (e) { if (e.pointerType === "mouse") hide(); });
+    chartHide = hide;
+  }
+  var chartHide = function () {};
+  document.addEventListener("pointerdown", function (e) { if (!$("#chart").contains(e.target)) chartHide(); });
+  window.addEventListener("resize", debounce(function () { if (S.stats) renderChart(); }, 150));
+
+  // ---------- breakdown ----------
+  function bkGroup(title, rows) {
+    if (!rows.length) return "";
+    var max = Math.max.apply(null, rows.map(function (r) { return r.gross; }).concat([1]));
+    return '<div class="bk-group"><h3>' + esc(title) + '</h3><div class="bk-list">' + rows.map(function (r) {
+      return '<div class="bk-row"><div class="top"><span>' + esc(r.title) + "</span><span>" + r.count + " " + plural(r.count, "оплата", "оплаты", "оплат") + ", " + esc(rub(r.gross)) +
+        '</span></div><div class="bk-bar"><i style="width:' + Math.max(2, r.gross / max * 100) + '%"></i></div></div>';
+    }).join("") + "</div></div>";
+  }
+  function renderBreakdown(p) {
+    var h = bkGroup("По тарифам", p.by_plan) + bkGroup("По платёжкам", p.by_method) + bkGroup("Чем платили", p.by_pay_type);
+    $("#breakdown").innerHTML = h || '<div class="empty" style="padding:30px 10px">' + icon("i-box") + "<b>Оплат пока нет</b>За выбранный период нет оплаченных заказов</div>";
+  }
+
+  // ---------- orders ----------
+  function orderParams() {
+    var f = S.of;
+    return { status: f.status, method: f.method, plan: f.plan, date_from: f.date_from, date_to: f.date_to, q: f.q, exclude_test: S.noTest };
+  }
+  function skeletonRows(cols) {
+    var h = '<div style="padding:16px;display:flex;flex-direction:column;gap:14px">';
+    for (var i = 0; i < 6; i++) h += '<span class="sk" style="height:18px;width:' + (70 + (i * 7) % 30) + '%"></span>';
+    return h + "</div>";
+  }
+  function loadOrders(first) {
+    var box = $("#ordersBox");
+    if (first || !box.innerHTML) box.innerHTML = skeletonRows();
+    var params = orderParams(); params.page = S.of.page; params.per_page = 50;
+    return api("/api/admin/orders" + qs(params)).then(function (data) {
+      if (data.page > data.pages && data.total) { S.of.page = data.pages; return loadOrders(); }
+      renderOrders(data);
+    });
+  }
+  function badge(status) { return '<span class="badge ' + esc(status) + '">' + esc(STATUS[status] || status) + "</span>"; }
+  function renderOrders(data) {
+    $("#ordersCount").textContent = num(data.total);
+    var box = $("#ordersBox");
+    if (!data.items.length) {
+      box.innerHTML = '<div class="empty">' + icon("i-box") + "<b>Заказов не найдено</b>Попробуйте изменить фильтры или период</div>";
+      return;
+    }
+    var rows = data.items.map(function (o) {
+      var pay = esc(o.method_title) + (o.pay_type_text ? '<span class="sub">' + esc(o.pay_type_text) + "</span>" : "");
+      var sum = esc(rub(o.amount_rub)) + (o.income_rub != null && o.status === "paid" ? '<span class="sub">' + esc(rub(o.income_rub)) + " к зачисл.</span>" : "");
+      var reason = o.status === "paid" ? "" : (o.fail_reason_text ? esc(o.fail_reason_text) : '<span class="dim">нет данных</span>');
+      var dev = o.key ? (o.device_count + (o.last_seen ? '<span class="sub">' + esc(ago(o.last_seen)) + "</span>" : "")) : "";
+      return '<tr class="click" data-id="' + o.id + '">' +
+        td("Статус", "<span>" + badge(o.status) + (o.is_test ? ' <span class="badge test">тест</span>' : "") + '</span> <span class="dim mono">№' + o.id + "</span>", "c-head") +
+        td("Создан", esc(fmtShort(o.created_at)), "nowrap") +
+        td("Тариф", esc(o.plan_title), "nowrap") +
+        td("Сумма", sum, "num") +
+        td("Оплата", pay) +
+        td("Email", '<div class="email" title="' + esc(o.email) + '">' + esc(o.email) + "</div>") +
+        td("Ключ", keyCell(o.key), o.key ? "" : "c-hide-m") +
+        td("Причина", '<div class="reason">' + reason + "</div>", reason ? "c-wide" : "c-hide-m") +
+        td("Устройств", dev, "num" + (dev === "" ? " c-hide-m" : "")) + "</tr>";
+    }).join("");
+    box.innerHTML = '<div class="tbl-scroll"><table class="tbl"><thead><tr><th>Статус</th><th>Создан (МСК)</th><th>Тариф</th><th class="num">Сумма</th><th>Оплата</th><th>Email</th><th>Ключ</th><th>Причина</th><th class="num">Устр.</th></tr></thead><tbody>' +
+      rows + "</tbody></table></div>" + pager(data, "orders");
+  }
+  function pager(data, kind) {
+    return '<div class="pager"><span>Всего: ' + num(data.total) + '</span><div class="pg">' +
+      '<button class="btn sm" data-pg="' + kind + '" data-to="' + (data.page - 1) + '"' + (data.page <= 1 ? " disabled" : "") + ">Назад</button>" +
+      "<span>Стр. " + data.page + " из " + data.pages + "</span>" +
+      '<button class="btn sm" data-pg="' + kind + '" data-to="' + (data.page + 1) + '"' + (data.page >= data.pages ? " disabled" : "") + ">Вперёд</button></div></div>";
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-pg]");
+    if (!b || b.disabled) return;
+    var to = +b.getAttribute("data-to");
+    if (b.getAttribute("data-pg") === "orders") { S.of.page = to; loadOrders().catch(fail); $("#tabOrders").scrollIntoView({ block: "start", behavior: "smooth" }); }
+    else { S.kf.page = to; loadKeys().catch(fail); $("#tabKeys").scrollIntoView({ block: "start", behavior: "smooth" }); }
+  });
+  $("#ordersBox").addEventListener("click", function (e) {
+    var tr = e.target.closest("tr[data-id]");
+    if (tr && !e.target.closest("button")) openOrder(+tr.getAttribute("data-id"));
+  });
+
+  function download(ext) {
+    var a = document.createElement("a");
+    a.href = "/api/admin/orders/export." + ext + qs(orderParams());
+    a.download = ""; document.body.appendChild(a); a.click(); a.remove();
+    toast("Файл готовится, загрузка начнётся сама", "ok");
+  }
+
+  // ---------- order drawer ----------
+  var drawerOrderId = null;
+  function row(label, val) { return "<dt>" + esc(label) + "</dt><dd>" + val + "</dd>"; }
+  function openOrder(id) {
+    drawerOrderId = id;
+    $("#drTitle").textContent = "Заказ №" + id; $("#drBadge").innerHTML = "";
+    $("#drBody").innerHTML = skeletonRows(); $("#drFoot").innerHTML = "";
+    var ov = $("#overlay"), dr = $("#drawer");
+    ov.hidden = false; dr.hidden = false;
+    requestAnimationFrame(function () { ov.classList.add("show"); dr.classList.add("show"); });
+    document.body.style.overflow = "hidden";
+    api("/api/admin/orders/" + id).then(renderOrderDetails).catch(function (e) { fail(e); closeDrawer(); });
+  }
+  function renderOrderDetails(o) {
+    if (drawerOrderId !== o.id) return;
+    $("#drBadge").innerHTML = badge(o.status);
+    var h = '<dl class="dl">' +
+      row("Создан (МСК)", esc(fmtFull(o.created_at))) +
+      row("Оплачен (МСК)", esc(fmtFull(o.paid_at))) +
+      row("Тариф", esc(o.plan_title)) +
+      row("Сумма", esc(rub(o.amount_rub))) +
+      row("К зачислению", o.income_rub != null ? esc(rub(o.income_rub)) : '<span class="dim">нет данных</span>') +
+      row("Платёжка", esc(o.method_title)) +
+      row("Чем платили", o.pay_type_text ? esc(o.pay_type_text) : '<span class="dim">нет данных</span>') +
+      (o.status !== "paid" ? row("Причина", o.fail_reason_text ? esc(o.fail_reason_text) + (o.fail_reason && o.fail_reason_text !== o.fail_reason ? ' <span class="dim mono">' + esc(o.fail_reason) + "</span>" : "") : '<span class="dim">нет данных</span>') : "") +
+      row("Email", esc(o.email) + " " + copyBtn(o.email) + (o.is_test ? ' <span class="badge test">тест</span>' : "")) +
+      row("Ключ", keyCell(o.key)) +
+      row("ID платежа", o.provider_payment_id ? '<span class="mono">' + esc(o.provider_payment_id) + "</span> " + copyBtn(o.provider_payment_id) : "-") +
+      row("Проверено у платёжки", o.checked_at ? esc(fmtFull(o.checked_at)) : '<span class="dim">ещё не проверялось</span>') +
+      "</dl>";
+    var lic = o.license;
+    if (lic) {
+      h += '<div class="sub-title">Лицензия</div><dl class="dl">' +
+        row("Состояние", '<span class="badge ' + lic.state + '">' + LSTATE[lic.state] + "</span>") +
+        row("Действует до", lic.expires_at ? esc(fmtFull(lic.expires_at)) : "бессрочно") +
+        row("Выдан", esc(fmtFull(lic.issued_at))) + "</dl>";
+      h += '<div class="sub-title">Устройства (' + lic.devices.length + ")</div>" + devicesBlock(lic.devices);
+    }
+    $("#drBody").innerHTML = h;
+    var foot = '<button class="btn primary" id="drCheck"' + (o.provider_payment_id ? "" : " disabled") + ">" + icon("i-sync") + "Проверить у платёжки</button>";
+    if (lic) foot += '<button class="btn" id="drKey">Открыть ключ</button>';
+    $("#drFoot").innerHTML = foot;
+    $("#drCheck").onclick = function () {
+      var b = this; busy(b, true);
+      api("/api/admin/orders/" + o.id + "/check", { method: "POST" }).then(function (d) {
+        toast("Данные обновлены: " + (STATUS[d.status] || d.status).toLowerCase(), "ok");
+        renderOrderDetails(d); loadOrders().catch(fail); loadStats().catch(fail);
+      }).catch(fail).then(function () { busy(b, false); });
+    };
+    if (lic) $("#drKey").onclick = function () { closeDrawer(); S.kf = { state: "", q: lic.key, page: 1 }; $("#kQ").value = lic.key; setChips("#stateChips", ""); setTab("keys"); };
+  }
+  function devicesBlock(devs) {
+    if (!devs.length) return '<div class="dim" style="font-size:14px">Ключ ещё не активирован ни на одном устройстве</div>';
+    return devs.map(function (d) {
+      return '<div class="dev-card"><span class="mono">' + esc(d.hwid) + "</span>" + (d.app_version ? ' <span class="dim">v' + esc(d.app_version) + "</span>" : "") +
+        '<div class="muted" style="margin-top:4px">Активировано ' + esc(fmtFull(d.activated_at)) + "<br>Последний вход " + esc(fmtFull(d.last_seen)) + " (" + esc(ago(d.last_seen)) + ")</div></div>";
+    }).join("");
+  }
+  function closeDrawer() {
+    var ov = $("#overlay"), dr = $("#drawer");
+    if (dr.hidden) return;
+    drawerOrderId = null;
+    ov.classList.remove("show"); dr.classList.remove("show");
+    document.body.style.overflow = "";
+    setTimeout(function () { if (!dr.classList.contains("show")) { ov.hidden = true; dr.hidden = true; } }, 230);
+  }
+  $("#drClose").addEventListener("click", closeDrawer);
+  $("#overlay").addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && $("#modal").hidden) closeDrawer(); });
+
+  // ---------- keys ----------
+  function loadKeys(first) {
+    var box = $("#keysBox");
+    if (first || !box.innerHTML) box.innerHTML = skeletonRows();
+    return api("/api/admin/licenses" + qs({ q: S.kf.q, state: S.kf.state, exclude_test: S.noTest, page: S.kf.page, per_page: 50 })).then(function (data) {
+      if (data.page > data.pages && data.total) { S.kf.page = data.pages; return loadKeys(); }
+      renderKeys(data);
+    });
+  }
+  function renderKeys(data) {
+    $("#keysCount").textContent = num(data.total);
+    var box = $("#keysBox");
+    if (!data.items.length) {
+      box.innerHTML = '<div class="empty">' + icon("i-box") + "<b>Ключей не найдено</b>Измените поиск или выдайте ключ вручную</div>";
+      return;
+    }
+    var rows = data.items.map(function (k) {
+      var devs = k.devices.length ? '<div class="devs">' + k.devices.map(function (d) {
+        return '<div><span class="mono">' + esc(d.hwid) + '</span> <span class="dim">' + (d.app_version ? "v" + esc(d.app_version) + ", " : "") + esc(ago(d.last_seen)) + "</span></div>";
+      }).join("") + "</div>" : '<span class="dim">нет</span>';
+      var acts = (k.revoked ? '<button class="btn sm" data-act="restore">Восстановить</button>' : '<button class="btn sm danger" data-act="revoke">Отозвать</button>') +
+        '<button class="btn sm" data-act="reset"' + (k.devices.length ? "" : " disabled") + ">Сбросить устройства</button>" +
+        (k.expires_at ? '<button class="btn sm" data-act="extend">Продлить на 30 дней</button>' : "");
+      var src = k.source === "admin" ? "выдан вручную" : (k.order_id ? "заказ №" + k.order_id : "");
+      return '<tr data-key="' + esc(k.key) + '" data-plan="' + esc(k.plan_title) + '">' +
+        td("Ключ", keyCell(k.key) + ' <span class="badge ' + k.state + '">' + LSTATE[k.state] + "</span>", "c-head") +
+        td("Тариф", esc(k.plan_title) + '<span class="sub">' + esc(src) + "</span>", "nowrap") +
+        td("Email", '<div class="email">' + (k.email ? esc(k.email) : '<span class="dim">-</span>') + (k.is_test ? ' <span class="badge test">тест</span>' : "") + "</div>") +
+        td("Действует до", k.expires_at ? esc(fmtDate(k.expires_at)) : "бессрочно", "nowrap") +
+        td("Устройства", devs, "c-wide") +
+        td("Действия", '<div class="row-actions">' + acts + "</div>", "c-wide") + "</tr>";
+    }).join("");
+    box.innerHTML = '<div class="tbl-scroll"><table class="tbl"><thead><tr><th>Ключ</th><th>Тариф</th><th>Email</th><th>Действует до (МСК)</th><th>Устройства</th><th>Действия</th></tr></thead><tbody>' +
+      rows + "</tbody></table></div>" + pager(data, "keys");
+  }
+  var ACTS = {
+    revoke: { path: "revoke", title: "Отозвать ключ?", text: "Программа перестанет работать на всех устройствах с этим ключом. Действие можно отменить кнопкой Восстановить.", ok: "Отозвать", danger: true, done: "Ключ отозван" },
+    restore: { path: "restore", title: "Восстановить ключ?", text: "Ключ снова станет рабочим.", ok: "Восстановить", done: "Ключ восстановлен" },
+    reset: { path: "reset-devices", title: "Сбросить устройства?", text: "Все привязанные устройства будут отвязаны, ключ можно будет активировать заново.", ok: "Сбросить", danger: true, done: "Устройства сброшены" },
+    extend: { path: "extend", title: "Продлить на 30 дней?", text: "Срок добавится к текущей дате окончания. Если ключ уже истёк, 30 дней отсчитаются от сегодня.", ok: "Продлить", body: { days: 30 }, done: "Ключ продлён на 30 дней" }
+  };
+  $("#keysBox").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-act]");
+    if (!b || b.disabled) return;
+    var tr = b.closest("tr"), key = tr.getAttribute("data-key"), a = ACTS[b.getAttribute("data-act")];
+    confirmDialog(a.title, key + " (" + tr.getAttribute("data-plan") + "). " + a.text, a.ok, a.danger).then(function (yes) {
+      if (!yes) return;
+      busy(b, true);
+      api("/api/admin/licenses/" + encodeURIComponent(key) + "/" + a.path, { method: "POST", body: a.body })
+        .then(function () { toast(a.done, "ok"); return Promise.all([loadKeys(), loadStats()]); })
+        .catch(fail).then(function () { busy(b, false); });
+    });
+  });
+  $("#issueForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var b = $("#issueBtn"), plan = $("#iPlan"), email = $("#iEmail").value.trim();
+    var planTitle = plan.options[plan.selectedIndex].text;
+    confirmDialog("Выдать ключ?", "Тариф: " + planTitle + (email ? ", email: " + email : ", без email") + ".", "Выдать").then(function (yes) {
+      if (!yes) return;
+      busy(b, true);
+      api("/api/admin/keys", { method: "POST", body: { plan_id: plan.value, email: email || null } }).then(function (d) {
+        var box = $("#issued");
+        box.innerHTML = '<span class="mono">' + esc(d.key) + "</span>" + copyBtn(d.key) + '<span class="muted" style="font-size:13px">' + esc(planTitle) + (email ? ", " + esc(email) : "") + "</span>";
+        box.hidden = false; $("#iEmail").value = "";
+        toast("Ключ выдан", "ok");
+        S.kf.page = 1; loadKeys().catch(fail); loadStats().catch(fail);
+      }).catch(fail).then(function () { busy(b, false); });
+    });
+  });
+
+  // ---------- tabs, filters ----------
+  function setTab(tab) {
+    S.tab = tab; store("tab", tab);
+    $("#tabOrders").setAttribute("aria-selected", tab === "orders");
+    $("#tabKeys").setAttribute("aria-selected", tab === "keys");
+    $("#paneOrders").hidden = tab !== "orders";
+    $("#paneKeys").hidden = tab !== "keys";
+    (tab === "orders" ? loadOrders() : loadKeys()).catch(fail);
+  }
+  function setChips(sel, v) { $$(sel + " .chip").forEach(function (c) { c.setAttribute("aria-pressed", c.getAttribute("data-v") === v); }); }
+  function setPeriod(p) {
+    S.period = p; store("period", p);
+    $$("#periodSeg button").forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-p") === p); });
+    renderStats();
+  }
+
+  function initUi() {
+    setPeriod(PERIOD_TEXT[S.period] ? S.period : "today");
+    $("#noTest").checked = S.noTest;
+    $("#tabOrders").setAttribute("aria-selected", S.tab === "orders");
+    $("#tabKeys").setAttribute("aria-selected", S.tab === "keys");
+    $("#paneOrders").hidden = S.tab !== "orders";
+    $("#paneKeys").hidden = S.tab !== "keys";
+
+    $("#periodSeg").addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) setPeriod(b.getAttribute("data-p")); });
+    $("#noTest").addEventListener("change", function () {
+      S.noTest = this.checked; store("noTest", this.checked ? "1" : "0");
+      S.of.page = 1; S.kf.page = 1; refreshAll();
+    });
+    $("#refreshBtn").addEventListener("click", function () { refreshAll(); });
+    $$(".tabs button").forEach(function (b) { b.addEventListener("click", function () { setTab(b.getAttribute("data-tab")); }); });
+
+    $("#statusChips").addEventListener("click", function (e) {
+      var c = e.target.closest(".chip"); if (!c) return;
+      S.of.status = c.getAttribute("data-v"); S.of.page = 1; setChips("#statusChips", S.of.status); loadOrders().catch(fail);
+    });
+    $("#stateChips").addEventListener("click", function (e) {
+      var c = e.target.closest(".chip"); if (!c) return;
+      S.kf.state = c.getAttribute("data-v"); S.kf.page = 1; setChips("#stateChips", S.kf.state); loadKeys().catch(fail);
+    });
+    [["#fMethod", "method"], ["#fPlan", "plan"], ["#fFrom", "date_from"], ["#fTo", "date_to"]].forEach(function (p) {
+      $(p[0]).addEventListener("change", function () { S.of[p[1]] = this.value; S.of.page = 1; loadOrders().catch(fail); });
+    });
+    $("#fQ").addEventListener("input", debounce(function () { S.of.q = $("#fQ").value.trim(); S.of.page = 1; loadOrders().catch(fail); }, 350));
+    $("#kQ").addEventListener("input", debounce(function () { S.kf.q = $("#kQ").value.trim(); S.kf.page = 1; loadKeys().catch(fail); }, 350));
+    $("#xlsxBtn").addEventListener("click", function () { download("xlsx"); });
+    $("#csvBtn").addEventListener("click", function () { download("csv"); });
+    $("#backfillBtn").addEventListener("click", function () {
+      var b = this;
+      confirmDialog("Подтянуть данные платёжек?",
+        "Сервер запросит у ЮKassa и CryptoBot причину отказа, способ оплаты и сумму к зачислению для заказов, где этих данных ещё нет (до 500 за раз). Это может занять пару минут. Статус оплаченных заказов не меняется.",
+        "Подтянуть").then(function (yes) {
+        if (!yes) return;
+        busy(b, true);
+        toast("Запрашиваю данные у платёжек...");
+        api("/api/admin/orders/refresh", { method: "POST" }).then(function (r) {
+          var msg = r.total ? "Проверено заказов: " + r.checked + (r.failed ? ", без ответа: " + r.failed : "") + (r.remaining ? ", осталось: " + r.remaining : "")
+            : "Новых заказов для проверки нет";
+          toast(msg, r.failed ? "" : "ok");
+          return refreshAll();
+        }).catch(fail).then(function () { busy(b, false); });
+      });
+    });
+
+    // Auto refresh every 60 s while the page is visible.
+    setInterval(function () {
+      if (document.visibilityState === "visible" && !$("#app").hidden && Date.now() - S.lastLoad >= 55000) refreshAll();
+    }, 5000);
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible" && !$("#app").hidden && Date.now() - S.lastLoad >= 60000) refreshAll();
+    });
+  }
+
+  // ---------- boot ----------
+  api("/api/admin/me", { noAuthRedirect: true }).then(showApp).catch(function (e) {
+    showLogin();
+    if (e.code === "network") { var err = $("#loginError"); err.textContent = errText("network"); err.hidden = false; }
+  });
+})();
+</script>
+</body>
+</html>

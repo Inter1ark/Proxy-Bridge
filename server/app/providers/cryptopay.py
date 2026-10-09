@@ -66,10 +66,15 @@ def create_invoice(amount_rub: int, description: str, payload: str, expires_in: 
 
 
 def get_invoice(invoice_id: str) -> dict | None:
-    """Return the invoice dict for the given id, or None if not found."""
+    """Return the invoice dict for the given id, or None if not found.
+
+    The dict always has "paid_asset" (crypto asset used to pay, e.g. USDT, or None).
+    """
     result = _request("getInvoices", {"invoice_ids": str(invoice_id)})
     items = result.get("items", []) if isinstance(result, dict) else (result or [])
     for inv in items:
         if str(inv.get("invoice_id")) == str(invoice_id):
+            inv = dict(inv)
+            inv["paid_asset"] = inv.get("paid_asset") or None
             return inv
     return None

@@ -40,6 +40,11 @@ class Settings:
         env = os.environ
         self.BASE_URL: str = env.get("BASE_URL", "http://127.0.0.1:8080").rstrip("/")
         self.ADMIN_TOKEN: str = env.get("ADMIN_TOKEN", "")
+        # Web admin panel (/admin): login form credentials; empty = login disabled.
+        self.ADMIN_LOGIN: str = env.get("ADMIN_LOGIN", "")
+        self.ADMIN_PASSWORD: str = env.get("ADMIN_PASSWORD", "")
+        # Comma separated emails treated as test orders in the admin stats.
+        self.ADMIN_TEST_EMAILS: str = env.get("ADMIN_TEST_EMAILS", "test@proxybridge.org")
         self.YOOKASSA_SHOP_ID: str = env.get("YOOKASSA_SHOP_ID", "")
         self.YOOKASSA_SECRET_KEY: str = env.get("YOOKASSA_SECRET_KEY", "")
         self.YOOKASSA_RETURN_URL: str = env.get(
@@ -60,6 +65,10 @@ class Settings:
 
     def return_url(self, token: str) -> str:
         return self.YOOKASSA_RETURN_URL.replace("{token}", token)
+
+    @property
+    def test_emails(self) -> set[str]:
+        return {e.strip().lower() for e in (self.ADMIN_TEST_EMAILS or "").split(",") if e.strip()}
 
     @property
     def smtp_configured(self) -> bool:

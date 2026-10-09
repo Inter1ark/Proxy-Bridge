@@ -58,7 +58,11 @@ def create_payment(amount_rub: int, description: str, order_token: str, return_u
 
 
 def get_payment(payment_id: str) -> dict:
-    """Fetch a payment. Returns {"id", "status", "paid", "amount", "metadata"}."""
+    """Fetch a payment.
+
+    Returns {"id", "status", "paid", "amount", "metadata", "cancellation_reason",
+    "payment_method_type", "income_amount"}.
+    """
     try:
         with httpx.Client(auth=_auth(), timeout=TIMEOUT) as client:
             resp = client.get(f"{API_URL}/payments/{payment_id}")
@@ -75,4 +79,8 @@ def get_payment(payment_id: str) -> dict:
         "paid": bool(data.get("paid", False)),
         "amount": data.get("amount") or {},
         "metadata": data.get("metadata") or {},
+        # Details for the admin panel.
+        "cancellation_reason": (data.get("cancellation_details") or {}).get("reason"),
+        "payment_method_type": (data.get("payment_method") or {}).get("type"),
+        "income_amount": (data.get("income_amount") or {}).get("value"),
     }

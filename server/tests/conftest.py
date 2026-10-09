@@ -9,12 +9,15 @@ SERVER_DIR = Path(__file__).resolve().parent.parent
 if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
+from app import admin_auth  # noqa: E402
 from app import db as app_db  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.models import License, to_db, utcnow  # noqa: E402
 
 ADMIN_TOKEN = "test-admin-token"
+ADMIN_LOGIN = "owner"
+ADMIN_PASSWORD = "correct horse battery"
 HWID_A = "a" * 64
 HWID_B = "b" * 64
 HWID_C = "c" * 64
@@ -23,6 +26,11 @@ HWID_C = "c" * 64
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "ADMIN_TOKEN", ADMIN_TOKEN)
+    monkeypatch.setattr(settings, "ADMIN_LOGIN", ADMIN_LOGIN)
+    monkeypatch.setattr(settings, "ADMIN_PASSWORD", ADMIN_PASSWORD)
+    monkeypatch.setattr(settings, "ADMIN_TEST_EMAILS", "test@proxybridge.org")
+    monkeypatch.setattr(settings, "BASE_URL", "http://127.0.0.1:8080")
+    admin_auth.reset_rate_limit()
     monkeypatch.setattr(settings, "MAX_DEVICES", 2)
     monkeypatch.setattr(settings, "SMTP_HOST", "")
     monkeypatch.setattr(settings, "YOOKASSA_SHOP_ID", "shop")
