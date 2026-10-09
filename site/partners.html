@@ -18,6 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Главная", "item": "https://www.proxybridge.org/"}, {"@type": "ListItem", "position": 2, "name": "Партнёры", "item": "https://www.proxybridge.org/partners.html"}]}, {"@context": "https://schema.org", "@type": "ItemList", "name": "Прокси-провайдеры для ProxyBridge", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "SX.ORG", "url": "https://sx.org/?c=bridge"}, {"@type": "ListItem", "position": 2, "name": "PSBProxy", "url": "https://psbproxy.io/register?ref=AD09FE81"}, {"@type": "ListItem", "position": 3, "name": "Proxy6.net", "url": "https://proxy6.net/?r=428516"}, {"@type": "ListItem", "position": 4, "name": "Proxys.io", "url": "https://proxys.io/?ref=inter1ark"}, {"@type": "ListItem", "position": 5, "name": "Webshare", "url": "https://www.webshare.io/?referral_code=inter1ark"}, {"@type": "ListItem", "position": 6, "name": "Bright Data", "url": "https://brightdata.com/?cam=inter1ark"}]}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Какой провайдер выбрать для ProxyBridge?", "acceptedAnswer": {"@type": "Answer", "text": "Для большинства задач подойдёт SX.ORG: много гео и тест по промокоду bridge. Для арбитража и мультиаккаунтинга, где нужны мобильные IP, смотри PSBProxy. Для первого знакомства хватит бесплатных прокси Webshare."}}, {"@type": "Question", "name": "Нужно ли что-то настраивать у провайдера?", "acceptedAnswer": {"@type": "Answer", "text": "Нет. Возьми у провайдера адрес, порт, логин и пароль, вставь строку в ProxyBridge в формате socks5://user:pass@ip:port или ip:port:user:pass и нажми подключиться."}}, {"@type": "Question", "name": "Почему ссылки партнёрские?", "acceptedAnswer": {"@type": "Answer", "text": "Покупка по этим ссылкам поддерживает разработку ProxyBridge и ничего не стоит тебе дополнительно. Цены и условия у провайдера те же."}}]}]</script>
 </head>
 <body>
 
@@ -49,7 +50,7 @@
         <button type="button" data-lang="ru" class="active">RU</button>
         <button type="button" data-lang="en">EN</button>
       </div>
-      <a class="btn btn-blue" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-Setup-3.2.0.exe"><span data-i18n="nav.download">Скачать</span> <span class="arrow">↗</span></a>
+      <a class="btn btn-blue" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.3.0/ProxyBridge-Setup-3.3.0.exe"><span data-i18n="nav.download">Скачать</span> <span class="arrow">↗</span></a>
       <button class="nav-burger" id="navBurger" aria-label="Меню">
         <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
       </button>
@@ -69,69 +70,92 @@
 
 <section class="partners-grid">
   <div class="container">
-    <div class="pgrid">
-
-      <article class="pcard">
-        <div class="pcard-top">
-          <div class="pcard-logo"><img src="https://i.postimg.cc/wMpgqPcv/500x500_white.jpg" alt="SX.ORG" loading="lazy"></div>
-          <span class="pcard-tag blue" data-i18n="pp.sxTag">3 GB на тест</span>
+    <h2 class="pg-title" data-i18n="pg.main">Основные партнёры</h2>
+    <div class="pf-grid">
+      <article class="pf-card" id="partner-sx">
+        <div class="pf-top">
+          <div class="pf-logo light"><img src="/images/partners/sx.png" alt="SX.ORG" width="240" height="80"></div>
+          <span class="pcard-tag blue" data-i18n="pf.sxTag">Выбор ProxyBridge</span>
         </div>
         <h3>SX.ORG</h3>
-        <p data-i18n="pp.sx">Чистые IP и больше 235 гео. Оплата по трафику или безлимитные гибкие тарифы. Промокод bridge даёт 3 GB на тест. Поддержка круглосуточно.</p>
-        <a class="btn btn-dark" href="https://sx.org/?c=bridge" target="_blank" rel="noopener"><span data-i18n="pp.go">Перейти на</span> SX.ORG <span class="arrow">↗</span></a>
+        <p class="pf-lead" data-i18n="pf.sxLead">Чистые IP в 235+ гео. Можно платить за трафик или взять безлимитный тариф.</p>
+        <ul class="pf-list" data-i18n="pf.sxList"><li>Больше 235 стран и регионов</li><li>Оплата по трафику или безлимитные тарифы</li><li>HTTP и SOCKS5 подходят для ProxyBridge без настроек</li><li>Поддержка круглосуточно</li></ul>
+        <div class="pf-promo" data-i18n="pf.sxPromo">Промокод <b>bridge</b>: 3 GB на тест</div>
+        <a class="btn btn-blue pf-cta" href="https://sx.org/?c=bridge" target="_blank" rel="sponsored noopener"><span data-i18n="pf.go">Перейти на</span> SX.ORG <span class="arrow">↗</span></a>
       </article>
+      <article class="pf-card" id="partner-psb">
+        <div class="pf-top">
+          <div class="pf-logo light"><img src="/images/partners/psb.png" alt="PSBProxy" width="240" height="80"></div>
+          <span class="pcard-tag blue" data-i18n="pf.psbTag">Мобильные и резидентные</span>
+        </div>
+        <h3>PSBProxy</h3>
+        <p class="pf-lead" data-i18n="pf.psbLead">Прокси для арбитража, парсинга и мультиаккаунтинга: 40+ млн IP в 200+ странах.</p>
+        <ul class="pf-list" data-i18n="pf.psbList"><li>Мобильные LTE/5G и резидентные IP</li><li>Гибкая ротация и закрепление IP</li><li>HTTP(S) и SOCKS5, API</li><li>SLA 99,9%, поддержка круглосуточно</li></ul>
+        
+        <a class="btn btn-blue pf-cta" href="https://psbproxy.io/register?ref=AD09FE81" target="_blank" rel="sponsored noopener"><span data-i18n="pf.go">Перейти на</span> PSBProxy <span class="arrow">↗</span></a>
+      </article>
+    </div>
 
-      <article class="pcard">
+    <h2 class="pg-title" data-i18n="pg.others">Другие проверенные провайдеры</h2>
+    <div class="pgrid">
+      <article class="pcard" id="partner-proxy6">
         <div class="pcard-top">
-          <div class="pcard-logo"><img src="https://i.postimg.cc/x1VrVznG/download_1_788x590.png" alt="Proxy6.net" loading="lazy"></div>
+          <div class="pf-logo sm dark"><img src="/images/partners/proxy6.png" alt="Proxy6.net" loading="lazy" width="180" height="60"></div>
           <span class="pcard-tag">IPv4 / IPv6</span>
         </div>
         <h3>Proxy6.net</h3>
         <p data-i18n="pp.p6">IPv4 и IPv6 прокси для любых задач. Высокая скорость и стабильность, HTTP, HTTPS и SOCKS5. Круглосуточная поддержка и API для автоматизации.</p>
-        <a class="btn btn-dark" href="https://proxy6.net/?r=428516" target="_blank" rel="noopener"><span data-i18n="pp.go">Перейти на</span> Proxy6 <span class="arrow">↗</span></a>
+        <a class="btn btn-dark" href="https://proxy6.net/?r=428516" target="_blank" rel="sponsored noopener"><span data-i18n="pp.go">Перейти на</span> Proxy6.net <span class="arrow">↗</span></a>
       </article>
-
-      <article class="pcard">
+      <article class="pcard" id="partner-proxys">
         <div class="pcard-top">
-          <div class="pcard-logo"><img src="https://i.postimg.cc/XY6M6C4c/Io.jpg" alt="Proxys.io" loading="lazy"></div>
+          <div class="pf-logo sm dark"><img src="/images/partners/proxys.png" alt="Proxys.io" loading="lazy" width="180" height="60"></div>
           <span class="pcard-tag" data-i18n="pp.pioTag">До 1 Gbps</span>
         </div>
         <h3>Proxys.io</h3>
         <p data-i18n="pp.pio">Приватные прокси со всеми популярными протоколами. Скорость до 1 Gbps, автоматическая ротация IP и простая панель управления в реальном времени.</p>
-        <a class="btn btn-dark" href="https://proxys.io/?ref=inter1ark" target="_blank" rel="noopener"><span data-i18n="pp.go">Перейти на</span> Proxys.io <span class="arrow">↗</span></a>
+        <a class="btn btn-dark" href="https://proxys.io/?ref=inter1ark" target="_blank" rel="sponsored noopener"><span data-i18n="pp.go">Перейти на</span> Proxys.io <span class="arrow">↗</span></a>
       </article>
-
-      <article class="pcard">
+      <article class="pcard" id="partner-webshare">
         <div class="pcard-top">
-          <div class="pcard-logo"><img src="https://i.postimg.cc/Dw3V3Xn1/webshare_logo.jpg" alt="Webshare" loading="lazy"></div>
-          <span class="pcard-tag blue" data-i18n="pp.wsTag">10 бесплатных</span>
+          <div class="pf-logo sm light"><img src="/images/partners/webshare.png" alt="Webshare" loading="lazy" width="180" height="60"></div>
+          <span class="pcard-tag" data-i18n="pp.wsTag">10 бесплатных</span>
         </div>
         <h3>Webshare</h3>
         <p data-i18n="pp.ws">10 бесплатных прокси навсегда. Хороший выбор для старта и тестов: безлимитный трафик, HTTP и SOCKS5, регистрация без карты.</p>
-        <a class="btn btn-dark" href="https://www.webshare.io/?referral_code=inter1ark" target="_blank" rel="noopener"><span data-i18n="pp.go">Перейти на</span> Webshare <span class="arrow">↗</span></a>
+        <a class="btn btn-dark" href="https://www.webshare.io/?referral_code=inter1ark" target="_blank" rel="sponsored noopener"><span data-i18n="pp.go">Перейти на</span> Webshare <span class="arrow">↗</span></a>
       </article>
-
-      <article class="pcard">
+      <article class="pcard" id="partner-brightdata">
         <div class="pcard-top">
-          <div class="pcard-logo"><img src="https://i.postimg.cc/JzCwCkMZ/bri.png" alt="Bright Data" loading="lazy"></div>
+          <div class="pf-logo sm light"><img src="/images/partners/brightdata.png" alt="Bright Data" loading="lazy" width="180" height="60"></div>
           <span class="pcard-tag">72M+ IP</span>
         </div>
         <h3>Bright Data</h3>
         <p data-i18n="pp.bd">Крупнейшая сеть прокси в мире: больше 72 миллионов резидентных IP, полная автоматизация и инструменты для бизнеса. Аптайм 99.9%.</p>
-        <a class="btn btn-dark" href="https://brightdata.com/?cam=inter1ark" target="_blank" rel="noopener"><span data-i18n="pp.go">Перейти на</span> Bright Data <span class="arrow">↗</span></a>
+        <a class="btn btn-dark" href="https://brightdata.com/?cam=inter1ark" target="_blank" rel="sponsored noopener"><span data-i18n="pp.go">Перейти на</span> Bright Data <span class="arrow">↗</span></a>
       </article>
-
-      <article class="pcard">
-        <div class="pcard-top">
-          <div class="pcard-logo"><img src="images/psb.jpg" alt="PSBProxy" loading="lazy"></div>
-          <span class="pcard-tag">LTE / 5G</span>
-        </div>
-        <h3>PSBProxy</h3>
-        <p data-i18n="pp.psb">Мобильные и резидентные прокси для арбитража, парсинга и мультиаккаунтинга. Больше 40 миллионов IP в 200+ странах, гибкая ротация, HTTP(S) и SOCKS5, API.</p>
-        <a class="btn btn-dark" href="https://psbproxy.io/register?ref=AD09FE81" target="_blank" rel="noopener"><span data-i18n="pp.go">Перейти на</span> PSBProxy <span class="arrow">↗</span></a>
-      </article>
-
     </div>
+
+    <h2 class="pg-title" data-i18n="pg.compare">Сравнение провайдеров</h2>
+    <div class="ptable-wrap">
+      <table class="ptable">
+        <thead><tr><th data-i18n="pt.h0">Провайдер</th><th data-i18n="pt.h1">Чем выделяется</th><th data-i18n="pt.h2">Как платить</th><th data-i18n="pt.h3">Попробовать</th></tr></thead>
+        <tbody><tr><th scope="row">SX.ORG</th><td data-i18n="pt.sx1">235+ гео, чистые IP</td><td data-i18n="pt.sx2">По трафику или безлимит</td><td data-i18n="pt.sx3">3 GB по промокоду bridge</td></tr><tr><th scope="row">PSBProxy</th><td data-i18n="pt.psb1">Мобильные LTE/5G и резидентные, 40+ млн IP</td><td data-i18n="pt.psb2">Гибкие тарифы, ротация и закрепление IP</td><td data-i18n="pt.psb3">Уточняй у провайдера</td></tr><tr><th scope="row">Proxy6.net</th><td data-i18n="pt.p61">IPv4 и IPv6, HTTP, HTTPS, SOCKS5</td><td data-i18n="pt.p62">Пакеты прокси, API</td><td data-i18n="pt.p63">Уточняй у провайдера</td></tr><tr><th scope="row">Proxys.io</th><td data-i18n="pt.pio1">Приватные прокси до 1 Gbps</td><td data-i18n="pt.pio2">Пакеты прокси, ротация IP</td><td data-i18n="pt.pio3">Уточняй у провайдера</td></tr><tr><th scope="row">Webshare</th><td data-i18n="pt.ws1">HTTP и SOCKS5, безлимитный трафик</td><td data-i18n="pt.ws2">Бесплатный старт, платные пакеты</td><td data-i18n="pt.ws3">10 прокси бесплатно, без карты</td></tr><tr><th scope="row">Bright Data</th><td data-i18n="pt.bd1">72M+ резидентных IP, инструменты для бизнеса</td><td data-i18n="pt.bd2">Корпоративные тарифы</td><td data-i18n="pt.bd3">Уточняй у провайдера</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="phow">
+      <h2 class="pg-title" data-i18n="pg.how">Как подключить прокси провайдера</h2>
+      <ol class="phow-steps" data-i18n="pg.steps">
+        <li>Купи прокси у провайдера и скопируй адрес, порт, логин и пароль из личного кабинета.</li>
+        <li>Открой ProxyBridge и на вкладке «Прокси» вставь строку в формате <code>socks5://user:pass@ip:port</code> или <code>ip:port:user:pass</code>.</li>
+        <li>На вкладке «Главная» выбери программы для этого прокси и нажми «Подключить»: весь компьютер или выбранные программы пойдут через него.</li>
+      </ol>
+      <p class="phow-more"><a href="/format-proksi/" data-i18n="pg.format">Подробнее о форматах прокси</a> · <a href="/kakie-proksi-vybrat/" data-i18n="pg.which">Какие прокси выбрать</a></p>
+    </div>
+
+    <div class="faq pfaq"><h2 class="pg-title" data-i18n="pg.faq">Частые вопросы</h2><details><summary data-i18n="pq.q1">Какой провайдер выбрать для ProxyBridge?</summary><p data-i18n="pq.a1">Для большинства задач подойдёт SX.ORG: много гео и тест по промокоду bridge. Для арбитража и мультиаккаунтинга, где нужны мобильные IP, смотри PSBProxy. Для первого знакомства хватит бесплатных прокси Webshare.</p></details><details><summary data-i18n="pq.q2">Нужно ли что-то настраивать у провайдера?</summary><p data-i18n="pq.a2">Нет. Возьми у провайдера адрес, порт, логин и пароль, вставь строку в ProxyBridge в формате socks5://user:pass@ip:port или ip:port:user:pass и нажми подключиться.</p></details><details><summary data-i18n="pq.q3">Почему ссылки партнёрские?</summary><p data-i18n="pq.a3">Покупка по этим ссылкам поддерживает разработку ProxyBridge и ничего не стоит тебе дополнительно. Цены и условия у провайдера те же.</p></details></div>
+
     <p class="partners-note" data-i18n="pp.note">Ссылки партнёрские. Покупка по ним поддерживает разработку ProxyBridge и ничего не стоит тебе дополнительно.</p>
   </div>
 </section>
@@ -140,7 +164,7 @@
   <div class="container">
     <h2 class="display" data-i18n="pp.ready">Готов?</h2>
     <div class="contact-cta">
-      <a class="btn btn-blue" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-Setup-3.2.0.exe"><span data-i18n="cta.download">Скачать ProxyBridge</span> <span class="arrow">↘</span></a>
+      <a class="btn btn-blue" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.3.0/ProxyBridge-Setup-3.3.0.exe"><span data-i18n="cta.download">Скачать ProxyBridge</span> <span class="arrow">↘</span></a>
       <p data-i18n="cta.note">Windows 10/11, 64-bit · Установка от имени администратора</p>
     </div>
   </div>
