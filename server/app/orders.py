@@ -7,7 +7,7 @@ import logging
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -89,44 +89,136 @@ def amount_matches_plan(amount: dict, plan_id: str) -> bool:
         return False
 
 
+def _record_yookassa_details(order: Order, payment: dict) -> None:
+    """Store fail reason, payment method and income from a YooKassa payment (not committed)."""
+    reason = payment.get("cancellation_reason")
+    if reason:
+        order.fail_reason = str(reason)[:64]
+    pay_type = payment.get("payment_method_type")
+    if pay_type:
+        order.pay_type = str(pay_type)[:32]
+    income = payment.get("income_amount")
+    if income not in (None, ""):
+        try:
+            order.income_rub = float(Decimal(str(income)))
+        except (InvalidOperation, TypeError, ValueError):
+            pass
+    order.checked_at = to_db(utcnow())
+
+
+def _record_cryptobot_details(order: Order, invoice: dict) -> None:
+    """Store the paid asset and the expiry reason from a CryptoBot invoice (not committed)."""
+    asset = invoice.get("paid_asset")
+    if asset:
+        order.pay_type = str(asset)[:32]
+    if invoice.get("status") == "expired":
+        order.fail_reason = "expired"
+    order.checked_at = to_db(utcnow())
+
+
 def apply_yookassa_payment(db: Session, order: Order, payment: dict) -> bool:
     """Apply a payment fetched from the YooKassa API. Returns True when marked paid."""
     status = payment.get("status")
+    payment_id = payment.get("id")
+    same_payment = not (order.provider_payment_id and payment_id and order.provider_payment_id != payment_id)
+    if same_payment:
+        _record_yookassa_details(order, payment)
     if status == "succeeded":
         if not amount_matches_plan(payment.get("amount") or {}, order.plan_id):
             logger.warning("YooKassa payment %s amount mismatch for order %s: %s",
-                           payment.get("id"), order.token, payment.get("amount"))
+                           payment_id, order.token, payment.get("amount"))
+            db.commit()
             return False
-        if order.provider_payment_id and payment.get("id") and order.provider_payment_id != payment.get("id"):
+        if not same_payment:
             logger.warning("YooKassa payment id mismatch for order %s", order.token)
+            db.commit()
             return False
-        mark_order_paid(db, order, provider_payment_id=payment.get("id"))
+        mark_order_paid(db, order, provider_payment_id=payment_id)
+        db.commit()
         return True
     if status == "canceled":
         mark_order_canceled(db, order)
+    db.commit()
     return False
 
 
-def check_order_with_provider(db: Session, order: Order) -> Order:
-    """Ask the provider for the current status and update the order."""
-    if order.status != "pending" or not order.provider_payment_id:
+def check_order_with_provider(db: Session, order: Order, any_status: bool = False) -> Order:
+    """Ask the provider for the current status and update the order.
+
+    By default only pending orders are checked. With any_status=True paid and
+    canceled orders are fetched too, but for them only the details
+    (fail_reason, pay_type, income_rub, checked_at) are updated, never the status.
+    """
+    if not order.provider_payment_id:
         return order
+    if order.status != "pending" and not any_status:
+        return order
+    may_change_status = order.status == "pending"
     try:
         if order.method == "yookassa":
             payment = yookassa.get_payment(order.provider_payment_id)
-            apply_yookassa_payment(db, order, payment)
+            if may_change_status:
+                apply_yookassa_payment(db, order, payment)
+            else:
+                if not payment.get("id") or payment.get("id") == order.provider_payment_id:
+                    _record_yookassa_details(order, payment)
+                db.commit()
         elif order.method == "cryptobot":
             invoice = cryptopay.get_invoice(order.provider_payment_id)
             if invoice is None:
                 return order
+            _record_cryptobot_details(order, invoice)
             inv_status = invoice.get("status")
-            if inv_status == "paid":
+            if may_change_status and inv_status == "paid":
                 mark_order_paid(db, order)
-            elif inv_status == "expired":
+            elif may_change_status and inv_status == "expired":
                 mark_order_canceled(db, order)
+            db.commit()
     except (yookassa.YooKassaError, cryptopay.CryptoPayError) as exc:
+        db.rollback()
         logger.error("Provider check failed for order %s: %s", order.token, exc)
     return order
+
+
+def backfill_provider_details(limit: int = 500, db: Session | None = None) -> dict:
+    """One-shot: re-check orders of any status that were never checked (checked_at IS NULL).
+
+    Paid and canceled orders only get their details filled; a pending order may
+    become paid or canceled exactly like in the regular poller. Not run at startup.
+    """
+    own_session = db is None
+    if own_session:
+        from . import db as dbmod
+        db = dbmod.SessionLocal()
+    counts = {"total": 0, "checked": 0, "failed": 0, "became_paid": 0, "became_canceled": 0}
+    try:
+        orders = db.scalars(select(Order)
+                            .where(Order.checked_at.is_(None), Order.provider_payment_id.isnot(None))
+                            .order_by(Order.id.desc())
+                            .limit(limit)).all()
+        counts["total"] = len(orders)
+        for order in orders:
+            before = order.status
+            try:
+                check_order_with_provider(db, order, any_status=True)
+            except Exception as exc:  # noqa: BLE001
+                db.rollback()
+                logger.warning("backfill: order %s failed: %s", order.id, exc)
+            if order.checked_at is None:
+                counts["failed"] += 1
+                continue
+            counts["checked"] += 1
+            if before == "pending" and order.status == "paid":
+                counts["became_paid"] += 1
+            elif before == "pending" and order.status == "canceled":
+                counts["became_canceled"] += 1
+        counts["remaining"] = db.scalar(select(func.count(Order.id))
+                                        .where(Order.checked_at.is_(None),
+                                               Order.provider_payment_id.isnot(None))) or 0
+    finally:
+        if own_session:
+            db.close()
+    return counts
 
 
 def order_to_dict(order: Order, admin: bool = False) -> dict:

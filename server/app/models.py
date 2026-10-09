@@ -6,7 +6,7 @@ converted to timezone-aware UTC values by the helpers below.
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -57,6 +57,11 @@ class Order(Base):
     key: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now_db)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Filled from the provider on every check (see orders.check_order_with_provider).
+    fail_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pay_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    income_rub: Mapped[float | None] = mapped_column(Float, nullable=True)
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     license: Mapped["License | None"] = relationship(back_populates="order", uselist=False)
 

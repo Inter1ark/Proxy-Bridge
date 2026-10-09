@@ -8,11 +8,12 @@ import threading
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db
@@ -20,15 +21,17 @@ from .config import SERVER_DIR, settings
 from .errors import ApiError
 from .routers import admin, checkout, license, webhook
 from .models import Order
-from .orders import check_order_with_provider
+from .orders import backfill_provider_details, check_order_with_provider  # noqa: F401
 
 logger = logging.getLogger("proxybridge")
 
 SITE_DIR = SERVER_DIR.parent / "site"
+ADMIN_UI_DIR = Path(__file__).resolve().parent / "admin_ui"
+ADMIN_UI_HEADERS = {"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store"}
 
 
 POLL_INTERVAL_SEC = 60
-POLL_MAX_AGE_HOURS = 48
+POLL_MAX_AGE_HOURS = 24 * 7
 
 
 def pending_order_poller(stop: threading.Event) -> None:
@@ -96,6 +99,22 @@ def create_app() -> FastAPI:
     app.include_router(checkout.router)
     app.include_router(webhook.router)
     app.include_router(admin.router)
+
+    # Web admin panel: a single self-contained page. Registered before the static mount.
+    @app.get("/admin", include_in_schema=False)
+    @app.get("/admin/", include_in_schema=False)
+    def admin_ui():
+        return FileResponse(ADMIN_UI_DIR / "index.html", media_type="text/html; charset=utf-8",
+                            headers=ADMIN_UI_HEADERS)
+
+    @app.get("/admin/assets/{path:path}", include_in_schema=False)
+    def admin_ui_asset(path: str):
+        base = (ADMIN_UI_DIR / "assets").resolve()
+        target = (base / path).resolve()
+        if base not in target.parents or not target.is_file():
+            return JSONResponse({"ok": False, "error": "not_found"}, status_code=404,
+                                headers=ADMIN_UI_HEADERS)
+        return FileResponse(target, headers=ADMIN_UI_HEADERS)
 
     # Static site mounted last so API routes always win.
     if SITE_DIR.is_dir():
