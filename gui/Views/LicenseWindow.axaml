@@ -1,15 +1,16 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:ProxyBridge.GUI.ViewModels"
+        xmlns:i="using:ProxyBridge.GUI.Services"
+        xmlns:c="using:ProxyBridge.GUI.Controls"
         x:Class="ProxyBridge.GUI.Views.LicenseWindow"
         x:DataType="vm:LicenseViewModel"
         x:CompileBindings="True"
-        Title="ProxyBridge - Активация лицензии"
+        Title="{i:Tr license.window_title}"
         Icon="/Assets/logo.ico"
-        Width="520" Height="400"
+        Width="580" Height="560"
         CanResize="False"
-        WindowStartupLocation="CenterScreen"
-        Background="#1a1d2e">
+        WindowStartupLocation="CenterScreen">
 
     <Design.DataContext>
         <vm:LicenseViewModel/>
@@ -17,148 +18,108 @@
 
     <Window.Styles>
         <Style Selector="TextBox.key">
-            <Setter Property="Background" Value="#1f2937"/>
-            <Setter Property="BorderBrush" Value="#33364a"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Foreground" Value="#ffffff"/>
-            <Setter Property="CaretBrush" Value="#00d9ff"/>
-            <Setter Property="FontSize" Value="15"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="14,10"/>
-            <Setter Property="Height" Value="42"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="17"/>
             <Setter Property="LetterSpacing" Value="1.5"/>
-        </Style>
-        <Style Selector="TextBox.key:focus /template/ Border#PART_BorderElement">
-            <Setter Property="BorderBrush" Value="#00d9ff"/>
-            <Setter Property="Background" Value="#1f2937"/>
-        </Style>
-        <Style Selector="TextBox.key:pointerover /template/ Border#PART_BorderElement">
-            <Setter Property="BorderBrush" Value="#00d9ff"/>
-            <Setter Property="Background" Value="#1f2937"/>
-        </Style>
-
-        <Style Selector="Button.primary">
-            <Setter Property="Background" Value="#00d9ff"/>
-            <Setter Property="Foreground" Value="#1a1d2e"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Height" Value="42"/>
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="MinHeight" Value="50"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#33e1ff"/>
-            <Setter Property="Foreground" Value="#1a1d2e"/>
-        </Style>
-        <Style Selector="Button.primary:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="#00b8d9"/>
-            <Setter Property="Foreground" Value="#1a1d2e"/>
-        </Style>
-        <Style Selector="Button.primary:disabled /template/ ContentPresenter">
-            <Setter Property="Background" Value="#2a4d58"/>
-            <Setter Property="Foreground" Value="#8b9dc3"/>
-        </Style>
-
-        <Style Selector="Button.link">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#00d9ff"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="4,2"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
-        </Style>
-        <Style Selector="Button.link:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#66e8ff"/>
-            <Setter Property="TextBlock.TextDecorations" Value="Underline"/>
-        </Style>
-        <Style Selector="Button.link:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#00b8d9"/>
+        <Style Selector="Button.lang">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="40"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="FontFamily" Value="{StaticResource PbMonoFont}"/>
+            <Setter Property="FontSize" Value="12"/>
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="Auto,*,Auto" Margin="36,26,36,18">
+    <Border x:Name="Root" Background="{StaticResource PbWindowBgBrush}"
+            BorderBrush="{StaticResource PbLineBrush}" BorderThickness="1">
+        <Grid RowDefinitions="52,Auto,*,Auto">
 
-        <!-- Header: logo + title -->
-        <StackPanel Grid.Row="0" Spacing="6">
-            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                <Viewbox Width="26" Height="26" VerticalAlignment="Center">
-                    <Canvas Width="48" Height="32">
-                        <Path Data="M0 32 L15 9 L27 24 L21 32 Z" Fill="#FFFFFF"/>
-                        <Path Data="M13 32 L30 1 L48 32 Z" Fill="#2d5bff"/>
-                    </Canvas>
-                </Viewbox>
-                <TextBlock Text="ProxyBridge"
-                           FontSize="22"
-                           FontWeight="Bold"
-                           Foreground="#00d9ff"
-                           VerticalAlignment="Center"/>
-            </StackPanel>
+            <!-- title bar -->
+            <Border Grid.Row="0" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="Auto,1,*,Auto,Auto">
+                    <Border Grid.ColumnSpan="5" Background="Transparent" c:TitleDrag.IsEnabled="True"/>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" Margin="22,0,20,0"
+                                VerticalAlignment="Center" IsHitTestVisible="False">
+                        <c:BrandMark Width="30" Height="20"/>
+                        <TextBlock Text="proxybridge" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,2"/>
+                    </StackPanel>
+                    <Border Grid.Column="1" Classes="vline"/>
+                    <TextBlock Grid.Column="2" Classes="hdr" Margin="20,0,0,0" VerticalAlignment="Center"
+                               IsHitTestVisible="False" Text="{i:Tr license.title_caps}"/>
+                    <Border Grid.Column="3" Classes="segmented" Padding="2" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Classes="pb seg lang" Classes.active="{Binding IsRussian}" Command="{Binding SetRussianCommand}" Content="RU"
+                                    AutomationProperties.AutomationId="LangRu"/>
+                            <Button Classes="pb seg lang" Classes.active="{Binding IsEnglish}" Command="{Binding SetEnglishCommand}" Content="EN"
+                                    AutomationProperties.AutomationId="LangEn"/>
+                        </StackPanel>
+                    </Border>
+                    <c:WindowButtons Grid.Column="4" ShowMinimize="False" ShowMaximize="False"/>
+                </Grid>
+            </Border>
 
-            <TextBlock Text="Активация лицензии"
-                       FontSize="18"
-                       FontWeight="SemiBold"
-                       Foreground="#ffffff"
-                       HorizontalAlignment="Center"
-                       Margin="0,10,0,0"/>
+            <!-- hero -->
+            <Border Grid.Row="1" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,0,0,1" ClipToBounds="True">
+                <Panel>
+                    <TextBlock Text="PB" FontFamily="{StaticResource PbDisplayFont}" FontWeight="Bold" FontSize="210"
+                               Foreground="{StaticResource PbHeroLettersBrush}" HorizontalAlignment="Right"
+                               VerticalAlignment="Top" Margin="0,-40,22,-90" IsHitTestVisible="False"/>
+                    <StackPanel Margin="30,26,30,24" Spacing="12">
+                        <StackPanel>
+                            <TextBlock Classes="display" FontWeight="Bold" FontSize="46" LineHeight="48" Foreground="#FFFFFF"
+                                       Text="{i:Tr license.hero1}"/>
+                            <TextBlock Classes="display" FontWeight="Bold" FontSize="46" LineHeight="48"
+                                       Foreground="{StaticResource PbHeroBlueBrush}" Text="{i:Tr license.hero2}"/>
+                        </StackPanel>
+                        <TextBlock Classes="mono" FontSize="13" LineHeight="20" TextWrapping="Wrap" MaxWidth="400"
+                                   HorizontalAlignment="Left" Text="{i:Tr license.activate_text}"/>
+                    </StackPanel>
+                </Panel>
+            </Border>
 
-            <TextBlock Text="Для работы ProxyBridge нужен ключ лицензии. Введите ключ, который пришёл на почту после оплаты."
-                       FontSize="12"
-                       Foreground="#8b9dc3"
-                       TextWrapping="Wrap"
-                       TextAlignment="Center"
-                       HorizontalAlignment="Center"
-                       MaxWidth="420"/>
-        </StackPanel>
-
-        <!-- Card: key input, button, status -->
-        <Border Grid.Row="1"
-                Background="#1f2937"
-                CornerRadius="12"
-                Padding="20,18"
-                Margin="0,18,0,12"
-                VerticalAlignment="Center">
-            <StackPanel Spacing="12">
-                <TextBox Classes="key"
+            <!-- key -->
+            <StackPanel Grid.Row="2" Margin="30,22,30,18" Spacing="12" VerticalAlignment="Center">
+                <TextBlock Classes="label" FontSize="12" Foreground="{StaticResource PbMutedBrush}" Text="{i:Tr license.key_caps}"/>
+                <TextBox x:Name="KeyBox" Classes="key mono"
                          Text="{Binding KeyText}"
                          Watermark="PB-XXXX-XXXX-XXXX-XXXX"
                          MaxLength="32"
-                         IsEnabled="{Binding IsNotBusy}"
-                         HorizontalContentAlignment="Center"
-                         x:Name="KeyBox"/>
-
-                <Button Classes="primary"
-                        Content="Активировать"
+                         IsEnabled="{Binding IsNotBusy}"/>
+                <Button Classes="pb primary caps" Height="50" HorizontalAlignment="Stretch"
                         Command="{Binding ActivateCommand}"
                         IsEnabled="{Binding IsNotBusy}"
-                        IsDefault="True"/>
-
-                <TextBlock Text="{Binding StatusText}"
-                           Foreground="{Binding StatusColor}"
-                           FontSize="12"
+                        IsDefault="True">
+                    <StackPanel>
+                        <Arc Classes="spin" Width="16" Height="16" StrokeThickness="2" Stroke="#FFFFFF"
+                             IsVisible="{Binding IsBusy}"/>
+                        <TextBlock Text="{i:Tr license.activate_caps}"/>
+                    </StackPanel>
+                </Button>
+                <TextBlock Classes="mono" FontSize="12.5" TextAlignment="Center" HorizontalAlignment="Center" MinHeight="18"
                            TextWrapping="Wrap"
-                           TextAlignment="Center"
-                           HorizontalAlignment="Center"
-                           MinHeight="18"/>
+                           Classes.cyan="{Binding Status.IsSuccess}"
+                           Classes.danger="{Binding Status.IsError}"
+                           Text="{Binding Status.Text}"/>
             </StackPanel>
-        </Border>
 
-        <!-- Footer: buy link + prices -->
-        <StackPanel Grid.Row="2" Spacing="4">
-            <Button Classes="link"
-                    Content="Купить лицензию"
-                    Command="{Binding BuyCommand}"/>
-            <TextBlock Text="99 ₽ в месяц · 249 ₽ за 3 месяца · 699 ₽ навсегда"
-                       FontSize="11"
-                       Foreground="#8b9dc3"
-                       HorizontalAlignment="Center"/>
-        </StackPanel>
-    </Grid>
+            <!-- buy -->
+            <Border Grid.Row="3" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,1,0,0" Padding="30,12,30,14">
+                <StackPanel Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Classes="mono" FontSize="12.5" VerticalAlignment="Center" Text="{i:Tr license.no_key}"/>
+                        <Button Classes="pb link" VerticalAlignment="Center" Command="{Binding BuyCommand}">
+                            <StackPanel>
+                                <TextBlock Text="{i:Tr license.buy}" FontFamily="{StaticResource PbDisplayFont}" FontWeight="Medium" FontSize="16"/>
+                                <c:Icon Data="{StaticResource IcoArrowUpRight}" Width="16" Height="16" StrokeThickness="1.6"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                    <TextBlock Classes="mono" FontSize="11.5" Foreground="{StaticResource PbMutedBrush}"
+                               TextWrapping="Wrap" Text="{i:Tr license.prices}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
 </Window>

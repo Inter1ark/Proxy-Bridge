@@ -43,7 +43,7 @@ public sealed class MacProxyEngine : IProxyEngine
 
     public MacProxyEngine()
     {
-        _dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ProxyBridge");
+        _dataDir = ConfigManager.ConfigDirectory;
         _tokenFile = Path.Combine(_dataDir, "pbcore.token");
         _logFile = Path.Combine(_dataDir, "pbcore.log");
         try { Directory.CreateDirectory(_dataDir); } catch { }
@@ -91,12 +91,12 @@ public sealed class MacProxyEngine : IProxyEngine
         if (_isRunning) return true;
         if (string.IsNullOrEmpty(_proxyIp))
         {
-            _lastError = "Proxy is not configured";
+            _lastError = I18n.T("engine.not_configured");
             return false;
         }
         if (!File.Exists(PbcorePath))
         {
-            _lastError = $"pbcore helper not found at {PbcorePath}";
+            _lastError = I18n.T("engine.mac.helper_missing", PbcorePath);
             Log(_lastError);
             return false;
         }
@@ -134,7 +134,7 @@ public sealed class MacProxyEngine : IProxyEngine
         }
         catch (Exception ex)
         {
-            _lastError = $"Cannot write launcher: {ex.Message}";
+            _lastError = I18n.T("engine.mac.launcher_failed", ex.Message);
             Log(_lastError);
             return false;
         }
@@ -148,8 +148,8 @@ public sealed class MacProxyEngine : IProxyEngine
         if (!ok)
         {
             _lastError = output.Contains("-128") || output.Contains("canceled", StringComparison.OrdinalIgnoreCase)
-                ? "Administrator password prompt was cancelled"
-                : $"Could not start pbcore: {output}";
+                ? I18n.T("engine.mac.admin_cancelled")
+                : I18n.T("engine.mac.start_failed", output);
             Log(_lastError);
             try { File.Delete(proxyFile); } catch { }
             return false;
@@ -160,7 +160,7 @@ public sealed class MacProxyEngine : IProxyEngine
         var client = await ConnectControlAsync(TimeSpan.FromSeconds(8));
         if (client == null)
         {
-            _lastError = "pbcore did not start (control socket unreachable). " + TailLog();
+            _lastError = I18n.T("engine.mac.no_control") + " " + TailLog();
             Log(_lastError);
             try { File.Delete(proxyFile); } catch { }
             return false;
@@ -179,7 +179,7 @@ public sealed class MacProxyEngine : IProxyEngine
         try { File.Delete(proxyFile); } catch { }
         if (first != upTcs.Task || !upTcs.Task.Result)
         {
-            if (string.IsNullOrEmpty(_lastError)) _lastError = "pbcore did not report ready in time. " + TailLog();
+            if (string.IsNullOrEmpty(_lastError)) _lastError = I18n.T("engine.mac.not_ready") + " " + TailLog();
             Log(_lastError);
             Stop();
             return false;
@@ -229,7 +229,7 @@ public sealed class MacProxyEngine : IProxyEngine
                             break;
                         case "down":
                             Log("[pbcore] down");
-                            exitMessage ??= "pbcore stopped";
+                            exitMessage ??= I18n.T("engine.mac.stopped");
                             upTcs.TrySetResult(false);
                             break;
                         default:
@@ -241,7 +241,7 @@ public sealed class MacProxyEngine : IProxyEngine
         }
         catch (Exception ex)
         {
-            if (!ct.IsCancellationRequested) exitMessage ??= $"control connection lost: {ex.Message}";
+            if (!ct.IsCancellationRequested) exitMessage ??= I18n.T("engine.mac.connection_lost", ex.Message);
         }
         finally
         {
@@ -250,7 +250,7 @@ public sealed class MacProxyEngine : IProxyEngine
             _isRunning = false;
             if (wasRunning && !_stopRequested)
             {
-                Stopped?.Invoke(exitMessage ?? "pbcore exited unexpectedly");
+                Stopped?.Invoke(exitMessage ?? I18n.T("engine.mac.exited"));
             }
         }
     }
@@ -381,7 +381,7 @@ public sealed class MacProxyEngine : IProxyEngine
             if (!File.Exists(_logFile)) return "";
             var lines = File.ReadAllLines(_logFile);
             var start = Math.Max(0, lines.Length - 5);
-            return "Log: " + string.Join(" | ", lines, start, lines.Length - start);
+            return I18n.T("engine.mac.log_prefix") + " " + string.Join(" | ", lines, start, lines.Length - start);
         }
         catch
         {

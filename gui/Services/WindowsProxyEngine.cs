@@ -19,7 +19,7 @@ public sealed class WindowsProxyEngine : IProxyEngine
     public ProxyBridgeService Service => _service;
 
     public bool SupportsSplitTunnel => true;
-    public bool ProvidesTrafficStats => false;
+    public bool ProvidesTrafficStats => true;
     public string LastError => "";
     public bool IsRunning => _isRunning;
 
@@ -65,7 +65,21 @@ public sealed class WindowsProxyEngine : IProxyEngine
     {
         upBytes = 0;
         downBytes = 0;
-        return false;
+        try
+        {
+            ProxyBridge.GUI.Interop.ProxyBridgeNative.ProxyBridge_GetTrafficStats(out var up, out var down);
+            upBytes = (long)up;
+            downBytes = (long)down;
+            return true;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false; // older core library without counters
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
     }
 
     public void Dispose()

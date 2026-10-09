@@ -8,16 +8,10 @@ namespace ProxyBridge.GUI.ViewModels;
 
 public class LicenseViewModel : ViewModelBase
 {
-    public const string ErrorColor = "#f87171";
-    public const string SuccessColor = "#4ade80";
-    public const string NeutralColor = "#8b9dc3";
-
     private readonly LicenseService _license;
     private readonly bool _autoVerify;
 
     private string _keyText = "";
-    private string _statusText = "";
-    private string _statusColor = NeutralColor;
     private bool _isBusy;
 
     /// <summary>Raised on the UI thread after a successful activation / verification.</summary>
@@ -25,7 +19,8 @@ public class LicenseViewModel : ViewModelBase
 
     public LicenseViewModel() : this(LicenseService.Instance, false, null) { }
 
-    public LicenseViewModel(LicenseService license, bool autoVerify, string? initialMessage)
+    /// <param name="initialMessageKey">Optional i18n key shown as an error on open (for example "license.msg.unlinked").</param>
+    public LicenseViewModel(LicenseService license, bool autoVerify, string? initialMessageKey)
     {
         _license = license;
         _autoVerify = autoVerify;
@@ -33,36 +28,24 @@ public class LicenseViewModel : ViewModelBase
         var cached = _license.GetCachedState();
         if (cached.HasKey) _keyText = cached.Key;
 
-        if (!string.IsNullOrWhiteSpace(initialMessage))
-        {
-            _statusText = initialMessage;
-            _statusColor = ErrorColor;
-        }
+        if (!string.IsNullOrWhiteSpace(initialMessageKey))
+            Status.Set(initialMessageKey, initialMessageKey == "license.msg.unlinked" ? StatusKind.Neutral : StatusKind.Error);
 
         ActivateCommand = new RelayCommand(async () => await ActivateAsync(), () => !_isBusy);
         BuyCommand = new RelayCommand(OpenBuyPage);
+        SetRussianCommand = new RelayCommand(() => I18n.Instance.SetLanguageAndSave(I18n.Russian));
+        SetEnglishCommand = new RelayCommand(() => I18n.Instance.SetLanguageAndSave(I18n.English));
+
+        I18n.Instance.LanguageChanged += OnLanguageChanged;
     }
+
+    /// <summary>Status line under the key field (re-localized on language change).</summary>
+    public LocStatus Status { get; } = new();
 
     public string KeyText
     {
         get => _keyText;
-        set
-        {
-            var upper = (value ?? "").ToUpperInvariant();
-            SetProperty(ref _keyText, upper);
-        }
-    }
-
-    public string StatusText
-    {
-        get => _statusText;
-        set => SetProperty(ref _statusText, value);
-    }
-
-    public string StatusColor
-    {
-        get => _statusColor;
-        set => SetProperty(ref _statusColor, value);
+        set => SetProperty(ref _keyText, (value ?? "").ToUpperInvariant());
     }
 
     public bool IsBusy
@@ -80,8 +63,25 @@ public class LicenseViewModel : ViewModelBase
 
     public bool IsNotBusy => !_isBusy;
 
+    public bool IsRussian => I18n.Instance.IsRussian;
+    public bool IsEnglish => !I18n.Instance.IsRussian;
+
     public ICommand ActivateCommand { get; }
     public ICommand BuyCommand { get; }
+    public ICommand SetRussianCommand { get; }
+    public ICommand SetEnglishCommand { get; }
+
+    private void OnLanguageChanged()
+    {
+        Status.Refresh();
+        OnPropertyChanged(nameof(IsRussian));
+        OnPropertyChanged(nameof(IsEnglish));
+    }
+
+    public void Detach()
+    {
+        I18n.Instance.LanguageChanged -= OnLanguageChanged;
+    }
 
     /// <summary>Called by the window once it is opened: runs the online verification for a stale cache.</summary>
     public async Task OnOpenedAsync()
@@ -89,27 +89,23 @@ public class LicenseViewModel : ViewModelBase
         if (!_autoVerify) return;
 
         IsBusy = true;
-        StatusText = "Проверка лицензии...";
-        StatusColor = NeutralColor;
+        Status.Set("license.msg.verifying");
         try
         {
             var result = await _license.VerifyForStartupAsync();
             if (result.Ok)
             {
-                StatusText = "Лицензия подтверждена";
-                StatusColor = SuccessColor;
+                Status.Set("license.msg.verified", StatusKind.Success);
                 Activated?.Invoke();
                 return;
             }
 
-            StatusText = result.Message;
-            StatusColor = ErrorColor;
+            Status.Set(LicenseService.ErrorToKey(result.Error), StatusKind.Error, result.Error);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"[License] verify failed: {ex.Message}");
-            StatusText = LicenseService.ErrorToMessage("network");
-            StatusColor = ErrorColor;
+            Status.Set(LicenseService.ErrorToKey("network"), StatusKind.Error);
         }
         finally
         {
@@ -124,35 +120,33 @@ public class LicenseViewModel : ViewModelBase
         var key = LicenseService.NormalizeKey(KeyText);
         if (!LicenseService.IsValidKeyFormat(key))
         {
-            StatusText = "Введите ключ в формате PB-XXXX-XXXX-XXXX-XXXX";
-            StatusColor = ErrorColor;
+            Status.Set("license.msg.bad_format", StatusKind.Error);
             return;
         }
         KeyText = key;
 
         IsBusy = true;
-        StatusText = "Активация...";
-        StatusColor = NeutralColor;
+        Status.Set("license.msg.activating");
         try
         {
             var result = await _license.ActivateAsync(key);
             if (result.Ok)
             {
                 var plan = LicenseService.PlanToDisplayName(result.Plan);
-                StatusText = string.IsNullOrEmpty(plan) ? "Лицензия активирована" : $"Лицензия активирована: {plan}";
-                StatusColor = SuccessColor;
+                if (string.IsNullOrEmpty(plan))
+                    Status.Set("license.msg.activated", StatusKind.Success);
+                else
+                    Status.Set("license.msg.activated_plan", StatusKind.Success, plan);
                 Activated?.Invoke();
                 return;
             }
 
-            StatusText = result.Message;
-            StatusColor = ErrorColor;
+            Status.Set(LicenseService.ErrorToKey(result.Error), StatusKind.Error, result.Error);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"[License] activate failed: {ex.Message}");
-            StatusText = LicenseService.ErrorToMessage("network");
-            StatusColor = ErrorColor;
+            Status.Set(LicenseService.ErrorToKey("network"), StatusKind.Error);
         }
         finally
         {

@@ -1,0 +1,422 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ProxyBridge.GUI.ViewModels"
+             xmlns:i="using:ProxyBridge.GUI.Services"
+             xmlns:c="using:ProxyBridge.GUI.Controls"
+             x:Class="ProxyBridge.GUI.Views.Pages.HomePage"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="True">
+
+    <UserControl.Resources>
+        <!-- proxy picker entry: flag + name + host:port, or "Direct" -->
+        <DataTemplate x:Key="ChoiceTemplate" x:DataType="vm:ProxyChoice">
+            <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
+                <Panel Width="20" Height="15" VerticalAlignment="Center">
+                    <c:FlagImage IsVisible="{Binding IsProxy}" CountryCode="{Binding Item.CountryCode, FallbackValue=''}"/>
+                    <c:Icon IsVisible="{Binding IsDirect}" Data="{StaticResource IcoBan}" Width="15" Height="15"
+                            StrokeThickness="1.7" Foreground="{StaticResource PbText2Brush}" HorizontalAlignment="Center"/>
+                </Panel>
+                <TextBlock Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center" FontSize="14"
+                           TextTrimming="CharacterEllipsis" IsVisible="{Binding Item.HasDistinctName, FallbackValue=False}"
+                           Text="{Binding Item.Name, FallbackValue=''}"/>
+                <TextBlock Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center" FontSize="14"
+                           TextTrimming="CharacterEllipsis" IsVisible="{Binding Item.NoDistinctName, FallbackValue=False}"
+                           Text="{Binding Item.HostPort, FallbackValue=''}"/>
+                <TextBlock Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center" FontSize="14"
+                           TextTrimming="CharacterEllipsis" IsVisible="{Binding IsDirect}"
+                           Text="{i:Tr home.direct}"/>
+                <TextBlock Grid.Column="2" Classes="mono" FontSize="11.5" VerticalAlignment="Center" MaxWidth="150"
+                           Foreground="{StaticResource PbMutedBrush}" TextTrimming="CharacterEllipsis"
+                           IsVisible="{Binding Item.HasDistinctName, FallbackValue=False}" Text="{Binding Item.HostPort, FallbackValue=''}"/>
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="ComboBox.choice">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="MaxDropDownHeight" Value="360"/>
+        </Style>
+        <!-- program picker button in a row -->
+        <Style Selector="Button.apppick">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Padding" Value="10,0,10,0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="{StaticResource PbBg2Brush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PbLine2Brush}"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+        </Style>
+        <Style Selector="Button.apppick:pointerover">
+            <Setter Property="Background" Value="{StaticResource PbPanelBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PbOutlineBrush}"/>
+        </Style>
+        <Style Selector="Border.rulerow">
+            <Setter Property="BorderBrush" Value="{StaticResource PbLineBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="28,0,24,0"/>
+            <Setter Property="MinHeight" Value="58"/>
+        </Style>
+        <Style Selector="Border.rulerow.off TextBlock.appname">
+            <Setter Property="Foreground" Value="{StaticResource PbMutedBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.colhdr">
+            <Setter Property="FontFamily" Value="{StaticResource PbMonoFont}"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="LetterSpacing" Value="0.6"/>
+            <Setter Property="Foreground" Value="{StaticResource PbMutedBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="TextBlock.statusword">
+            <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+        </Style>
+        <Style Selector="TextBlock.statusword.on">
+            <Setter Property="Foreground" Value="{StaticResource PbCyanBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.statusword.err">
+            <Setter Property="Foreground" Value="{StaticResource PbDangerTextBrush}"/>
+        </Style>
+        <!-- running program in the picker -->
+        <Style Selector="Button.pickitem">
+            <Setter Property="Height" Value="NaN"/>
+            <Setter Property="MinHeight" Value="48"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PbLineBrush}"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+        </Style>
+        <Style Selector="Button.pickitem:pointerover">
+            <Setter Property="Background" Value="#142F5BFF"/>
+        </Style>
+        <Style Selector="Border.metricsep">
+            <Setter Property="Width" Value="1"/>
+            <Setter Property="Background" Value="{StaticResource PbLineBrush}"/>
+            <Setter Property="Margin" Value="0,16"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Panel>
+        <Grid RowDefinitions="*,Auto" ColumnDefinitions="*,340">
+
+            <!-- ===================== Left: rules table ===================== -->
+            <Grid Grid.Row="0" Grid.Column="0" RowDefinitions="Auto,Auto,*">
+                <!-- header -->
+                <StackPanel Grid.Row="0" Margin="28,20,24,14" Spacing="4">
+                    <TextBlock Classes="title" FontSize="28" LineHeight="34" TextTrimming="CharacterEllipsis"
+                               Text="{i:Tr home.title_caps}"/>
+                    <TextBlock Classes="mono" FontSize="12.5" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                               IsVisible="{Binding SupportsSplitTunnel}" Text="{i:Tr home.subtitle}"/>
+                    <TextBlock Classes="mono" FontSize="12.5" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                               IsVisible="{Binding !SupportsSplitTunnel}" Text="{i:Tr home.subtitle_mac}"/>
+                    <Border Classes="notice warning" Margin="0,8,0,0" IsVisible="{Binding HasFirewallWarning}">
+                        <TextBlock Classes="mono" FontSize="12" TextWrapping="Wrap" Text="{i:Tr home.firewall_warning}"/>
+                    </Border>
+                </StackPanel>
+
+                <!-- column headers -->
+                <Border Grid.Row="1" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,1,0,1"
+                        Padding="28,0,24,0" Height="32" IsVisible="{Binding SupportsSplitTunnel}">
+                    <Grid ColumnDefinitions="*,36,1.25*,64,44">
+                        <TextBlock Grid.Column="0" Classes="colhdr" Text="{i:Tr home.col.app}"/>
+                        <TextBlock Grid.Column="2" Classes="colhdr" Text="{i:Tr home.col.proxy}"/>
+                        <TextBlock Grid.Column="3" Classes="colhdr" HorizontalAlignment="Center" Text="{i:Tr home.col.on}"/>
+                    </Grid>
+                </Border>
+
+                <!-- table: app rows, then the fixed "all other apps" row, then Add -->
+                <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <Panel IsVisible="{Binding SupportsSplitTunnel}">
+                                <ItemsControl ItemsSource="{Binding Rules}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:RuleRow">
+                                            <Border Classes="rulerow" Classes.off="{Binding !Enabled}">
+                                                <Grid ColumnDefinitions="*,36,1.25*,64,44" MinHeight="58">
+                                                    <Button Grid.Column="0" Classes="pb apppick" VerticalAlignment="Center"
+                                                            Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).PickAppCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            ToolTip.Tip="{Binding PathTip}">
+                                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                                            <Panel Width="24" Height="24" VerticalAlignment="Center">
+                                                                <Image Source="{Binding Icon}" IsVisible="{Binding HasIcon}" Width="22" Height="22"
+                                                                       RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                                                                <Border Classes="avatar" Width="24" Height="24" CornerRadius="5" IsVisible="{Binding ShowLetter}">
+                                                                    <TextBlock Text="{Binding Letter}" FontSize="13"/>
+                                                                </Border>
+                                                                <c:Icon IsVisible="{Binding HasNoApp}" Data="{StaticResource IcoApps}" Width="20" Height="20"
+                                                                        StrokeThickness="1.5" Foreground="{StaticResource PbMutedBrush}"/>
+                                                            </Panel>
+                                                            <TextBlock Grid.Column="1" Classes="appname" Margin="10,0,8,0" VerticalAlignment="Center"
+                                                                       FontSize="14" FontWeight="Medium" TextTrimming="CharacterEllipsis"
+                                                                       IsVisible="{Binding HasApp}" Text="{Binding DisplayName}"/>
+                                                            <TextBlock Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center"
+                                                                       FontSize="14" Foreground="{StaticResource PbMutedBrush}" TextTrimming="CharacterEllipsis"
+                                                                       IsVisible="{Binding HasNoApp}" Text="{i:Tr home.pick_app}"/>
+                                                            <Path Grid.Column="2" Data="M0 0 L4 4 L8 0" Stroke="{StaticResource PbText2Brush}"
+                                                                  StrokeThickness="1.3" VerticalAlignment="Center" Margin="0,2,2,0"/>
+                                                        </Grid>
+                                                    </Button>
+
+                                                    <c:Icon Grid.Column="1" Data="{StaticResource IcoArrowRight}" Width="16" Height="16"
+                                                            StrokeThickness="1.5" Foreground="{StaticResource PbMutedBrush}"
+                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                                                    <ComboBox Grid.Column="2" Classes="choice"
+                                                              ItemsSource="{Binding Choices}"
+                                                              SelectedItem="{Binding Choice}"
+                                                              ItemTemplate="{StaticResource ChoiceTemplate}"/>
+
+                                                    <ToggleButton Grid.Column="3" Classes="switch" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                  IsChecked="{Binding Enabled}"
+                                                                  ToolTip.Tip="{i:Tr home.toggle_tip}"/>
+
+                                                    <Button Grid.Column="4" Classes="pb icon danger" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                            Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).RemoveRuleCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            ToolTip.Tip="{i:Tr home.remove_tip}">
+                                                        <c:Icon Data="{StaticResource IcoTrash}"/>
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                        </Panel>
+
+                        <!-- no app rows yet -->
+                        <Grid ColumnDefinitions="Auto,*" Margin="28,14,24,14" IsVisible="{Binding ShowNoRulesHint}">
+                            <c:Icon Data="{StaticResource IcoInfo}" Width="16" Height="16" StrokeThickness="1.5"
+                                    Foreground="{StaticResource PbMutedBrush}" VerticalAlignment="Top" Margin="0,1,10,0"/>
+                            <TextBlock Grid.Column="1" Classes="mono" FontSize="12.5" LineHeight="19" TextWrapping="Wrap"
+                                       Text="{i:Tr home.no_rules}"/>
+                        </Grid>
+
+                        <!-- mac: no per-app rows -->
+                        <Grid ColumnDefinitions="Auto,*" Margin="28,14,24,14" IsVisible="{Binding !SupportsSplitTunnel}">
+                            <c:Icon Data="{StaticResource IcoMonitor}" Width="16" Height="16" StrokeThickness="1.5"
+                                    Foreground="{StaticResource PbMutedBrush}" VerticalAlignment="Top" Margin="0,1,10,0"/>
+                            <TextBlock Grid.Column="1" Classes="mono" FontSize="12.5" LineHeight="19" TextWrapping="Wrap"
+                                       Text="{i:Tr home.mac_note}"/>
+                        </Grid>
+
+                        <!-- fixed last row: all other apps -->
+                        <Border Background="{StaticResource PbBg2Brush}" BorderBrush="{StaticResource PbLine2Brush}"
+                                BorderThickness="0,0,0,1" Padding="28,0,24,0">
+                            <Grid ColumnDefinitions="*,36,1.25*,64,44" MinHeight="62">
+                                <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,0,0">
+                                    <Border Width="34" Height="34" CornerRadius="3" BorderThickness="1"
+                                            BorderBrush="{StaticResource PbLine2Brush}" Background="{StaticResource PbPanelBrush}">
+                                        <c:Icon Data="{StaticResource IcoGrid4}" Width="16" Height="16" StrokeThickness="1.5"
+                                                Foreground="{StaticResource PbTextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="10,0,6,0" VerticalAlignment="Center" Spacing="1">
+                                        <TextBlock FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                   Text="{i:Tr home.all_other}"/>
+                                        <TextBlock Classes="mono" FontSize="11.5" Foreground="{StaticResource PbMutedBrush}"
+                                                   TextTrimming="CharacterEllipsis" Text="{i:Tr home.all_other_sub}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <c:Icon Grid.Column="1" Data="{StaticResource IcoArrowRight}" Width="16" Height="16"
+                                        StrokeThickness="1.5" Foreground="{StaticResource PbMutedBrush}"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Column="2" Classes="choice" AutomationProperties.AutomationId="DefaultProxy"
+                                          ItemsSource="{Binding ProxyChoices}"
+                                          SelectedItem="{Binding DefaultChoice}"
+                                          ItemTemplate="{StaticResource ChoiceTemplate}"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- add + status -->
+                        <Grid ColumnDefinitions="Auto,*" Margin="28,14,24,16" MinHeight="40">
+                            <Button Grid.Column="0" Classes="pb outline" VerticalAlignment="Top"
+                                    IsVisible="{Binding SupportsSplitTunnel}"
+                                    Command="{Binding AddRuleCommand}"
+                                    AutomationProperties.AutomationId="AddRule">
+                                <StackPanel>
+                                    <c:Icon Data="{StaticResource IcoPlus}"/>
+                                    <TextBlock Text="{i:Tr home.add_app}"/>
+                                </StackPanel>
+                            </Button>
+                            <Border Grid.Column="1" Classes="notice" Margin="14,0,0,0" VerticalAlignment="Center"
+                                    Classes.success="{Binding RulesStatus.IsSuccess}"
+                                    Classes.warning="{Binding RulesStatus.IsWarning}"
+                                    Classes.danger="{Binding RulesStatus.IsError}"
+                                    IsVisible="{Binding RulesStatus.HasText}">
+                                <TextBlock Classes="mono" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding RulesStatus.Text}"/>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- ===================== Right: connection ===================== -->
+            <Border Grid.Row="0" Grid.Column="1" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="1,0,0,0">
+                <Grid RowDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="24,18,24,16">
+                    <TextBlock Grid.Row="0" Classes="hdr" Text="{i:Tr ov.connection}"/>
+
+                    <c:PowerDial Grid.Row="1" Margin="0,8,0,6" MaxWidth="230" MaxHeight="230" MinHeight="96"
+                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                 State="{Binding PowerState}"
+                                 Command="{Binding MainActionCommand}"
+                                 ToolTip.Tip="{Binding ConnectButtonLabel}"
+                                 AutomationProperties.AutomationId="PowerDial"/>
+
+                    <TextBlock Grid.Row="2" Classes="display statusword" FontSize="21" FontWeight="Medium" LetterSpacing="0.8"
+                               Classes.on="{Binding IsConnected}" Classes.err="{Binding IsErrorState}"
+                               HorizontalAlignment="Center" Text="{Binding StatusWord}"/>
+
+                    <TextBlock Grid.Row="3" Classes="mono" FontSize="12" LineHeight="17" TextAlignment="Center"
+                               TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
+                               Classes.danger="{Binding Status.IsError}" Classes.warning="{Binding Status.IsWarning}"
+                               Classes.cyan="{Binding Status.IsSuccess}"
+                               IsVisible="{Binding Status.HasText}" Text="{Binding Status.Text}"/>
+
+                    <Panel Grid.Row="4" Margin="0,12,0,0">
+                        <Button Classes="pb primary caps" Height="46" HorizontalAlignment="Stretch"
+                                IsVisible="{Binding !IsConnected}" IsEnabled="{Binding CanToggle}"
+                                Command="{Binding MainActionCommand}"
+                                AutomationProperties.AutomationId="ConnectButton">
+                            <TextBlock Text="{Binding ConnectButtonLabel, Converter={x:Static c:Conv.Upper}}"/>
+                        </Button>
+                        <Button Classes="pb outline caps" Height="46" HorizontalAlignment="Stretch"
+                                IsVisible="{Binding IsConnected}" IsEnabled="{Binding CanToggle}"
+                                Command="{Binding MainActionCommand}"
+                                AutomationProperties.AutomationId="DisconnectButton">
+                            <TextBlock Text="{Binding ConnectButtonLabel, Converter={x:Static c:Conv.Upper}}"/>
+                        </Button>
+                    </Panel>
+
+                    <!-- what is active -->
+                    <Border Grid.Row="5" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,1,0,0"
+                            Margin="0,16,0,0" Padding="0,12,0,0">
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="label" FontSize="11.5" Foreground="{StaticResource PbMutedBrush}"
+                                       Text="{i:Tr home.summary_caps}"/>
+                            <TextBlock FontSize="13.5" LineHeight="19" TextWrapping="Wrap" MaxLines="5" TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource PbTextBrush}" Text="{Binding Summary}"/>
+                            <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasExitInfo}" Margin="0,2,0,0">
+                                <c:FlagImage CountryCode="{Binding ExitCountryCode}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Classes="mono" FontSize="12" Margin="8,0,0,0" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" Text="{Binding ExitPlace}"
+                                           ToolTip.Tip="{i:Tr home.exit_tip}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ===================== Bottom: live stats ===================== -->
+            <Border Grid.Row="1" Grid.ColumnSpan="2" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,1,0,0" Height="80">
+                <Grid ColumnDefinitions="*,1,*,1,*" Margin="28,0,24,0">
+                    <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <c:Icon Data="{StaticResource IcoPulse}" Width="24" Height="24" StrokeThickness="1.5"
+                                Foreground="{StaticResource PbText2Brush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Classes="metric" FontSize="24" Text="{Binding Latency}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Classes="label" FontSize="11.5" Text="{i:Tr ov.latency}" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Grid>
+                    <Border Grid.Column="1" Classes="metricsep"/>
+                    <Grid Grid.Column="2" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="20,0,12,0">
+                        <c:Icon Data="{StaticResource IcoArrowDown}" Width="22" Height="22" StrokeThickness="1.5"
+                                Foreground="{StaticResource PbText2Brush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Classes="metric" FontSize="24" Text="{Binding Received}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Classes="label" FontSize="11.5" Text="{i:Tr ov.received}" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Grid>
+                    <Border Grid.Column="3" Classes="metricsep"/>
+                    <Grid Grid.Column="4" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="20,0,0,0">
+                        <c:Icon Data="{StaticResource IcoArrowUp}" Width="22" Height="22" StrokeThickness="1.5"
+                                Foreground="{StaticResource PbText2Brush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Classes="metric" FontSize="24" Text="{Binding Sent}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Classes="label" FontSize="11.5" Text="{i:Tr ov.sent}" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ===================== App picker (overlay) ===================== -->
+        <Panel IsVisible="{Binding IsPickerOpen}">
+            <Border x:Name="PickerBackdrop" Background="#C0060912" PointerPressed="OnBackdropPressed"/>
+            <Border Width="600" Height="520" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{StaticResource PbPanelBrush}" BorderBrush="{StaticResource PbLine2Brush}" BorderThickness="1"
+                    CornerRadius="3" BoxShadow="0 16 48 0 #A0000000">
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="20,14,10,8">
+                        <TextBlock Classes="hdr" FontSize="17" Foreground="{StaticResource PbTextBrush}" VerticalAlignment="Center"
+                                   Text="{i:Tr picker.title_caps}"/>
+                        <Button Grid.Column="1" Classes="pb icon" Command="{Binding PickerCancelCommand}" ToolTip.Tip="{i:Tr common.close}">
+                            <c:Icon Data="{StaticResource IcoClose}"/>
+                        </Button>
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="20,0,20,12">
+                        <TextBox x:Name="PickerSearch" Text="{Binding PickerQuery}" Watermark="{i:Tr picker.search}"/>
+                        <Button Grid.Column="1" Classes="pb outline" Width="40" Padding="0" Margin="8,0,0,0"
+                                Command="{Binding PickerRefreshCommand}" ToolTip.Tip="{i:Tr picker.refresh}">
+                            <c:Icon Data="{StaticResource IcoRefresh}"/>
+                        </Button>
+                    </Grid>
+                    <Border Grid.Row="2" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,1,0,1" MinHeight="120">
+                        <Panel>
+                            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding PickerApps}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PickerApp">
+                                            <Button Classes="pb pickitem"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).PickerSelectCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip.Tip="{Binding Path}">
+                                                <Grid ColumnDefinitions="Auto,*">
+                                                    <Panel Width="28" Height="28" VerticalAlignment="Center">
+                                                        <Image Source="{Binding Icon}" Width="24" Height="24"
+                                                               RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                                                        <Border Classes="avatar" Width="26" Height="26" CornerRadius="5" IsVisible="{Binding ShowLetter}">
+                                                            <TextBlock Text="{Binding Letter}" FontSize="13"/>
+                                                        </Border>
+                                                    </Panel>
+                                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="1">
+                                                        <TextBlock FontSize="14" FontWeight="Medium" TextTrimming="CharacterEllipsis">
+                                                            <Run Text="{Binding Name}"/><Run Text="  "/><Run Text="{Binding ExeName}" FontFamily="{StaticResource PbMonoFont}" FontSize="12" FontWeight="Normal" Foreground="{StaticResource PbText2Brush}"/>
+                                                        </TextBlock>
+                                                        <TextBlock Classes="mono" FontSize="11" Foreground="{StaticResource PbMutedBrush}"
+                                                                   TextTrimming="CharacterEllipsis" Text="{Binding Path}"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <TextBlock Classes="mono" FontSize="12.5" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       IsVisible="{Binding IsPickerLoading}" Text="{i:Tr picker.loading}"/>
+                            <TextBlock Classes="mono" FontSize="12.5" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" TextAlignment="Center" Margin="24" MaxWidth="420"
+                                       IsVisible="{Binding PickerEmpty}" Text="{i:Tr picker.empty}"/>
+                        </Panel>
+                    </Border>
+                    <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="20,12,20,14">
+                        <Button Grid.Column="0" Classes="pb outline" Command="{Binding PickerBrowseCommand}">
+                            <StackPanel>
+                                <c:Icon Data="{StaticResource IcoFolder}"/>
+                                <TextBlock Text="{i:Tr picker.browse}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="2" Classes="pb ghost" Command="{Binding PickerCancelCommand}"
+                                Content="{i:Tr common.cancel}"/>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Panel>
+    </Panel>
+</UserControl>

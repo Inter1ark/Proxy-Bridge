@@ -133,6 +133,16 @@ def create_app() -> FastAPI:
                                 headers=ADMIN_UI_HEADERS)
         return FileResponse(target, headers=ADMIN_UI_HEADERS)
 
+    # Auto-update manifest read by the desktop app: always revalidated, never served stale.
+    @app.get("/update/latest.json", include_in_schema=False)
+    def update_manifest():
+        path = SITE_DIR / "update" / "latest.json"
+        if not path.is_file():
+            return JSONResponse({"ok": False, "error": "not_found"}, status_code=404,
+                                headers={"Cache-Control": "no-cache"})
+        return FileResponse(path, media_type="application/json",
+                            headers={"Cache-Control": "no-cache"})
+
     # Static site mounted last so API routes always win.
     if SITE_DIR.is_dir():
         app.mount("/", StaticFiles(directory=str(SITE_DIR), html=True), name="site")

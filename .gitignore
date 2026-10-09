@@ -48,3 +48,7 @@ _removed_from_repo/
 # macOS / Go core build outputs
 core-go/dist/
 mac/dist/
+
+# Auto-update: installers are uploaded to the server, not committed; the manifest is committed
+site/download/
+!site/update/latest.json

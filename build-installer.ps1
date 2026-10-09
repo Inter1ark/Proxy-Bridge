@@ -3,7 +3,11 @@
 # Запускать из корня проекта: .\build-installer.ps1
 
 param(
-    [string]$WinDivertPath = "C:\WinDivert-2.2.2-A"
+    [string]$WinDivertPath = "C:\WinDivert-2.2.2-A",
+    # Used by release.ps1: keep the existing ProxyBridgeCore.dll / publish folder, do not open Explorer.
+    [switch]$SkipCoreBuild,
+    [switch]$SkipPublish,
+    [switch]$NoOpen
 )
 
 $ErrorActionPreference = "Stop"
@@ -78,17 +82,27 @@ Write-Host "Шаг 1: Компиляция ProxyBridgeCore.dll..." -ForegroundCo
 
 Set-Location $projectRoot
 
-gcc -shared -o ProxyBridgeCore.dll -O2 -DPROXYBRIDGE_EXPORTS `
-    src\ProxyBridge.c `
+if ($SkipCoreBuild) {
+    Write-Host "  (skipped: -SkipCoreBuild)" -ForegroundColor Yellow
+} else {
+# Core sources: the ported multi-file core plus our compatibility layer (docs\CORE_NOTES.md)
+$coreSources = @(
+    "src\ProxyBridge.c", "src\pb_compat.c", "src\pb_conntrack.c", "src\pb_dns.c",
+    "src\pb_http.c", "src\pb_process.c", "src\pb_proxy.c", "src\pb_relay.c",
+    "src\pb_rules.c", "src\pb_socks5.c", "src\pb_util.c"
+)
+gcc -shared -o ProxyBridgeCore.dll -O2 -Wall -DPROXYBRIDGE_EXPORTS `
+    $coreSources `
     "-I$WinDivertPath\include" `
     "-L$WinDivertPath\x64" `
-    -lWinDivert -lws2_32 -liphlpapi
+    -lWinDivert -lws2_32 -liphlpapi -lpsapi
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ОШИБКА: Компиляция DLL провалилась!" -ForegroundColor Red
     exit 1
 }
 Write-Host "✓ ProxyBridgeCore.dll скомпилирована" -ForegroundColor Green
+}
 
 # Копируем WinDivert64.sys в корень проекта (csproj ссылается на него)
 $destSysFile = "$projectRoot\WinDivert64.sys"
@@ -103,6 +117,9 @@ Write-Host ""
 Write-Host "Шаг 2: Сборка ProxyBridge (Self-Contained)..." -ForegroundColor Cyan
 
 Set-Location $guiDir
+if ($SkipPublish) {
+    Write-Host "  (skipped: -SkipPublish)" -ForegroundColor Yellow
+} else {
 dotnet publish -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=false `
     -p:IncludeNativeLibrariesForSelfExtract=true
@@ -112,6 +129,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 Write-Host "✓ .NET приложение собрано" -ForegroundColor Green
+}
 
 # ========================================
 # Шаг 3: Проверка publish-папки
@@ -182,4 +200,4 @@ Write-Host "$installerFile" -ForegroundColor Yellow
 Write-Host ""
 
 # Открыть папку с установщиком
-explorer $outputDir
+if (-not $NoOpen) { explorer $outputDir }

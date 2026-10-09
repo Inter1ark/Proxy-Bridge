@@ -1,0 +1,222 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ProxyBridge.GUI.ViewModels"
+             xmlns:i="using:ProxyBridge.GUI.Services"
+             xmlns:c="using:ProxyBridge.GUI.Controls"
+             x:Class="ProxyBridge.GUI.Views.Pages.ProxiesPage"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="True">
+
+    <UserControl.Styles>
+        <Style Selector="Border.prow">
+            <Setter Property="BorderBrush" Value="{StaticResource PbLineBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="28,10,20,10"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.prow:pointerover">
+            <Setter Property="Background" Value="#06FFFFFF"/>
+        </Style>
+        <Style Selector="Button.rename">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Opacity" Value="0.55"/>
+        </Style>
+        <Style Selector="Border.prow:pointerover Button.rename">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Button.rename c|Icon">
+            <Setter Property="Width" Value="14"/>
+            <Setter Property="Height" Value="14"/>
+        </Style>
+        <Style Selector="TextBlock.colhdr">
+            <Setter Property="FontFamily" Value="{StaticResource PbMonoFont}"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="LetterSpacing" Value="0.6"/>
+            <Setter Property="Foreground" Value="{StaticResource PbMutedBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid ColumnDefinitions="*,380">
+
+        <!-- ===================== List ===================== -->
+        <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="28,20,20,14">
+                <StackPanel Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Classes="title" FontSize="28" LineHeight="34" Text="{i:Tr proxies.title_caps}"/>
+                        <Border Classes="chip" Margin="0,4,0,0">
+                            <TextBlock Text="{Binding ProxiesCountText}"/>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Classes="mono" FontSize="12.5" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                               Text="{i:Tr proxies.subtitle2}"/>
+                </StackPanel>
+                <Button Grid.Column="1" Classes="pb outline sm" VerticalAlignment="Bottom" Margin="16,0,0,2"
+                        IsVisible="{Binding HasProxies}" IsEnabled="{Binding !IsCheckingAll}"
+                        Command="{Binding CheckAllCommand}"
+                        AutomationProperties.AutomationId="CheckAll">
+                    <StackPanel>
+                        <c:Icon Data="{StaticResource IcoRefresh}"/>
+                        <TextBlock Text="{i:Tr proxies.check_all}"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- column headers -->
+            <Border Grid.Row="1" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,1,0,1"
+                    Padding="28,0,20,0" Height="32" IsVisible="{Binding HasProxies}">
+                <Grid ColumnDefinitions="34,*,150,150">
+                    <TextBlock Grid.Column="1" Classes="colhdr" Text="{i:Tr proxies.col.proxy}"/>
+                    <TextBlock Grid.Column="2" Classes="colhdr" Margin="12,0,0,0" Text="{i:Tr proxies.col.status}"/>
+                </Grid>
+            </Border>
+
+            <!-- empty -->
+            <StackPanel Grid.Row="2" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        MaxWidth="440" Margin="24" IsVisible="{Binding HasNoProxies}">
+                <Border Classes="ring" HorizontalAlignment="Center">
+                    <c:Icon Data="{StaticResource IcoRack}"/>
+                </Border>
+                <TextBlock Classes="display" FontSize="22" HorizontalAlignment="Center" Text="{i:Tr proxies.empty_title_caps}"/>
+                <TextBlock Classes="mono" FontSize="12.5" LineHeight="19" TextAlignment="Center" TextWrapping="Wrap"
+                           Text="{i:Tr proxies.empty_text2}"/>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasProxies}">
+                <ItemsControl ItemsSource="{Binding Proxies}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ProxyItem">
+                            <Border Classes="prow">
+                                <Grid ColumnDefinitions="34,*,150,150" MinHeight="44">
+                                    <!-- flag -->
+                                    <c:FlagImage Grid.Column="0" CountryCode="{Binding CountryCode}" Width="22" Height="16"
+                                                 HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
+                                    <!-- name, type, address, login -->
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3" Margin="0,0,12,0">
+                                        <Grid ColumnDefinitions="*,Auto" HorizontalAlignment="Left" IsVisible="{Binding IsNotEditing}">
+                                            <TextBlock Grid.Column="0" Classes="name" FontSize="17" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Text="{Binding Name}" ToolTip.Tip="{Binding Name}"/>
+                                            <Button Grid.Column="1" Classes="pb icon rename" Margin="4,0,0,0" VerticalAlignment="Center"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).StartRenameCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip.Tip="{i:Tr proxies.rename_tip}">
+                                                <c:Icon Data="{StaticResource IcoPencil}"/>
+                                            </Button>
+                                        </Grid>
+                                        <TextBox IsVisible="{Binding IsEditing}" Text="{Binding EditLabel}" MaxLength="40"
+                                                 MinHeight="32" Height="32" Padding="8,4" FontSize="14" MaxWidth="320" HorizontalAlignment="Left"
+                                                 Watermark="{i:Tr proxies.rename_watermark}"
+                                                 KeyDown="OnRenameKeyDown" LostFocus="OnRenameLostFocus"
+                                                 PropertyChanged="OnRenamePropertyChanged"/>
+                                        <Grid ColumnDefinitions="Auto,Auto,*">
+                                            <Border Grid.Column="0" Classes="chip" Padding="6,0,6,1">
+                                                <TextBlock FontSize="11" Text="{Binding Type}"/>
+                                            </Border>
+                                            <TextBlock Grid.Column="1" Classes="mono" FontSize="12.5" Margin="10,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource PbTextBrush}" TextTrimming="CharacterEllipsis" MaxWidth="230"
+                                                       Text="{Binding HostPort}"/>
+                                            <TextBlock Grid.Column="2" Classes="mono" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource PbMutedBrush}" TextTrimming="CharacterEllipsis"
+                                                       IsVisible="{Binding HasAuth}" Text="{Binding ShortAuth}"
+                                                       ToolTip.Tip="{Binding AuthTip}"/>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <!-- status -->
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2" Margin="12,0,8,0"
+                                                Background="Transparent" ToolTip.Tip="{Binding StatusTip}">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                     Fill="{StaticResource PbCyanBrush}" IsVisible="{Binding IsOk}"/>
+                                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                     Fill="{StaticResource PbDangerBrush}" IsVisible="{Binding IsFailed}"/>
+                                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                     Fill="{StaticResource PbMutedBrush}" IsVisible="{Binding IsUnchecked}"/>
+                                            <TextBlock Classes="mono" FontSize="12.5" TextTrimming="CharacterEllipsis"
+                                                       Classes.cyan="{Binding IsOk}" Classes.danger="{Binding IsFailed}"
+                                                       Text="{Binding StatusMain}"/>
+                                        </StackPanel>
+                                        <TextBlock Classes="mono" FontSize="11.5" LineHeight="15" TextTrimming="CharacterEllipsis"
+                                                   TextWrapping="Wrap" MaxLines="2"
+                                                   Foreground="{StaticResource PbText2Brush}"
+                                                   IsVisible="{Binding StatusSub, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                   Text="{Binding StatusSub}"/>
+                                    </StackPanel>
+
+                                    <!-- actions -->
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4"
+                                                HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Button Classes="pb outline sm" MinWidth="104"
+                                                IsEnabled="{Binding IsNotChecking}"
+                                                Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).CheckProxyCommand}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip.Tip="{i:Tr proxies.check_tip}">
+                                            <TextBlock Text="{i:Tr proxies.check}" TextTrimming="CharacterEllipsis"/>
+                                        </Button>
+                                        <Button Classes="pb icon danger"
+                                                Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).DeleteProxyCommand}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip.Tip="{i:Tr proxies.delete_tip}">
+                                            <c:Icon Data="{StaticResource IcoTrash}"/>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- ===================== Add ===================== -->
+        <Border Grid.Column="1" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="1,0,0,0">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="24,22,24,20" Spacing="12">
+                    <TextBlock Classes="hdr" Text="{i:Tr proxies.add_title_caps}"/>
+                    <TextBox Classes="mono" AcceptsReturn="True" TextWrapping="Wrap" Height="96"
+                             VerticalContentAlignment="Top" FontSize="12.5"
+                             Text="{Binding NewProxyText}"
+                             Watermark="{i:Tr proxies.paste_watermark}"
+                             AutomationProperties.AutomationId="NewProxyBox"/>
+                    <Grid ColumnDefinitions="*,8,1.3*">
+                        <Button Grid.Column="0" Classes="pb primary" HorizontalAlignment="Stretch"
+                                Command="{Binding AddProxyCommand}"
+                                AutomationProperties.AutomationId="AddProxy">
+                            <StackPanel>
+                                <c:Icon Data="{StaticResource IcoPlus}"/>
+                                <TextBlock Text="{i:Tr proxies.add}" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="2" Classes="pb outline" HorizontalAlignment="Stretch" Padding="10,0"
+                                Command="{Binding ImportProxiesCommand}"
+                                ToolTip.Tip="{i:Tr proxies.import_tip}">
+                            <StackPanel>
+                                <c:Icon Data="{StaticResource IcoImport}"/>
+                                <TextBlock Text="{i:Tr proxies.import_file}" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <TextBlock Classes="mono" FontSize="11.5" LineHeight="17" TextWrapping="Wrap"
+                               Foreground="{StaticResource PbMutedBrush}" Text="{i:Tr proxies.formats}"/>
+                    <Border Classes="notice"
+                            Classes.success="{Binding ProxiesStatus.IsSuccess}"
+                            Classes.warning="{Binding ProxiesStatus.IsWarning}"
+                            Classes.danger="{Binding ProxiesStatus.IsError}"
+                            IsVisible="{Binding ProxiesStatus.HasText}">
+                        <TextBlock Classes="mono" FontSize="12" TextWrapping="Wrap" Text="{Binding ProxiesStatus.Text}"/>
+                    </Border>
+
+                    <Border Classes="hline" Margin="0,8,0,4"/>
+                    <TextBlock Classes="hdr" Text="{i:Tr proxies.check_caps}"/>
+                    <TextBlock Classes="mono" FontSize="12" LineHeight="18" TextWrapping="Wrap"
+                               Foreground="{StaticResource PbText2Brush}" Text="{i:Tr proxies.check_help}"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

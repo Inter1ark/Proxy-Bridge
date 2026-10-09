@@ -1,0 +1,815 @@
+<!--
+  ProxyBridge design system ("zone grid"). Included from App.axaml after FluentTheme (dark), so these
+  styles and resources override the Fluent defaults.
+
+  Palette     Bg #0A0F1E, Bg2 #0D1426, Panel #0F1830, Line #1E2A44, Line2 #2A3756,
+              Text #F2F5FF, Text2 #A9B4D0, Muted #6F7B99, Accent #2F5BFF (hover #4F7BFF), Cyan #19D3FF,
+              Success #22C55E, Danger #EF4444, Warning #F59E0B
+  Type        Oswald (display, condensed uppercase), JetBrains Mono (technical text), Inter (body)
+  Layout      zones separated by 1px lines, no cards, small radii (2-3px)
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:ProxyBridge.GUI.Controls">
+
+    <Styles.Resources>
+        <ResourceDictionary>
+            <!-- ============ Fonts ============ -->
+            <FontFamily x:Key="PbDisplayFont">avares://ProxyBridge/Assets/Fonts#Oswald</FontFamily>
+            <FontFamily x:Key="PbMonoFont">avares://ProxyBridge/Assets/Fonts#JetBrains Mono</FontFamily>
+
+            <!-- JetBrains Mono turns "://" and similar sequences into ligatures; plain glyphs read better for addresses -->
+            <FontFeatureCollection x:Key="PbNoLigatures">
+                <FontFeature Tag="calt" Value="0"/>
+                <FontFeature Tag="liga" Value="0"/>
+            </FontFeatureCollection>
+
+            <!-- ============ Palette ============ -->
+            <Color x:Key="PbBg">#0A0F1E</Color>
+            <Color x:Key="PbBg2">#0D1426</Color>
+            <Color x:Key="PbPanel">#0F1830</Color>
+            <Color x:Key="PbLine">#1E2A44</Color>
+            <Color x:Key="PbLine2">#2A3756</Color>
+            <Color x:Key="PbText">#F2F5FF</Color>
+            <Color x:Key="PbText2">#A9B4D0</Color>
+            <Color x:Key="PbMuted">#6F7B99</Color>
+            <Color x:Key="PbAccent">#2F5BFF</Color>
+            <Color x:Key="PbAccentHover">#4F7BFF</Color>
+            <Color x:Key="PbCyan">#19D3FF</Color>
+            <Color x:Key="PbSuccess">#22C55E</Color>
+            <Color x:Key="PbDanger">#EF4444</Color>
+            <Color x:Key="PbWarning">#F59E0B</Color>
+
+            <SolidColorBrush x:Key="PbBgBrush" Color="#0A0F1E"/>
+            <SolidColorBrush x:Key="PbBg2Brush" Color="#0D1426"/>
+            <SolidColorBrush x:Key="PbPanelBrush" Color="#0F1830"/>
+            <SolidColorBrush x:Key="PbLineBrush" Color="#1E2A44"/>
+            <SolidColorBrush x:Key="PbLine2Brush" Color="#2A3756"/>
+            <SolidColorBrush x:Key="PbOutlineBrush" Color="#3A4766"/>
+            <SolidColorBrush x:Key="PbTextBrush" Color="#F2F5FF"/>
+            <SolidColorBrush x:Key="PbText2Brush" Color="#A9B4D0"/>
+            <SolidColorBrush x:Key="PbMutedBrush" Color="#6F7B99"/>
+            <SolidColorBrush x:Key="PbAccentBrush" Color="#2F5BFF"/>
+            <SolidColorBrush x:Key="PbAccentHoverBrush" Color="#4F7BFF"/>
+            <SolidColorBrush x:Key="PbAccentPressedBrush" Color="#2449D6"/>
+            <SolidColorBrush x:Key="PbAccentSoftBrush" Color="#262F5BFF"/>
+            <SolidColorBrush x:Key="PbAccentTextBrush" Color="#7D9BFF"/>
+            <SolidColorBrush x:Key="PbCyanBrush" Color="#19D3FF"/>
+            <SolidColorBrush x:Key="PbCyanSoftBrush" Color="#1C19D3FF"/>
+            <SolidColorBrush x:Key="PbSuccessBrush" Color="#22C55E"/>
+            <SolidColorBrush x:Key="PbSuccessTextBrush" Color="#4ADE80"/>
+            <SolidColorBrush x:Key="PbDangerBrush" Color="#EF4444"/>
+            <SolidColorBrush x:Key="PbDangerSoftBrush" Color="#1FEF4444"/>
+            <SolidColorBrush x:Key="PbDangerTextBrush" Color="#F87171"/>
+            <SolidColorBrush x:Key="PbWarningBrush" Color="#F59E0B"/>
+            <SolidColorBrush x:Key="PbWarningTextBrush" Color="#FBBF24"/>
+            <SolidColorBrush x:Key="PbHoverBrush" Color="#0AFFFFFF"/>
+            <SolidColorBrush x:Key="PbHover2Brush" Color="#12FFFFFF"/>
+            <SolidColorBrush x:Key="PbHeroLettersBrush" Color="#111936"/>
+
+            <!-- legacy aliases -->
+            <SolidColorBrush x:Key="PbTextSecondaryBrush" Color="#A9B4D0"/>
+            <SolidColorBrush x:Key="PbTextMutedBrush" Color="#6F7B99"/>
+            <SolidColorBrush x:Key="PbSurfaceBrush" Color="#0D1426"/>
+            <SolidColorBrush x:Key="PbSurface2Brush" Color="#0F1830"/>
+
+            <LinearGradientBrush x:Key="PbWindowBgBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#0B1121" Offset="0"/>
+                <GradientStop Color="#0A0F1E" Offset="0.55"/>
+                <GradientStop Color="#090D1B" Offset="1"/>
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="PbHeroBlueBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+                <GradientStop Color="#2F5BFF" Offset="0"/>
+                <GradientStop Color="#4F7BFF" Offset="1"/>
+            </LinearGradientBrush>
+
+            <!-- ============ Fluent overrides ============ -->
+            <SolidColorBrush x:Key="TextControlBackground" Color="#0D1426"/>
+            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#0F1830"/>
+            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#0D1426"/>
+            <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#0A0F1E"/>
+            <SolidColorBrush x:Key="TextControlBorderBrush" Color="#2A3756"/>
+            <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#3A4766"/>
+            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#2F5BFF"/>
+            <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="#1E2A44"/>
+            <SolidColorBrush x:Key="TextControlForeground" Color="#F2F5FF"/>
+            <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#F2F5FF"/>
+            <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#F2F5FF"/>
+            <SolidColorBrush x:Key="TextControlForegroundDisabled" Color="#6F7B99"/>
+            <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#6F7B99"/>
+            <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#6F7B99"/>
+            <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#6F7B99"/>
+            <SolidColorBrush x:Key="TextControlSelectionHighlightColor" Color="#662F5BFF"/>
+            <Thickness x:Key="TextControlBorderThemeThickness">1</Thickness>
+            <Thickness x:Key="TextControlBorderThemeThicknessFocused">1</Thickness>
+
+            <SolidColorBrush x:Key="ComboBoxBackground" Color="#0D1426"/>
+            <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#0F1830"/>
+            <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#0F1830"/>
+            <SolidColorBrush x:Key="ComboBoxBackgroundFocused" Color="#0D1426"/>
+            <SolidColorBrush x:Key="ComboBoxBackgroundDisabled" Color="#0A0F1E"/>
+            <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#2A3756"/>
+            <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#3A4766"/>
+            <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="#2F5BFF"/>
+            <SolidColorBrush x:Key="ComboBoxBorderBrushFocused" Color="#2F5BFF"/>
+            <SolidColorBrush x:Key="ComboBoxBorderBrushDisabled" Color="#1E2A44"/>
+            <SolidColorBrush x:Key="ComboBoxForeground" Color="#F2F5FF"/>
+            <SolidColorBrush x:Key="ComboBoxPlaceHolderForeground" Color="#6F7B99"/>
+            <SolidColorBrush x:Key="ComboBoxDropDownGlyphForeground" Color="#A9B4D0"/>
+            <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#0F1830"/>
+            <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#2A3756"/>
+            <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="#16213D"/>
+            <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#1B2747"/>
+            <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="#332F5BFF"/>
+            <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="#402F5BFF"/>
+            <SolidColorBrush x:Key="ComboBoxItemForegroundSelected" Color="#F2F5FF"/>
+            <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPointerOver" Color="#F2F5FF"/>
+
+            <SolidColorBrush x:Key="ToolTipBackground" Color="#0F1830"/>
+            <SolidColorBrush x:Key="ToolTipBorderBrush" Color="#2A3756"/>
+            <SolidColorBrush x:Key="ToolTipForeground" Color="#F2F5FF"/>
+
+            <!-- ============ Icons (24x24, stroke) ============ -->
+            <StreamGeometry x:Key="IcoPower">M12 2 L12 11 M18.4 6.6 A9 9 0 1 1 5.6 6.6</StreamGeometry>
+            <StreamGeometry x:Key="IcoGlobe">M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z M2 12 L22 12 M12 2 C15 5 16.5 8.5 16.5 12 C16.5 15.5 15 19 12 22 C9 19 7.5 15.5 7.5 12 C7.5 8.5 9 5 12 2 Z</StreamGeometry>
+            <StreamGeometry x:Key="IcoServer">M5 3 L19 3 A2 2 0 0 1 21 5 L21 9 A2 2 0 0 1 19 11 L5 11 A2 2 0 0 1 3 9 L3 5 A2 2 0 0 1 5 3 Z M5 13 L19 13 A2 2 0 0 1 21 15 L21 19 A2 2 0 0 1 19 21 L5 21 A2 2 0 0 1 3 19 L3 15 A2 2 0 0 1 5 13 Z M7 7 L7.01 7 M7 17 L7.01 17</StreamGeometry>
+            <StreamGeometry x:Key="IcoRack">M4 5 L20 5 L20 11 L4 11 Z M4 13 L20 13 L20 19 L4 19 Z M7 8 L9 8 M7 16 L9 16 M13 8 L17 8 M13 16 L17 16</StreamGeometry>
+            <StreamGeometry x:Key="IcoApps">M5 3 L8 3 A2 2 0 0 1 10 5 L10 8 A2 2 0 0 1 8 10 L5 10 A2 2 0 0 1 3 8 L3 5 A2 2 0 0 1 5 3 Z M16 3 L19 3 A2 2 0 0 1 21 5 L21 8 A2 2 0 0 1 19 10 L16 10 A2 2 0 0 1 14 8 L14 5 A2 2 0 0 1 16 3 Z M5 14 L8 14 A2 2 0 0 1 10 16 L10 19 A2 2 0 0 1 8 21 L5 21 A2 2 0 0 1 3 19 L3 16 A2 2 0 0 1 5 14 Z M17.5 14 L17.5 21 M14 17.5 L21 17.5</StreamGeometry>
+            <StreamGeometry x:Key="IcoGrid4">M3 3 L10 3 L10 10 L3 10 Z M14 3 L21 3 L21 10 L14 10 Z M3 14 L10 14 L10 21 L3 21 Z M14 14 L21 14 L21 21 L14 21 Z</StreamGeometry>
+            <StreamGeometry x:Key="IcoSliders">M21 4 L14 4 M10 4 L3 4 M21 12 L12 12 M8 12 L3 12 M21 20 L16 20 M12 20 L3 20 M14 2 L14 6 M8 10 L8 14 M16 18 L16 22</StreamGeometry>
+            <StreamGeometry x:Key="IcoHelp">M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z M9.1 9 A3 3 0 0 1 14.9 10 C14.9 12 12 13 12 13 M12 17 L12.01 17</StreamGeometry>
+            <StreamGeometry x:Key="IcoPlus">M12 4 L12 20 M4 12 L20 12</StreamGeometry>
+            <StreamGeometry x:Key="IcoImport">M21 15 L21 19 A2 2 0 0 1 19 21 L5 21 A2 2 0 0 1 3 19 L3 15 M7 10 L12 15 L17 10 M12 15 L12 3</StreamGeometry>
+            <StreamGeometry x:Key="IcoTrash">M3 6 L21 6 M19 6 L19 20 A2 2 0 0 1 17 22 L7 22 A2 2 0 0 1 5 20 L5 6 M8 6 L8 4 A2 2 0 0 1 10 2 L14 2 A2 2 0 0 1 16 4 L16 6 M10 11 L10 17 M14 11 L14 17</StreamGeometry>
+            <StreamGeometry x:Key="IcoShieldCheck">M12 22 C12 22 20 18 20 12 L20 5 L12 2 L4 5 L4 12 C4 18 12 22 12 22 Z M9 12 L11 14 L15 10</StreamGeometry>
+            <StreamGeometry x:Key="IcoClipboard">M16 4 L18 4 A2 2 0 0 1 20 6 L20 20 A2 2 0 0 1 18 22 L6 22 A2 2 0 0 1 4 20 L4 6 A2 2 0 0 1 6 4 L8 4 M9 2 L15 2 A1 1 0 0 1 16 3 L16 5 A1 1 0 0 1 15 6 L9 6 A1 1 0 0 1 8 5 L8 3 A1 1 0 0 1 9 2 Z</StreamGeometry>
+            <StreamGeometry x:Key="IcoCopy">M9 9 L20 9 L20 20 L9 20 Z M5 15 L4 15 L4 4 L15 4 L15 5</StreamGeometry>
+            <StreamGeometry x:Key="IcoBookmark">M19 21 L12 16 L5 21 L5 5 A2 2 0 0 1 7 3 L17 3 A2 2 0 0 1 19 5 Z</StreamGeometry>
+            <StreamGeometry x:Key="IcoArrowUp">M12 20 L12 4 M5 11 L12 4 L19 11</StreamGeometry>
+            <StreamGeometry x:Key="IcoArrowDown">M12 4 L12 20 M19 13 L12 20 L5 13</StreamGeometry>
+            <StreamGeometry x:Key="IcoArrowRight">M5 12 L19 12 M12 5 L19 12 L12 19</StreamGeometry>
+            <StreamGeometry x:Key="IcoArrowUpRight">M7 17 L17 7 M8 7 L17 7 L17 16</StreamGeometry>
+            <StreamGeometry x:Key="IcoChevronRight">M9 5 L16 12 L9 19</StreamGeometry>
+            <StreamGeometry x:Key="IcoClock">M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z M12 6 L12 12 L16 14</StreamGeometry>
+            <StreamGeometry x:Key="IcoActivity">M22 12 L18 12 L15 21 L9 3 L6 12 L2 12</StreamGeometry>
+            <StreamGeometry x:Key="IcoPulse">M2 13 L7 13 L9 9 L12.5 18 L15.5 6 L17.5 13 L22 13</StreamGeometry>
+            <StreamGeometry x:Key="IcoSignal">M5 20 L5 16 M10 20 L10 12 M15 20 L15 8 M20 20 L20 4</StreamGeometry>
+            <StreamGeometry x:Key="IcoFolder">M20 20 A2 2 0 0 0 22 18 L22 8 A2 2 0 0 0 20 6 L12.1 6 A2 2 0 0 1 10.4 5.1 L9.6 3.9 A2 2 0 0 0 7.9 3 L4 3 A2 2 0 0 0 2 5 L2 18 A2 2 0 0 0 4 20 Z</StreamGeometry>
+            <StreamGeometry x:Key="IcoClose">M18 6 L6 18 M6 6 L18 18</StreamGeometry>
+            <StreamGeometry x:Key="IcoMonitor">M4 3 L20 3 A2 2 0 0 1 22 5 L22 15 A2 2 0 0 1 20 17 L4 17 A2 2 0 0 1 2 15 L2 5 A2 2 0 0 1 4 3 Z M8 21 L16 21 M12 17 L12 21</StreamGeometry>
+            <StreamGeometry x:Key="IcoExternal">M14 4 L20 4 L20 10 M11 13 L20 4 M18 14 L18 20 L4 20 L4 6 L10 6</StreamGeometry>
+            <StreamGeometry x:Key="IcoSend">M22 2 L11 13 M22 2 L15 22 L11 13 L2 9 Z</StreamGeometry>
+            <StreamGeometry x:Key="IcoMail">M4 4 L20 4 A2 2 0 0 1 22 6 L22 18 A2 2 0 0 1 20 20 L4 20 A2 2 0 0 1 2 18 L2 6 A2 2 0 0 1 4 4 Z M22 7 L12 13 L2 7</StreamGeometry>
+            <StreamGeometry x:Key="IcoCode">M16 18 L22 12 L16 6 M8 6 L2 12 L8 18</StreamGeometry>
+            <StreamGeometry x:Key="IcoKey">M2.6 17.4 A2 2 0 0 0 2 18.8 L2 21 A1 1 0 0 0 3 22 L6 22 A1 1 0 0 0 7 21 L7 20 A1 1 0 0 1 8 19 L9 19 A1 1 0 0 0 10 18 L10 17 A1 1 0 0 1 11 16 L11.2 16 A2 2 0 0 0 12.6 15.4 L13.4 14.6 A6.5 6.5 0 1 0 9.4 10.6 Z M16.5 7.5 L16.51 7.5</StreamGeometry>
+            <StreamGeometry x:Key="IcoRefresh">M21 12 A9 9 0 1 1 18.4 5.6 L21 8 M21 3 L21 8 L16 8</StreamGeometry>
+            <StreamGeometry x:Key="IcoInfo">M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z M12 16 L12 12 M12 8 L12.01 8</StreamGeometry>
+            <StreamGeometry x:Key="IcoCheck">M20 6 L9 17 L4 12</StreamGeometry>
+            <StreamGeometry x:Key="IcoAlert">M10.3 3.9 L1.8 18 A2 2 0 0 0 3.5 21 L20.5 21 A2 2 0 0 0 22.2 18 L13.7 3.9 A2 2 0 0 0 10.3 3.9 Z M12 9 L12 13 M12 17 L12.01 17</StreamGeometry>
+            <StreamGeometry x:Key="IcoLogout">M9 21 L5 21 A2 2 0 0 1 3 19 L3 5 A2 2 0 0 1 5 3 L9 3 M16 17 L21 12 L16 7 M21 12 L9 12</StreamGeometry>
+            <StreamGeometry x:Key="IcoPin">M20 10 C20 16 12 22 12 22 C12 22 4 16 4 10 A8 8 0 0 1 20 10 Z M12 7 A3 3 0 1 0 12 13 A3 3 0 1 0 12 7 Z</StreamGeometry>
+            <StreamGeometry x:Key="IcoDownload">M12 3 L12 15 M7 10 L12 15 L17 10 M5 21 L19 21</StreamGeometry>
+            <StreamGeometry x:Key="IcoPlay">M7 4 L19 12 L7 20 Z</StreamGeometry>
+            <StreamGeometry x:Key="IcoLanguage">M5 8 L11 8 M8 5 L8 8 M6 8 C6 12 9 15 12 16 M10 8 C10 11 7.5 14 4 16 M13 21 L17 11 L21 21 M14.5 18 L19.5 18</StreamGeometry>
+            <StreamGeometry x:Key="IcoPencil">M16.5 3.5 L20.5 7.5 L8 20 L3.5 20.5 L4 16 Z M14 6 L18 10</StreamGeometry>
+            <StreamGeometry x:Key="IcoBan">M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z M5 19 L19 5</StreamGeometry>
+            <StreamGeometry x:Key="IcoWindowsLogo">M3 3 L11 3 L11 11 L3 11 Z M13 3 L21 3 L21 11 L13 11 Z M3 13 L11 13 L11 21 L3 21 Z M13 13 L21 13 L21 21 L13 21 Z</StreamGeometry>
+        </ResourceDictionary>
+    </Styles.Resources>
+
+    <!-- ============ Base ============ -->
+    <Style Selector=":is(Window)">
+        <Setter Property="Background" Value="{StaticResource PbBgBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontFeatures" Value="{StaticResource PbNoLigatures}"/>
+    </Style>
+
+    <!-- ============ Typography ============ -->
+    <!-- display: Oswald (condensed). Texts are upper-cased in i18n or with c:Conv.Upper. -->
+    <Style Selector="TextBlock.display">
+        <Setter Property="FontFamily" Value="{StaticResource PbDisplayFont}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+    </Style>
+    <!-- zone header: СОЕДИНЕНИЕ, ВЫБРАННЫЙ ПРОКСИ -->
+    <Style Selector="TextBlock.hdr">
+        <Setter Property="FontFamily" Value="{StaticResource PbDisplayFont}"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="FontSize" Value="15.5"/>
+        <Setter Property="LetterSpacing" Value="1.3"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+    </Style>
+    <!-- page title on the secondary tabs -->
+    <Style Selector="TextBlock.title">
+        <Setter Property="FontFamily" Value="{StaticResource PbDisplayFont}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="FontSize" Value="34"/>
+        <Setter Property="LineHeight" Value="38"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.name">
+        <Setter Property="FontFamily" Value="{StaticResource PbDisplayFont}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="19"/>
+        <Setter Property="LetterSpacing" Value="0.3"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.metric">
+        <Setter Property="FontFamily" Value="{StaticResource PbDisplayFont}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="26"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.mono">
+        <Setter Property="FontFamily" Value="{StaticResource PbMonoFont}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+    </Style>
+    <!-- mono uppercase label: ЗАДЕРЖКА, МАРШРУТИЗАЦИЯ / TCP -->
+    <Style Selector="TextBlock.label">
+        <Setter Property="FontFamily" Value="{StaticResource PbMonoFont}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="LetterSpacing" Value="0.4"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+    </Style>
+    <Style Selector="TextBlock.body">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="LineHeight" Value="20"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style Selector="TextBlock.sub">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="LineHeight" Value="20"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style Selector="TextBlock.small">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="LineHeight" Value="18"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style Selector="TextBlock.caption">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="LineHeight" Value="16"/>
+        <Setter Property="Foreground" Value="{StaticResource PbMutedBrush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style Selector="TextBlock.strong">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.muted">
+        <Setter Property="Foreground" Value="{StaticResource PbMutedBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.cyan">
+        <Setter Property="Foreground" Value="{StaticResource PbCyanBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.success">
+        <Setter Property="Foreground" Value="{StaticResource PbSuccessTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.danger">
+        <Setter Property="Foreground" Value="{StaticResource PbDangerTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.warning">
+        <Setter Property="Foreground" Value="{StaticResource PbWarningTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.accent">
+        <Setter Property="Foreground" Value="{StaticResource PbAccentTextBrush}"/>
+    </Style>
+
+    <!-- ============ Lines and chips ============ -->
+    <Style Selector="Border.hline">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Background" Value="{StaticResource PbLineBrush}"/>
+    </Style>
+    <Style Selector="Border.vline">
+        <Setter Property="Width" Value="1"/>
+        <Setter Property="Background" Value="{StaticResource PbLineBrush}"/>
+    </Style>
+
+    <!-- outlined chip: SOCKS5, HTTP, NL -->
+    <Style Selector="Border.chip">
+        <Setter Property="BorderBrush" Value="{StaticResource PbOutlineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="2"/>
+        <Setter Property="Padding" Value="7,1,7,2"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.chip > TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource PbMonoFont}"/>
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+    </Style>
+    <Style Selector="Border.chip.live">
+        <Setter Property="BorderBrush" Value="#6619D3FF"/>
+        <Setter Property="Background" Value="{StaticResource PbCyanSoftBrush}"/>
+    </Style>
+    <Style Selector="Border.chip.live > TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PbCyanBrush}"/>
+    </Style>
+    <Style Selector="Border.chip.accent">
+        <Setter Property="BorderBrush" Value="#802F5BFF"/>
+    </Style>
+    <Style Selector="Border.chip.accent > TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PbAccentTextBrush}"/>
+    </Style>
+    <Style Selector="Border.chip.success">
+        <Setter Property="BorderBrush" Value="#6622C55E"/>
+    </Style>
+    <Style Selector="Border.chip.success > TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PbSuccessTextBrush}"/>
+    </Style>
+    <Style Selector="Border.chip.danger">
+        <Setter Property="BorderBrush" Value="#66EF4444"/>
+    </Style>
+    <Style Selector="Border.chip.danger > TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PbDangerTextBrush}"/>
+    </Style>
+
+    <!-- status line (mono, colored by kind) -->
+    <Style Selector="Border.notice">
+        <Setter Property="BorderBrush" Value="{StaticResource PbLine2Brush}"/>
+        <Setter Property="BorderThickness" Value="2,0,0,0"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="Background" Value="#0AFFFFFF"/>
+    </Style>
+    <Style Selector="Border.notice TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+    </Style>
+    <Style Selector="Border.notice.success">
+        <Setter Property="BorderBrush" Value="{StaticResource PbCyanBrush}"/>
+    </Style>
+    <Style Selector="Border.notice.success TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PbCyanBrush}"/>
+    </Style>
+    <Style Selector="Border.notice.danger">
+        <Setter Property="BorderBrush" Value="{StaticResource PbDangerBrush}"/>
+        <Setter Property="Background" Value="#10EF4444"/>
+    </Style>
+    <Style Selector="Border.notice.danger TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PbDangerTextBrush}"/>
+    </Style>
+    <Style Selector="Border.notice.warning">
+        <Setter Property="BorderBrush" Value="{StaticResource PbWarningBrush}"/>
+        <Setter Property="Background" Value="#10F59E0B"/>
+    </Style>
+    <Style Selector="Border.notice.warning TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PbWarningTextBrush}"/>
+    </Style>
+
+    <!-- server ring (destination glyph) -->
+    <Style Selector="Border.ring">
+        <Setter Property="Width" Value="52"/>
+        <Setter Property="Height" Value="52"/>
+        <Setter Property="CornerRadius" Value="26"/>
+        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbOutlineBrush}"/>
+        <Setter Property="Background" Value="{StaticResource PbBg2Brush}"/>
+    </Style>
+    <Style Selector="Border.ring c|Icon">
+        <Setter Property="Width" Value="22"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="StrokeThickness" Value="1.6"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+    </Style>
+    <Style Selector="Border.ring.live">
+        <Setter Property="BorderBrush" Value="{StaticResource PbCyanBrush}"/>
+        <Setter Property="BoxShadow" Value="0 0 14 0 #5519D3FF"/>
+    </Style>
+    <Style Selector="Border.ring.live c|Icon">
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+    </Style>
+    <Style Selector="Border.ring.direct">
+        <Setter Property="Background" Value="#55607A"/>
+        <Setter Property="BorderBrush" Value="#3A4766"/>
+    </Style>
+    <Style Selector="Border.ring.direct c|Icon">
+        <Setter Property="Foreground" Value="#F2F5FF"/>
+    </Style>
+    <Style Selector="Border.ring.direct.live">
+        <Setter Property="Background" Value="#6C7896"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbCyanBrush}"/>
+    </Style>
+
+    <!-- letter avatar when an app icon is not available -->
+    <Style Selector="Border.avatar">
+        <Setter Property="Width" Value="34"/>
+        <Setter Property="Height" Value="34"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Background" Value="{StaticResource PbPanelBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbLine2Brush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="Border.avatar > TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource PbDisplayFont}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="17"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- ============ Buttons ============ -->
+    <!-- Every variant shares one simple template; states only change Background / Foreground / BorderBrush. -->
+    <Style Selector="Button.pb">
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.12"/>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.12"/>
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Name="cp"
+                                  Background="{TemplateBinding Background}"
+                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                  Padding="{TemplateBinding Padding}"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  Foreground="{TemplateBinding Foreground}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.pb:disabled">
+        <Setter Property="Opacity" Value="0.42"/>
+    </Style>
+    <Style Selector="Button.pb c|Icon">
+        <Setter Property="Width" Value="17"/>
+        <Setter Property="Height" Value="17"/>
+    </Style>
+    <Style Selector="Button.pb > StackPanel">
+        <Setter Property="Orientation" Value="Horizontal"/>
+        <Setter Property="Spacing" Value="9"/>
+    </Style>
+    <Style Selector="Button.pb > StackPanel > TextBlock">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- condensed uppercase caption on big buttons (ОТКЛЮЧИТЬ) -->
+    <Style Selector="Button.caps">
+        <Setter Property="FontFamily" Value="{StaticResource PbDisplayFont}"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="FontSize" Value="17"/>
+    </Style>
+    <Style Selector="Button.caps TextBlock">
+        <Setter Property="LetterSpacing" Value="1.4"/>
+    </Style>
+
+    <Style Selector="Button.primary">
+        <Setter Property="Background" Value="{StaticResource PbAccentBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbAccentBrush}"/>
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+    </Style>
+    <Style Selector="Button.primary:pointerover">
+        <Setter Property="Background" Value="{StaticResource PbAccentHoverBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbAccentHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.primary:pressed">
+        <Setter Property="Background" Value="{StaticResource PbAccentPressedBrush}"/>
+    </Style>
+
+    <Style Selector="Button.outline">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbOutlineBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+    </Style>
+    <Style Selector="Button.outline:pointerover">
+        <Setter Property="Background" Value="{StaticResource PbHoverBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbText2Brush}"/>
+    </Style>
+    <Style Selector="Button.outline:pressed">
+        <Setter Property="Background" Value="{StaticResource PbHover2Brush}"/>
+    </Style>
+    <!-- legacy name -->
+    <Style Selector="Button.secondary">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbOutlineBrush}"/>
+    </Style>
+    <Style Selector="Button.secondary:pointerover">
+        <Setter Property="Background" Value="{StaticResource PbHoverBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbText2Brush}"/>
+    </Style>
+
+    <Style Selector="Button.ghost">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+    </Style>
+    <Style Selector="Button.ghost:pointerover">
+        <Setter Property="Background" Value="{StaticResource PbHoverBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+    </Style>
+
+    <Style Selector="Button.danger">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="#80EF4444"/>
+        <Setter Property="Foreground" Value="{StaticResource PbDangerTextBrush}"/>
+    </Style>
+    <Style Selector="Button.danger:pointerover">
+        <Setter Property="Background" Value="{StaticResource PbDangerBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbDangerBrush}"/>
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+    </Style>
+
+    <Style Selector="Button.sm">
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="FontSize" Value="13"/>
+    </Style>
+    <Style Selector="Button.sm c|Icon">
+        <Setter Property="Width" Value="15"/>
+        <Setter Property="Height" Value="15"/>
+    </Style>
+
+    <!-- Square icon-only button -->
+    <Style Selector="Button.icon">
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+    </Style>
+    <Style Selector="Button.icon c|Icon">
+        <Setter Property="Width" Value="17"/>
+        <Setter Property="Height" Value="17"/>
+        <Setter Property="StrokeThickness" Value="1.6"/>
+    </Style>
+    <Style Selector="Button.icon:pointerover">
+        <Setter Property="Background" Value="{StaticResource PbHoverBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+    </Style>
+    <Style Selector="Button.icon.danger">
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource PbMutedBrush}"/>
+    </Style>
+    <Style Selector="Button.icon.danger:pointerover">
+        <Setter Property="Background" Value="{StaticResource PbDangerSoftBrush}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource PbDangerTextBrush}"/>
+    </Style>
+
+    <!-- Cyan underlined link (Сменить прокси) -->
+    <Style Selector="Button.link">
+        <Setter Property="Height" Value="NaN"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{StaticResource PbCyanBrush}"/>
+    </Style>
+    <Style Selector="Button.link TextBlock">
+        <Setter Property="TextDecorations" Value="Underline"/>
+    </Style>
+    <Style Selector="Button.link:pointerover">
+        <Setter Property="Foreground" Value="#7AE6FF"/>
+    </Style>
+
+    <!-- ============ Title bar ============ -->
+    <Style Selector="Button.tab">
+        <Setter Property="Height" Value="64"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="0,0,40,0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="#C9D1E6"/>
+        <Setter Property="FontFamily" Value="{StaticResource PbDisplayFont}"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="FontSize" Value="17"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel Background="Transparent">
+                    <StackPanel VerticalAlignment="Center" Spacing="7" Margin="0,7,0,0">
+                        <ContentPresenter Name="cp" Content="{TemplateBinding Content}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="Center"/>
+                        <Border Name="bar" Height="2" Background="{StaticResource PbAccentBrush}" Opacity="0"/>
+                    </StackPanel>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.tab TextBlock">
+        <Setter Property="LetterSpacing" Value="1.3"/>
+    </Style>
+    <Style Selector="Button.tab:pointerover">
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+    </Style>
+    <Style Selector="Button.tab.active">
+        <Setter Property="Foreground" Value="#3B6BFF"/>
+    </Style>
+    <Style Selector="Button.tab.active /template/ Border#bar">
+        <Setter Property="Opacity" Value="1"/>
+        <Setter Property="Background" Value="#3B6BFF"/>
+    </Style>
+
+    <Style Selector="Button.winbtn">
+        <Setter Property="Width" Value="46"/>
+        <Setter Property="VerticalAlignment" Value="Stretch"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.winbtn Path.glyph">
+        <Setter Property="Stroke" Value="#C9D1E6"/>
+    </Style>
+    <Style Selector="Button.winbtn:pointerover">
+        <Setter Property="Background" Value="#14FFFFFF"/>
+    </Style>
+    <Style Selector="Button.winbtn.close:pointerover">
+        <Setter Property="Background" Value="#E81123"/>
+    </Style>
+    <Style Selector="Button.winbtn:pointerover Path.glyph">
+        <Setter Property="Stroke" Value="#FFFFFF"/>
+    </Style>
+
+    <!-- ============ Segmented control (Вся система | По приложениям) ============ -->
+    <Style Selector="Border.segmented">
+        <Setter Property="BorderBrush" Value="{StaticResource PbOutlineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="Padding" Value="2"/>
+    </Style>
+    <Style Selector="Button.seg">
+        <Setter Property="Height" Value="46"/>
+        <Setter Property="Padding" Value="18,0"/>
+        <Setter Property="CornerRadius" Value="2"/>
+        <Setter Property="FontSize" Value="14.5"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.seg:pointerover">
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+        <Setter Property="Background" Value="{StaticResource PbHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.seg Ellipse.segdot">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Button.seg.active">
+        <Setter Property="Background" Value="{StaticResource PbAccentBrush}"/>
+        <Setter Property="BorderBrush" Value="#5F86FF"/>
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+    </Style>
+    <Style Selector="Button.seg.active Ellipse.segdot">
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Button.seg:disabled">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Button.seg:disabled:not(.active)">
+        <Setter Property="Opacity" Value="0.7"/>
+    </Style>
+
+    <!-- ============ Switch ============ -->
+    <Style Selector="ToggleButton.switch">
+        <Setter Property="Width" Value="40"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Background" Value="#24304D"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbOutlineBrush}"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="track" CornerRadius="11" BorderThickness="1"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}">
+                    <Ellipse Name="knob" Width="14" Height="14" Margin="3,0"
+                             HorizontalAlignment="Left" VerticalAlignment="Center"
+                             Fill="#A9B4D0"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="ToggleButton.switch:checked">
+        <Setter Property="Background" Value="{StaticResource PbAccentBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PbAccentBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.switch:checked /template/ Ellipse#knob">
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+        <Setter Property="Fill" Value="#FFFFFF"/>
+    </Style>
+    <Style Selector="ToggleButton.switch:pointerover /template/ Border#track">
+        <Setter Property="Opacity" Value="0.9"/>
+    </Style>
+    <Style Selector="ToggleButton.switch:disabled">
+        <Setter Property="Opacity" Value="0.45"/>
+    </Style>
+
+    <!-- Spinner -->
+    <Style Selector="Arc.spin">
+        <Setter Property="Width" Value="40"/>
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="StartAngle" Value="0"/>
+        <Setter Property="SweepAngle" Value="90"/>
+        <Setter Property="Stroke" Value="{StaticResource PbCyanBrush}"/>
+        <Setter Property="StrokeThickness" Value="2"/>
+        <Setter Property="StrokeLineCap" Value="Round"/>
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <RotateTransform/>
+            </Setter.Value>
+        </Setter>
+        <Style.Animations>
+            <Animation Duration="0:0:0.9" IterationCount="INFINITE">
+                <KeyFrame Cue="0%">
+                    <Setter Property="RotateTransform.Angle" Value="0"/>
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                    <Setter Property="RotateTransform.Angle" Value="360"/>
+                </KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
+
+    <!-- Status dot -->
+    <Style Selector="Ellipse.dot">
+        <Setter Property="Width" Value="7"/>
+        <Setter Property="Height" Value="7"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Fill" Value="{StaticResource PbMutedBrush}"/>
+    </Style>
+    <Style Selector="Ellipse.dot.on">
+        <Setter Property="Fill" Value="{StaticResource PbCyanBrush}"/>
+    </Style>
+
+    <!-- ============ Inputs ============ -->
+    <Style Selector="TextBox">
+        <Setter Property="MinHeight" Value="40"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="Padding" Value="12,9"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="CaretBrush" Value="#FFFFFF"/>
+        <Setter Property="SelectionBrush" Value="#662F5BFF"/>
+    </Style>
+    <Style Selector="TextBox.mono">
+        <Setter Property="FontFamily" Value="{StaticResource PbMonoFont}"/>
+        <Setter Property="FontSize" Value="13"/>
+    </Style>
+
+    <Style Selector="ComboBox">
+        <Setter Property="MinHeight" Value="40"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="Padding" Value="12,0,8,0"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="ComboBoxItem">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="CornerRadius" Value="2"/>
+        <Setter Property="Margin" Value="3,1"/>
+    </Style>
+
+    <Style Selector="ProgressBar">
+        <Setter Property="Foreground" Value="{StaticResource PbCyanBrush}"/>
+        <Setter Property="Background" Value="{StaticResource PbLineBrush}"/>
+        <Setter Property="Height" Value="4"/>
+        <Setter Property="MinHeight" Value="4"/>
+        <Setter Property="CornerRadius" Value="0"/>
+    </Style>
+
+    <Style Selector="ToolTip">
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="FontSize" Value="12"/>
+    </Style>
+
+    <!-- Settings row: label + description on the left, control on the right -->
+    <Style Selector="Grid.setting">
+        <Setter Property="MinHeight" Value="56"/>
+    </Style>
+    <Style Selector="Grid.setting > StackPanel">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Spacing" Value="2"/>
+        <Setter Property="Margin" Value="0,10,24,10"/>
+    </Style>
+    <Style Selector="TextBlock.slabel">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Foreground" Value="{StaticResource PbTextBrush}"/>
+    </Style>
+</Styles>
