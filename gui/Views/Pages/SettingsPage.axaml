@@ -1,0 +1,306 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ProxyBridge.GUI.ViewModels"
+             xmlns:i="using:ProxyBridge.GUI.Services"
+             xmlns:c="using:ProxyBridge.GUI.Controls"
+             x:Class="ProxyBridge.GUI.Views.Pages.SettingsPage"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="True">
+
+    <UserControl.Styles>
+        <Style Selector="StackPanel.zone">
+            <Setter Property="Margin" Value="28,22,26,14"/>
+        </Style>
+        <Style Selector="TextBlock.shint">
+            <Setter Property="FontFamily" Value="{StaticResource PbMonoFont}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="LineHeight" Value="17"/>
+            <Setter Property="Foreground" Value="{StaticResource PbText2Brush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="Border.srow">
+            <Setter Property="BorderBrush" Value="{StaticResource PbLineBrush}"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+        </Style>
+        <Style Selector="Button.linkrow">
+            <Setter Property="Height" Value="NaN"/>
+            <Setter Property="Padding" Value="0,12"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PbLineBrush}"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+        </Style>
+        <Style Selector="Button.linkrow:pointerover">
+            <Setter Property="Background" Value="#06FFFFFF"/>
+        </Style>
+        <Style Selector="Button.linkrow:pointerover c|Icon.go">
+            <Setter Property="Foreground" Value="{StaticResource PbCyanBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <Grid ColumnDefinitions="*,400" RowDefinitions="Auto,Auto">
+
+            <!-- ============ left: general + connection ============ -->
+            <StackPanel Grid.Row="0" Grid.Column="0">
+                <StackPanel Classes="zone">
+                    <TextBlock Classes="hdr" Text="{i:Tr settings.general_caps}" Margin="0,0,0,8"/>
+                    <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                        <StackPanel>
+                            <TextBlock Classes="slabel" Text="{i:Tr settings.language}"/>
+                            <TextBlock Classes="shint" Text="{i:Tr settings.language_hint}"/>
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" Width="170" VerticalAlignment="Center"
+                                  AutomationProperties.AutomationId="LanguageBox"
+                                  SelectedIndex="{Binding LanguageIndex}">
+                            <ComboBoxItem Content="Русский"/>
+                            <ComboBoxItem Content="English"/>
+                        </ComboBox>
+                    </Grid>
+                    <Border Classes="srow" IsVisible="{Binding IsWindows}">
+                        <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                            <StackPanel>
+                                <TextBlock Classes="slabel" Text="{i:Tr settings.autostart}"/>
+                                <TextBlock Classes="shint" Text="{i:Tr settings.autostart_hint}"/>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1" Classes="switch" IsChecked="{Binding StartWithWindows}"/>
+                        </Grid>
+                    </Border>
+                    <Border Classes="srow">
+                        <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                            <StackPanel>
+                                <TextBlock Classes="slabel" Text="{i:Tr settings.tray}"/>
+                                <TextBlock Classes="shint" Text="{i:Tr settings.tray_hint}"/>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1" Classes="switch" IsChecked="{Binding MinimizeToTray}"/>
+                        </Grid>
+                    </Border>
+                    <Border Classes="srow">
+                        <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                            <StackPanel>
+                                <TextBlock Classes="slabel" Text="{i:Tr settings.notifications}"/>
+                                <TextBlock Classes="shint" Text="{i:Tr settings.notifications_hint}"/>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1" Classes="switch" IsChecked="{Binding ShowNotifications}"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <Border Classes="hline"/>
+
+                <StackPanel Classes="zone">
+                    <TextBlock Classes="hdr" Text="{i:Tr settings.connection_caps}" Margin="0,0,0,8"/>
+                    <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                        <StackPanel>
+                            <TextBlock Classes="slabel" Text="{i:Tr settings.autoconnect}"/>
+                            <TextBlock Classes="shint" Text="{i:Tr settings.autoconnect_hint}"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1" Classes="switch" IsChecked="{Binding AutoConnectLastProxy}"/>
+                    </Grid>
+                    <Border Classes="srow">
+                        <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                            <StackPanel>
+                                <TextBlock Classes="slabel" Text="{i:Tr settings.logs}"/>
+                                <TextBlock Classes="shint" Text="{i:Tr settings.logs_hint}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="pb outline sm" VerticalAlignment="Center"
+                                    Command="{Binding OpenLogsCommand}" ToolTip.Tip="{Binding LogsFolder}"
+                                    AutomationProperties.AutomationId="OpenLogs">
+                                <StackPanel>
+                                    <c:Icon Data="{StaticResource IcoFolder}"/>
+                                    <TextBlock Text="{i:Tr settings.open_logs}"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- ============ right: updates + license ============ -->
+            <Border Grid.Row="0" Grid.Column="1" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="1,0,0,0">
+                <StackPanel>
+                    <StackPanel Classes="zone">
+                        <TextBlock Classes="hdr" Text="{i:Tr settings.updates_caps}" Margin="0,0,0,8"/>
+                        <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                            <StackPanel>
+                                <TextBlock Classes="slabel" Text="{i:Tr settings.autoupdate}"/>
+                                <TextBlock Classes="shint" Text="{i:Tr settings.autoupdate_hint}"/>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1" Classes="switch"
+                                          IsChecked="{Binding AutoCheck, Source={x:Static vm:UpdateViewModel.Shared}}"/>
+                        </Grid>
+                        <Border Classes="srow" Padding="0,14,0,4">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel VerticalAlignment="Center" Spacing="2">
+                                    <TextBlock Classes="label" FontSize="11.5" Foreground="{StaticResource PbMutedBrush}"
+                                               Text="{i:Tr settings.version_caps}"/>
+                                    <TextBlock Classes="display" FontSize="22" FontWeight="Medium">
+                                        <Run Text="v"/><Run Text="{Binding AppVersion}"/>
+                                    </TextBlock>
+                                </StackPanel>
+                                <Button Grid.Column="1" Classes="pb outline sm" VerticalAlignment="Center"
+                                        Command="{Binding CheckUpdatesCommand}"
+                                        AutomationProperties.AutomationId="CheckUpdates">
+                                    <StackPanel>
+                                        <c:Icon Data="{StaticResource IcoRefresh}"/>
+                                        <TextBlock Text="{i:Tr settings.check_now}"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <Border Classes="hline"/>
+
+                    <StackPanel Classes="zone" Spacing="12">
+                        <TextBlock Classes="hdr" Text="{i:Tr settings.license_caps}"/>
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" >
+                            <StackPanel Grid.Column="0" Spacing="2">
+                                <TextBlock Classes="label" FontSize="11.5" Foreground="{StaticResource PbMutedBrush}" Text="{i:Tr license.plan_caps}"/>
+                                <TextBlock Classes="display" FontSize="22" FontWeight="Medium" Text="{Binding LicensePlanText}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Classes="label" FontSize="11.5" Foreground="{StaticResource PbMutedBrush}" Text="{i:Tr license.expires_caps}"/>
+                                <TextBlock Classes="display" FontSize="22" FontWeight="Medium" Text="{Binding LicenseExpiresText}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="2" Margin="0,12,0,0">
+                                <TextBlock Classes="label" FontSize="11.5" Foreground="{StaticResource PbMutedBrush}" Text="{i:Tr license.key_caps}"/>
+                                <TextBlock Classes="mono" FontSize="15" Foreground="{StaticResource PbTextBrush}"
+                                           Text="{Binding LicenseMaskedKey}" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Spacing="10" IsVisible="{Binding IsUnlinkButtonVisible}" Margin="0,4,0,0">
+                            <TextBlock Classes="shint" Text="{i:Tr license.unlink_hint}"/>
+                            <Button Classes="pb danger sm" HorizontalAlignment="Left"
+                                    IsEnabled="{Binding HasLicense}"
+                                    Command="{Binding AskUnlinkCommand}">
+                                <StackPanel>
+                                    <c:Icon Data="{StaticResource IcoLogout}"/>
+                                    <TextBlock Text="{i:Tr license.unlink}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <Border Classes="notice warning" IsVisible="{Binding IsUnlinkConfirmVisible}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="shint" Text="{i:Tr license.unlink_confirm}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Classes="pb ghost sm" Command="{Binding CancelUnlinkCommand}" Content="{i:Tr common.cancel}"/>
+                                    <Button Classes="pb danger sm" Command="{Binding UnlinkDeviceCommand}" Content="{i:Tr license.unlink_yes}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ help and about (full width) ============ -->
+            <Border Grid.Row="1" Grid.ColumnSpan="2" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="*,*,400">
+                    <StackPanel Grid.Column="0" Classes="zone" Spacing="14">
+                        <TextBlock Classes="hdr" Text="{i:Tr help.howto_caps}"/>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <c:Icon Data="{StaticResource IcoArrowRight}" Width="15" Height="15" Foreground="{StaticResource PbCyanBrush}"
+                                    VerticalAlignment="Top" Margin="0,3,10,0"/>
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Classes="slabel" Text="{i:Tr help.step1}"/>
+                                <TextBlock Classes="shint" Text="{i:Tr help.step1_text}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <c:Icon Data="{StaticResource IcoArrowRight}" Width="15" Height="15" Foreground="{StaticResource PbCyanBrush}"
+                                    VerticalAlignment="Top" Margin="0,3,10,0"/>
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Classes="slabel" Text="{i:Tr help.step2}"/>
+                                <TextBlock Classes="shint" Text="{i:Tr help.step2_text}"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Classes="zone" Spacing="14">
+                        <TextBlock Classes="hdr" Text=" "/>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <c:Icon Data="{StaticResource IcoArrowRight}" Width="15" Height="15" Foreground="{StaticResource PbCyanBrush}"
+                                    VerticalAlignment="Top" Margin="0,3,10,0"/>
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Classes="slabel" Text="{i:Tr help.step3}"/>
+                                <TextBlock Classes="shint" Text="{i:Tr help.step3_text}" IsVisible="{Binding SupportsSplitTunnel}"/>
+                                <TextBlock Classes="shint" Text="{i:Tr help.step3_text_mac}" IsVisible="{Binding !SupportsSplitTunnel}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <c:Icon Data="{StaticResource IcoArrowRight}" Width="15" Height="15" Foreground="{StaticResource PbCyanBrush}"
+                                    VerticalAlignment="Top" Margin="0,3,10,0"/>
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Classes="slabel" Text="{i:Tr help.step4}"/>
+                                <TextBlock Classes="shint" Text="{i:Tr help.step4_text}"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <Border Grid.Column="2" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="1,0,0,0">
+                        <StackPanel Classes="zone" Spacing="0">
+                            <TextBlock Classes="hdr" Text="{i:Tr help.contacts_caps}" Margin="0,0,0,10"/>
+                            <Button Classes="pb linkrow" Command="{Binding OpenLinkCommand}" CommandParameter="https://www.proxybridge.org">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <c:Icon Data="{StaticResource IcoGlobe}" Width="17" Height="17" StrokeThickness="1.5" Foreground="{StaticResource PbText2Brush}"/>
+                                    <TextBlock Grid.Column="1" Classes="mono" FontSize="13" Margin="12,0" VerticalAlignment="Center"
+                                               Foreground="{StaticResource PbTextBrush}" Text="proxybridge.org"/>
+                                    <c:Icon Grid.Column="2" Classes="go" Data="{StaticResource IcoArrowUpRight}" Width="16" Height="16"
+                                            Foreground="{StaticResource PbMutedBrush}"/>
+                                </Grid>
+                            </Button>
+                            <Button Classes="pb linkrow" Command="{Binding OpenTelegramCommand}">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <c:Icon Data="{StaticResource IcoSend}" Width="17" Height="17" StrokeThickness="1.5" Foreground="{StaticResource PbText2Brush}"/>
+                                    <TextBlock Grid.Column="1" Classes="mono" FontSize="13" Margin="12,0" VerticalAlignment="Center"
+                                               Foreground="{StaticResource PbTextBrush}" Text="Telegram  @inter1ark"/>
+                                    <c:Icon Grid.Column="2" Classes="go" Data="{StaticResource IcoArrowUpRight}" Width="16" Height="16"
+                                            Foreground="{StaticResource PbMutedBrush}"/>
+                                </Grid>
+                            </Button>
+                            <Button Classes="pb linkrow" Command="{Binding OpenLinkCommand}" CommandParameter="mailto:support@proxybridge.org">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <c:Icon Data="{StaticResource IcoMail}" Width="17" Height="17" StrokeThickness="1.5" Foreground="{StaticResource PbText2Brush}"/>
+                                    <TextBlock Grid.Column="1" Classes="mono" FontSize="13" Margin="12,0" VerticalAlignment="Center"
+                                               Foreground="{StaticResource PbTextBrush}" Text="support@proxybridge.org"/>
+                                    <c:Icon Grid.Column="2" Classes="go" Data="{StaticResource IcoArrowUpRight}" Width="16" Height="16"
+                                            Foreground="{StaticResource PbMutedBrush}"/>
+                                </Grid>
+                            </Button>
+                            <Button Classes="pb linkrow" Command="{Binding OpenLinkCommand}" CommandParameter="https://github.com/Inter1ark/Proxy-Bridge">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <c:Icon Data="{StaticResource IcoCode}" Width="17" Height="17" StrokeThickness="1.5" Foreground="{StaticResource PbText2Brush}"/>
+                                    <TextBlock Grid.Column="1" Classes="mono" FontSize="13" Margin="12,0" VerticalAlignment="Center"
+                                               Foreground="{StaticResource PbTextBrush}">
+                                        <Run Text="GitHub  "/><Run Text="{i:Tr help.github_sub}" Foreground="{StaticResource PbText2Brush}"/>
+                                    </TextBlock>
+                                    <c:Icon Grid.Column="2" Classes="go" Data="{StaticResource IcoArrowUpRight}" Width="16" Height="16"
+                                            Foreground="{StaticResource PbMutedBrush}"/>
+                                </Grid>
+                            </Button>
+                            <Border Classes="srow" Padding="0,16,0,6">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <c:BrandMark Width="33" Height="22" VerticalAlignment="Top" Margin="0,2,0,0"/>
+                                    <StackPanel Grid.Column="1" Margin="14,0,0,0" Spacing="4">
+                                        <TextBlock FontSize="17" FontWeight="SemiBold">
+                                            <Run Text="proxybridge"/>
+                                            <Run Text="{Binding AppVersion}" Foreground="{StaticResource PbText2Brush}" FontWeight="Normal"
+                                                 FontFamily="{StaticResource PbMonoFont}" FontSize="13"/>
+                                        </TextBlock>
+                                        <TextBlock Classes="shint" Text="{i:Tr help.about_text}"/>
+                                        <TextBlock Classes="shint" Foreground="{StaticResource PbMutedBrush}" Text="{i:Tr help.license_line}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

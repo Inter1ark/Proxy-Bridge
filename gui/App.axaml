@@ -3,7 +3,15 @@
              x:Class="ProxyBridge.GUI.App"
              RequestedThemeVariant="Dark">
     <Application.Styles>
-        <FluentTheme />
+        <FluentTheme>
+            <FluentTheme.Palettes>
+                <ColorPaletteResources x:Key="Dark"
+                                       Accent="#FF2D5BFF"
+                                       RegionColor="#FF0A0E1A"
+                                       ErrorText="#FFF87171"/>
+            </FluentTheme.Palettes>
+        </FluentTheme>
+        <StyleInclude Source="avares://ProxyBridge/Styles/Theme.axaml"/>
     </Application.Styles>
 
     <!-- The tray icon is created in App.axaml.cs (SetupTrayIcon) inside a try/catch. -->

@@ -34,7 +34,7 @@ public class LicenseState
 
     public string ExpiresDisplay => ExpiresAt.HasValue
         ? ExpiresAt.Value.ToLocalTime().ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)
-        : "бессрочно";
+        : I18n.T("license.never_expires");
 
     public string MaskedKey => LicenseService.MaskKey(Key);
 }
@@ -425,23 +425,22 @@ public class LicenseService
 
     public static string PlanToDisplayName(string? plan) => plan switch
     {
-        "month" => "Месяц",
-        "3months" => "3 месяца",
-        "lifetime" => "Навсегда",
+        "month" => I18n.T("plan.month"),
+        "3months" => I18n.T("plan.3months"),
+        "lifetime" => I18n.T("plan.lifetime"),
         _ => string.IsNullOrWhiteSpace(plan) ? "" : plan
     };
 
-    public static string ErrorToMessage(string? code) => code switch
+    /// <summary>i18n key for a license error code (see docs/LICENSE_API.md).</summary>
+    public static string ErrorToKey(string? code) => code switch
     {
-        "not_found" => "Ключ не найден",
-        "expired" => "Срок лицензии истёк",
-        "device_limit" => "Ключ уже используется на максимальном числе устройств",
-        "revoked" => "Ключ отозван",
-        "not_activated" => "Это устройство не привязано к ключу",
-        "bad_request" => "Неверный формат ключа",
-        "network" => "Нет связи с сервером лицензий",
-        _ => "Ошибка сервера лицензий: " + code
+        "not_found" or "expired" or "device_limit" or "revoked" or "not_activated" or "bad_request" or "network"
+            => "license.err." + code,
+        _ => "license.err.server"
     };
+
+    /// <summary>Localized message for a license error code, in the current language.</summary>
+    public static string ErrorToMessage(string? code) => I18n.T(ErrorToKey(code), code ?? "");
 
     private static DateTime? ParseIso(string? value)
     {

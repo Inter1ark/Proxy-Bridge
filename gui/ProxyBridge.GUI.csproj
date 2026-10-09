@@ -10,31 +10,21 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>ProxyBridge</AssemblyName>
     <RootNamespace>ProxyBridge.GUI</RootNamespace>
-    <Version>3.2.0</Version>
+    <Version>3.3.0</Version>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\logo.ico" />
-    <AvaloniaResource Include="Assets\*.svg" />
+    <!-- Oswald (display) and JetBrains Mono (technical text), SIL OFL 1.1, see Assets/Fonts/OFL-*.txt -->
+    <AvaloniaResource Include="Assets\Fonts\*.ttf" />
+    <!-- Country flags 48x36 (flagcdn.com, public domain), see Assets/Flags/README.txt -->
+    <AvaloniaResource Include="Assets\Flags\*.png" />
   </ItemGroup>
 
+  <!-- UI strings: Assets/i18n/ru.json and en.json, loaded by Services/I18n.cs as "i18n.<lang>.json" -->
   <ItemGroup>
-    <EmbeddedResource Update="Resources\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Resources\Resources.zh.resx">
-      <DependentUpon>Resources.resx</DependentUpon>
-    </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Update="Resources\Resources.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
+    <EmbeddedResource Include="Assets\i18n\*.json" LogicalName="i18n.%(Filename).json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -44,6 +34,11 @@
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.0" />
     <PackageReference Include="Avalonia.ReactiveUI" Version="11.2.0" />
     <PackageReference Include="Avalonia.Diagnostics" Version="11.2.0" Condition="'$(Configuration)' == 'Debug'" />
+  </ItemGroup>
+
+  <!-- App icons for the routing diagram (Icon.ExtractAssociatedIcon), Windows only -->
+  <ItemGroup Condition="'$(IsMacPublish)' != 'true'">
+    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
   </ItemGroup>
 
   <!-- Нативные зависимости: ProxyBridgeCore.dll, WinDivert.dll, WinDivert64.sys (Windows only) -->

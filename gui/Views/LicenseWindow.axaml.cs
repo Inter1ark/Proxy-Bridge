@@ -12,6 +12,7 @@ public partial class LicenseWindow : Window
     public LicenseWindow()
     {
         InitializeComponent();
+        MainWindow.ApplyCustomChrome(this, Root);
 
         Opened += async (s, e) =>
         {
@@ -43,6 +44,7 @@ public partial class LicenseWindow : Window
         if (DataContext is LicenseViewModel vm)
         {
             vm.Activated -= OnActivated;
+            vm.Detach();
         }
 
         // Closing the activation window without a license exits the application.

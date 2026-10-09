@@ -43,15 +43,15 @@ public static class ProxyBridgeNative
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void LogCallback([MarshalAs(UnmanagedType.LPStr)] string message);
+    public delegate void LogCallback([MarshalAs(UnmanagedType.LPUTF8Str)] string message);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void ConnectionCallback(
-        [MarshalAs(UnmanagedType.LPStr)] string processName,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string processName,
         uint pid,
-        [MarshalAs(UnmanagedType.LPStr)] string destIp,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string destIp,
         ushort destPort,
-        [MarshalAs(UnmanagedType.LPStr)] string proxyInfo);
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string proxyInfo);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     public static extern uint ProxyBridge_AddRule(
@@ -139,4 +139,8 @@ public static class ProxyBridgeNative
         ushort targetPort,
         [MarshalAs(UnmanagedType.LPStr)] System.Text.StringBuilder resultBuffer,
         UIntPtr bufferSize);
+
+    /// <summary>Cumulative relayed TCP bytes since the last ProxyBridge_Start (sent = app to proxy).</summary>
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void ProxyBridge_GetTrafficStats(out ulong bytesUp, out ulong bytesDown);
 }

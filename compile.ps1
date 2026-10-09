@@ -10,6 +10,8 @@ param(
 $WinDivertPath = "C:\WinDivert-2.2.2-A"
 $SourcePath = "src"
 $SourceFile = "ProxyBridge.c"
+# The core is split into several files (docs\CORE_NOTES.md)
+$CoreSources = (@("ProxyBridge.c", "pb_compat.c", "pb_conntrack.c", "pb_dns.c", "pb_http.c", "pb_process.c", "pb_proxy.c", "pb_relay.c", "pb_rules.c", "pb_socks5.c", "pb_util.c") | ForEach-Object { "$SourcePath\$_" }) -join " "
 $OutputDLL = "ProxyBridgeCore.dll"
 $OutputDir = "output"
 
@@ -50,10 +52,10 @@ function Compile-MSVC {
 
     $cmd = "cl.exe /nologo /O2 /W3 /D_CRT_SECURE_NO_WARNINGS /DPROXYBRIDGE_EXPORTS " +
            "/I`"$WinDivertPath\include`" " +
-           "$SourcePath\$SourceFile " +
+           "$CoreSources " +
            "/LD " +
            "/link /LIBPATH:`"$WinDivertPath\$Arch`" " +
-           "WinDivert.lib ws2_32.lib iphlpapi.lib " +
+           "WinDivert.lib ws2_32.lib iphlpapi.lib psapi.lib " +
            "/OUT:$OutputDLL"
 
     Write-Host "Command: $cmd" -ForegroundColor Gray
@@ -79,9 +81,9 @@ function Compile-GCC {
 
     $cmd = "gcc -shared -O2 -Wall -D_WIN32_WINNT=0x0601 -DPROXYBRIDGE_EXPORTS " +
            "-I`"$WinDivertPath\include`" " +
-           "$SourcePath\$SourceFile " +
+           "$CoreSources " +
            "-L`"$WinDivertPath\$Arch`" " +
-           "-lWinDivert -lws2_32 -liphlpapi " +
+           "-lWinDivert -lws2_32 -liphlpapi -lpsapi " +
            "-o $OutputDLL"
 
     Write-Host "Command: $cmd" -ForegroundColor Gray

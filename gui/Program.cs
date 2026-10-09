@@ -1,33 +1,25 @@
 using Avalonia;
+using ProxyBridge.GUI.Services;
 using System;
-using System.IO;
 using System.Threading.Tasks;
 
 namespace ProxyBridge.GUI;
 
 class Program
 {
-    private static readonly string CrashLog = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-        "ProxyBridge_CRASH.txt"
-    );
-
     [STAThread]
     public static void Main(string[] args)
     {
-        // Catch ALL unhandled exceptions — write to Desktop crash log
+        // Unhandled errors go to the support log (Settings, "Open logs folder").
         AppDomain.CurrentDomain.UnhandledException += (s, e) =>
         {
-            var msg = $"[{DateTime.Now:HH:mm:ss}] UNHANDLED: {e.ExceptionObject}\n";
-            Console.Error.WriteLine(msg);
-            try { File.AppendAllText(CrashLog, msg); } catch { }
+            Console.Error.WriteLine($"UNHANDLED: {e.ExceptionObject}");
+            AppLog.Error($"UNHANDLED: {e.ExceptionObject}");
         };
 
         TaskScheduler.UnobservedTaskException += (s, e) =>
         {
-            var msg = $"[{DateTime.Now:HH:mm:ss}] TASK UNOBSERVED: {e.Exception}\n";
-            Console.Error.WriteLine(msg);
-            try { File.AppendAllText(CrashLog, msg); } catch { }
+            AppLog.Error($"TASK UNOBSERVED: {e.Exception}");
             e.SetObserved(); // Prevent crash
         };
 
@@ -38,9 +30,8 @@ class Program
         }
         catch (Exception ex)
         {
-            var msg = $"[{DateTime.Now:HH:mm:ss}] FATAL: {ex}\n";
-            Console.Error.WriteLine(msg);
-            try { File.AppendAllText(CrashLog, msg); } catch { }
+            Console.Error.WriteLine($"FATAL: {ex}");
+            AppLog.Error($"FATAL: {ex}");
         }
     }
 

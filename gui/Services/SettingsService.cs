@@ -13,10 +13,8 @@ internal partial class AppSettingsContext : JsonSerializerContext
 
 public class SettingsService
 {
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "ProxyBridge",
-        "settings.json");
+    // Honors PROXYBRIDGE_CONFIG_DIR (see ConfigManager.ConfigDirectory).
+    private static readonly string SettingsPath = Path.Combine(ConfigManager.ConfigDirectory, "settings.json");
 
     public AppSettings LoadSettings()
     {

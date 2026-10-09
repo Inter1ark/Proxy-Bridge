@@ -98,7 +98,7 @@ Write-Host ""
 Write-Host "Compiling ProxyBridgeCore.dll..." -ForegroundColor Cyan
 Set-Location "$PSScriptRoot"
 
-$compileCmd = "gcc -shared -O2 -Wall -D_WIN32_WINNT=0x0601 -I`"$windivertPath\include`" src\ProxyBridge.c -L`"$windivertPath\x64`" -lWinDivert -lws2_32 -liphlpapi -o ProxyBridgeCore.dll"
+$compileCmd = "gcc -shared -O2 -Wall -D_WIN32_WINNT=0x0601 -DPROXYBRIDGE_EXPORTS -I`"$windivertPath\include`" src\ProxyBridge.c src\pb_compat.c src\pb_conntrack.c src\pb_dns.c src\pb_http.c src\pb_process.c src\pb_proxy.c src\pb_relay.c src\pb_rules.c src\pb_socks5.c src\pb_util.c -L`"$windivertPath\x64`" -lWinDivert -lws2_32 -liphlpapi -lpsapi -o ProxyBridgeCore.dll"
 Write-Host $compileCmd -ForegroundColor DarkGray
 Invoke-Expression $compileCmd
 
