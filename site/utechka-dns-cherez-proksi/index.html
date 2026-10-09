@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Утечка DNS через прокси: что это и как проверить | ProxyBridge</title>
+  <meta name="description" content="Утечка DNS при работе через прокси: почему тест показывает DNS провайдера, как ProxyBridge обращается с DNS по умолчанию и когда это важно. Проверь за минуту.">
+  <link rel="canonical" href="https://www.proxybridge.org/utechka-dns-cherez-proksi/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:title" content="Утечка DNS через прокси: что это и как проверить | ProxyBridge">
+  <meta property="og:description" content="Утечка DNS при работе через прокси: почему тест показывает DNS провайдера, как ProxyBridge обращается с DNS по умолчанию и когда это важно. Проверь за минуту.">
+  <meta property="og:image" content="https://www.proxybridge.org/og-image.jpg">
+  <meta property="og:url" content="https://www.proxybridge.org/utechka-dns-cherez-proksi/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="ProxyBridge">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script type="application/ld+json">[{"@type": "Organization", "@id": "https://www.proxybridge.org/#org", "name": "ProxyBridge", "url": "https://www.proxybridge.org/", "logo": "https://www.proxybridge.org/favicon.png", "email": "support@proxybridge.org", "sameAs": ["https://github.com/Inter1ark/Proxy-Bridge", "https://t.me/inter1ark"], "@context": "https://schema.org"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Главная", "item": "https://www.proxybridge.org/"}, {"@type": "ListItem", "position": 2, "name": "Прокси для всей системы Windows", "item": "https://www.proxybridge.org/proksi-dlya-vsej-sistemy/"}, {"@type": "ListItem", "position": 3, "name": "Утечка DNS при работе через прокси", "item": "https://www.proxybridge.org/utechka-dns-cherez-proksi/"}], "@context": "https://schema.org"}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Идёт ли DNS через прокси в ProxyBridge?", "acceptedAnswer": {"@type": "Answer", "text": "По умолчанию нет: DNS-запросы идут напрямую, это связано с настройкой DNS Bypass. Через прокси направляется TCP-трафик, а классический DNS работает по UDP."}}, {"@type": "Question", "name": "Как проверить утечку DNS?", "acceptedAnswer": {"@type": "Answer", "text": "Подключись к прокси и открой любой сервис проверки DNS leak. Если в отчёте DNS-серверы твоего провайдера, а IP соединения принадлежит прокси, DNS-запросы идут напрямую."}}, {"@type": "Question", "name": "Опасна ли утечка DNS при работе через прокси?", "acceptedAnswer": {"@type": "Answer", "text": "Для задач вроде корпоративного прокси или парсинга обычно нет. Она важна, когда сервис сверяет регион DNS и регион IP, например при мультиаккаунтинге."}}]}, {"@context": "https://schema.org", "@type": "Article", "headline": "Утечка DNS при работе через прокси", "description": "Утечка DNS при работе через прокси: почему тест показывает DNS провайдера, как ProxyBridge обращается с DNS по умолчанию и когда это важно. Проверь за минуту.", "inLanguage": "ru", "datePublished": "2026-10-09", "dateModified": "2026-10-09", "author": {"@id": "https://www.proxybridge.org/#org"}, "publisher": {"@id": "https://www.proxybridge.org/#org"}, "mainEntityOfPage": "https://www.proxybridge.org/utechka-dns-cherez-proksi/", "image": "https://www.proxybridge.org/og-image.jpg"}]</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="logo" viewBox="0 0 48 32"><path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/><path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/></symbol></defs></svg>
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="/" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#product">Продукт</a>
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-blue" href="/skachat/">Скачать <span class="arrow">↘</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="page-hero">
+  <div class="container">
+    <nav class="crumbs" aria-label="Хлебные крошки"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/proksi-dlya-vsej-sistemy/">Прокси для всей системы Windows</a><span aria-hidden="true">/</span><span>Утечка DNS при работе через прокси</span></nav>
+    <div class="eyebrow">Задача</div>
+    <h1 class="display">Утечка DNS при работе через прокси</h1>
+    <p class="lead">Сайт видит IP прокси, а тест показывает DNS-сервер твоего провайдера. Это и называют утечкой DNS. Ниже честно о том, откуда она берётся, как ProxyBridge работает с DNS и когда это действительно важно.</p>
+    <div class="hero-actions">
+      <a class="btn btn-blue" href="/skachat/">Скачать ProxyBridge <span class="arrow">↘</span></a>
+      <a class="btn-link" href="/cena/">Тарифы от 99 ₽ <span class="arrow">↗</span></a>
+    </div>
+    
+  </div>
+</section>
+<section class="page-body">
+  <div class="container">
+    <div class="page-grid">
+      <article class="article">
+        <h2>Что такое утечка DNS</h2><p>Перед подключением к сайту компьютер спрашивает у DNS-сервера, какой IP у домена. Обычно этот запрос идёт по UDP на порт 53 к серверу, который выдал провайдер или который указан в настройках Windows. Утечкой DNS (DNS leak) называют ситуацию, когда сами соединения идут через прокси, а DNS-запросы уходят напрямую. Сервисы проверки видят два разных источника: IP прокси у соединения и DNS-резолвер из твоей сети. Для сайта это признак того, что запросы приходят из одного места, а имена разрешаются в другом.</p><div class="steps-box"><h2>Как сделать в ProxyBridge</h2><ol><li>Подключись к прокси кнопкой CONNECT в системном режиме.</li><li>Открой Settings и посмотри состояние настройки DNS Bypass.</li><li>Запусти в браузере любой тест DNS leak и сравни IP соединения с адресами DNS-серверов.</li><li>Если регион резолвера важен, включи в браузере DNS поверх HTTPS.</li><li>Повтори тест и убедись, что DNS-сервер в отчёте сменился.</li></ol></div><h2>Как ProxyBridge работает с DNS</h2><p>По умолчанию ProxyBridge отправляет DNS-запросы напрямую, мимо прокси. Это поведение связано с настройкой DNS Bypass в Settings. Причина практическая: через прокси программа направляет только TCP, а классический DNS работает по UDP. Значит, тест на утечку DNS в системном режиме, скорее всего, покажет DNS-сервер провайдера или тот, что задан в Windows. Соединения с сайтами при этом идут через прокси, и сайт видит IP прокси. Скрывать это поведение мы не будем: DNS через прокси по умолчанию не идёт.</p><ul><li>задай в Windows публичный DNS-сервер вместо провайдерского: это меняет резолвер, но не маршрут запросов;</li><li>включи в браузере DNS поверх HTTPS: такие запросы идут по TCP и вместе с остальным трафиком попадают в прокси;</li><li>в антидетект-браузере посмотри, как профиль обрабатывает DNS, у многих это настраивается отдельно.</li></ul><h2>Когда это важно, а когда нет</h2><p>Для большинства рабочих задач утечка DNS не мешает: корпоративный прокси, проверка региональной выдачи, разделение трафика программ. Сайт видит IP прокси и отдаёт контент для этого адреса. Значение она имеет там, где сервис сравнивает регион соединения и регион DNS: в мультиаккаунтинге и при тестировании геозависимых функций. Если совпадение регионов нужно, проверь его тестом заранее, а не после того, как аккаунт уже создан. И отдельно: прокси сам по себе не делает работу в сети приватной и не прячет трафик от провайдера, этого не обещает ни ProxyBridge, ни любой другой прокси-клиент.</p><h2>Отличие от страницы о прокси для всей системы</h2><p>Страница о прокси для всей системы объясняет системный режим: весь TCP-трафик компьютера идёт через один прокси. Этот материал уже: он отвечает только на вопрос, что происходит с DNS при таком подключении и почему тест показывает утечку. Он нужен, если ты уже подключился, проверил IP и увидел в отчёте DNS-сервер провайдера, или если задача требует, чтобы регион резолвера совпадал с регионом прокси.</p><div class="faq"><h2>Частые вопросы</h2><details><summary>Идёт ли DNS через прокси в ProxyBridge?</summary><p>По умолчанию нет: DNS-запросы идут напрямую, это связано с настройкой DNS Bypass. Через прокси направляется TCP-трафик, а классический DNS работает по UDP.</p></details><details><summary>Как проверить утечку DNS?</summary><p>Подключись к прокси и открой любой сервис проверки DNS leak. Если в отчёте DNS-серверы твоего провайдера, а IP соединения принадлежит прокси, DNS-запросы идут напрямую.</p></details><details><summary>Опасна ли утечка DNS при работе через прокси?</summary><p>Для задач вроде корпоративного прокси или парсинга обычно нет. Она важна, когда сервис сверяет регион DNS и регион IP, например при мультиаккаунтинге.</p></details></div><h2>Читайте также</h2><div class="related-grid"><a href="/proksi-dlya-vsej-sistemy/">Прокси для всей системы</a><a href="/proksi-ne-rabotaet/">Прокси не работает: чек-лист</a><a href="/proksi-dlya-antidetekt-brauzera/">Прокси для антидетект-браузера</a><a href="/kak-proverit-proksi/">Как проверить прокси</a><a href="/proksi-ili-vpn/">Прокси или VPN</a></div>
+      </article>
+      <aside class="aside">
+        <div class="aside-card">
+          <h3>ProxyBridge</h3>
+          <p>Вся система или отдельные программы через HTTP и SOCKS5. Windows 10/11, бета для macOS.</p>
+          <div class="price-line">от 99 ₽</div>
+          <a class="btn btn-blue" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+          <p style="margin:12px 0 0"><a href="/skachat/" style="color:#fff;text-decoration:underline">Скачать программу</a> · <a href="/cena/" style="color:#fff;text-decoration:underline">Все тарифы</a></p>
+        </div>
+        
+      </aside>
+    </div>
+  </div>
+</section>
+<section class="cta-band">
+  <div class="container">
+    <div><h2>Направь трафик по своим правилам</h2><p>Ключ от 99 ₽, работает на двух устройствах. Без автосписаний.</p></div>
+    <a class="btn btn-white" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/skachat/">Скачать</a>
+      <a href="/blog/">Блог</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://t.me/inter1ark" target="_blank" rel="noopener">Telegram <span class="arrow">↗</span></a>
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="/legal/offer.html">Оферта</a>
+      <a href="/legal/privacy.html">Конфиденциальность</a>
+      <a href="#" class="cookie-link" data-cookie-settings>Настройки cookie</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge</div>
+  </div>
+</footer>
+<script src="/script.js"></script>
+<script src="/metrika.js"></script>
+</body>
+</html>

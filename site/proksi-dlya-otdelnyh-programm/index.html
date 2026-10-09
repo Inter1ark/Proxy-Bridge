@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Прокси для отдельной программы: Split Tunnel | ProxyBridge</title>
+  <meta name="description" content="Прокси для отдельной программы в Windows: назначь каждому процессу свой HTTP или SOCKS5 прокси, остальной трафик пойдёт напрямую. Настрой Split Tunnel за минуту.">
+  <link rel="canonical" href="https://www.proxybridge.org/proksi-dlya-otdelnyh-programm/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:title" content="Прокси для отдельной программы: Split Tunnel | ProxyBridge">
+  <meta property="og:description" content="Прокси для отдельной программы в Windows: назначь каждому процессу свой HTTP или SOCKS5 прокси, остальной трафик пойдёт напрямую. Настрой Split Tunnel за минуту.">
+  <meta property="og:image" content="https://www.proxybridge.org/og-image.jpg">
+  <meta property="og:url" content="https://www.proxybridge.org/proksi-dlya-otdelnyh-programm/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="ProxyBridge">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script type="application/ld+json">[{"@type": "Organization", "@id": "https://www.proxybridge.org/#org", "name": "ProxyBridge", "url": "https://www.proxybridge.org/", "logo": "https://www.proxybridge.org/favicon.png", "email": "support@proxybridge.org", "sameAs": ["https://github.com/Inter1ark/Proxy-Bridge", "https://t.me/inter1ark"], "@context": "https://schema.org"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Главная", "item": "https://www.proxybridge.org/"}, {"@type": "ListItem", "position": 2, "name": "Прокси-клиент для Windows 10 и 11", "item": "https://www.proxybridge.org/proksi-klient-windows/"}, {"@type": "ListItem", "position": 3, "name": "Прокси для отдельных программ (Split Tunnel)", "item": "https://www.proxybridge.org/proksi-dlya-otdelnyh-programm/"}], "@context": "https://schema.org"}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Как направить одну программу через прокси, а остальные оставить напрямую?", "acceptedAnswer": {"@type": "Answer", "text": "Нужен клиент с режимом по программам. В ProxyBridge это вкладка Split Tunnel: добавляешь процесс, назначаешь прокси и нажимаешь APPLY SPLIT TUNNELING."}}, {"@type": "Question", "name": "Можно ли сделать разные прокси для разных программ на одном ПК?", "acceptedAnswer": {"@type": "Answer", "text": "Да, в Split Tunnel каждому процессу назначается свой прокси. Например, chrome.exe через один адрес, а python.exe через другой."}}, {"@type": "Question", "name": "Почему программа в Split Tunnel всё равно показывает мой IP?", "acceptedAnswer": {"@type": "Answer", "text": "Проверь, что правило применено кнопкой APPLY SPLIT TUNNELING и имя процесса совпадает с реальным. Если программа запускает процесс с другим именем, добавь и его."}}]}, {"@type": "SoftwareApplication", "name": "ProxyBridge", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Windows 10, Windows 11, macOS 12+", "softwareVersion": "3.2.0", "downloadUrl": "https://www.proxybridge.org/skachat/", "offers": [{"@type": "Offer", "name": "1 месяц", "price": "99", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=month"}, {"@type": "Offer", "name": "3 месяца", "price": "249", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=3months"}, {"@type": "Offer", "name": "Навсегда", "price": "699", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=lifetime"}], "publisher": {"@id": "https://www.proxybridge.org/#org"}, "@context": "https://schema.org", "url": "https://www.proxybridge.org/proksi-dlya-otdelnyh-programm/", "description": "Прокси для отдельной программы в Windows: назначь каждому процессу свой HTTP или SOCKS5 прокси, остальной трафик пойдёт напрямую. Настрой Split Tunnel за минуту."}]</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="logo" viewBox="0 0 48 32"><path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/><path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/></symbol></defs></svg>
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="/" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#product">Продукт</a>
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-blue" href="/skachat/">Скачать <span class="arrow">↘</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="page-hero">
+  <div class="container">
+    <nav class="crumbs" aria-label="Хлебные крошки"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/proksi-klient-windows/">Прокси-клиент для Windows 10 и 11</a><span aria-hidden="true">/</span><span>Прокси для отдельных программ (Split Tunnel)</span></nav>
+    <div class="eyebrow">Возможности</div>
+    <h1 class="display">Прокси для отдельных программ (Split Tunnel)</h1>
+    <p class="lead">Не всегда нужно пускать через прокси весь компьютер. В режиме Split Tunnel ProxyBridge направляет через прокси только выбранные программы, и каждой можно дать свой адрес.</p>
+    <div class="hero-actions">
+      <a class="btn btn-blue" href="/skachat/">Скачать ProxyBridge <span class="arrow">↘</span></a>
+      <a class="btn-link" href="/cena/">Тарифы от 99 ₽ <span class="arrow">↗</span></a>
+    </div>
+    
+  </div>
+</section>
+<section class="page-body">
+  <div class="container">
+    <div class="page-grid">
+      <article class="article">
+        <h2>Как работает прокси для отдельной программы</h2><p>Прокси для отдельной программы в ProxyBridge задаётся правилом по имени процесса. Ты добавляешь программу кнопкой Browse или вписываешь имя исполняемого файла вручную, например chrome.exe, telegram.exe или python.exe, выбираешь для неё прокси и нажимаешь APPLY SPLIT TUNNELING. С этого момента TCP-соединения этого процесса идут через назначенный прокси, а всё, что не попало в список, работает напрямую, как без программы.</p><p>Самой программе ничего настраивать не нужно. Это главное отличие от встроенных средств: в Windows нет штатного способа направить через прокси одно приложение, а системная настройка прокси общая для всех и к тому же учитывается не каждой программой.</p><div class="steps-box"><h2>Как сделать в ProxyBridge</h2><ol><li>Открой вкладку Split Tunnel.</li><li>Нажми Browse и выбери exe-файл программы или впиши имя процесса, например chrome.exe.</li><li>Укажи для программы прокси и нажми Add to list.</li><li>Повтори для других программ, если им нужны свои прокси.</li><li>Нажми APPLY SPLIT TUNNELING и проверь IP в каждой программе.</li></ol></div><h2>Почему не хватает встроенных средств</h2><p>У некоторых программ есть свои настройки прокси: у Firefox, Telegram Desktop, многих антидетект-браузеров. Но каждая настраивается в своём окне, поддержка SOCKS5 и паролей в них разная, а когда прокси меняется, править приходится везде. У остальных программ поля для прокси нет совсем. Split Tunnel собирает все правила в одном месте и работает одинаково для любого процесса, будь то браузер или консольная утилита.</p><h2>Разные прокси для разных программ</h2><p>Split tunneling прокси раскрывается, когда процессов несколько. Пример рабочего стола арбитражника: антидетект-браузер идёт через резидентный прокси одной страны, парсер на Python через серверный прокси другой, а мессенджер, почта и обновления Windows напрямую, не расходуя трафик провайдера. Другой пример: тестировщик держит Firefox на прокси одного региона, а Chrome на прокси другого и сравнивает выдачу сайта рядом, в двух окнах. А разработчик может пустить через прокси только node.exe с тестами API, не трогая IDE и браузер.</p><ul><li>Правило привязано к имени процесса, поэтому все окна и копии одного exe получают один и тот же прокси.</li><li>Если программа запускает вспомогательные процессы с другим именем, например отдельный модуль обновлений, их нужно добавить отдельным правилом.</li><li>После изменения списка не забудь снова нажать APPLY SPLIT TUNNELING.</li></ul><h2>Как узнать имя процесса</h2><p>Имя процесса не всегда совпадает с названием программы. Надёжнее всего открыть «Диспетчер задач», вкладку «Подробности», и найти программу в столбце «Имя». Там видно, например, что Яндекс Браузер работает как browser.exe, а Telegram Desktop как telegram.exe. Кнопка Browse избавляет от этой проверки: ты выбираешь exe-файл в проводнике, и имя подставляется само. Если программа установлена в профиль пользователя, её exe обычно лежит в скрытой папке AppData, поэтому иногда проще вписать имя вручную.</p><h2>Какие задачи решает</h2><ul><li>Направить программу через прокси, когда в ней нет поля для прокси.</li><li>Дать нескольким программам разные IP на одном компьютере.</li><li>Экономить трафик прокси, оставив фоновые программы и обновления напрямую.</li><li>Разделить рабочий и личный трафик без двух компьютеров.</li><li>Пустить через прокси скрипт или консольную утилиту без правки кода.</li></ul><h2>Ограничения Split Tunnel</h2><p>Режим работает только с TCP: UDP-трафик выбранной программы, если он есть, пойдёт напрямую, поэтому звонки и игры так не проксируются. Правила задаются по процессу целиком, условий вида «только для такого-то сайта» или «только для порта 443» нет. Split Tunnel есть только в версии для Windows, в бете для macOS доступен один системный режим. VPN-клиенты на время работы нужно выключать. Правила действуют, пока ProxyBridge запущен, поэтому удобно включить в Settings Minimize to Tray, чтобы закрытие окна не останавливало программу. Если программа была запущена до применения правил, её уже открытые соединения могли установиться напрямую, поэтому после APPLY SPLIT TUNNELING надёжнее её перезапустить. И добавляй в список только то, что действительно должно идти через прокси: каждый лишний процесс тратит трафик провайдера.</p><p>Уточнение: системный режим отправляет через один прокси сразу всё, а Split Tunnel трогает только перечисленные процессы и позволяет каждому выдать свой адрес.</p><div class="faq"><h2>Частые вопросы</h2><details><summary>Как направить одну программу через прокси, а остальные оставить напрямую?</summary><p>Нужен клиент с режимом по программам. В ProxyBridge это вкладка Split Tunnel: добавляешь процесс, назначаешь прокси и нажимаешь APPLY SPLIT TUNNELING.</p></details><details><summary>Можно ли сделать разные прокси для разных программ на одном ПК?</summary><p>Да, в Split Tunnel каждому процессу назначается свой прокси. Например, chrome.exe через один адрес, а python.exe через другой.</p></details><details><summary>Почему программа в Split Tunnel всё равно показывает мой IP?</summary><p>Проверь, что правило применено кнопкой APPLY SPLIT TUNNELING и имя процесса совпадает с реальным. Если программа запускает процесс с другим именем, добавь и его.</p></details></div><h2>Читайте также</h2><div class="related-grid"><a href="/raznye-proksi-dlya-raznyh-programm/">Разные прокси для разных программ</a><a href="/kak-pustit-programmu-cherez-proksi/">Как пустить программу через прокси</a><a href="/proksi-dlya-vsej-sistemy/">Прокси для всей системы</a><a href="/proksi-dlya-chrome/">Прокси для Chrome</a><a href="/proksi-dlya-antidetekt-brauzera/">Прокси для антидетект-браузера</a><a href="/proksi-dlya-python-skriptov/">Прокси для Python-скриптов</a></div>
+      </article>
+      <aside class="aside">
+        <div class="aside-card">
+          <h3>ProxyBridge</h3>
+          <p>Вся система или отдельные программы через HTTP и SOCKS5. Windows 10/11, бета для macOS.</p>
+          <div class="price-line">от 99 ₽</div>
+          <a class="btn btn-blue" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+          <p style="margin:12px 0 0"><a href="/skachat/" style="color:#fff;text-decoration:underline">Скачать программу</a> · <a href="/cena/" style="color:#fff;text-decoration:underline">Все тарифы</a></p>
+        </div>
+        <div class="aside-links"><h3>Рядом по теме</h3><a href="/socks5-klient/">SOCKS5-клиент для Windows</a><a href="/http-proksi-klient/">HTTP-прокси клиент для Windows</a><a href="/proksi-dlya-vsej-sistemy/">Прокси для всей системы Windows</a><a href="/proksi-s-avtorizaciej/">Прокси с логином и паролем в программах Windows</a><a href="/spisok-proksi/">Список прокси: импорт из файла и переключение в один клик</a></div>
+      </aside>
+    </div>
+  </div>
+</section>
+<section class="cta-band">
+  <div class="container">
+    <div><h2>Направь трафик по своим правилам</h2><p>Ключ от 99 ₽, работает на двух устройствах. Без автосписаний.</p></div>
+    <a class="btn btn-white" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/skachat/">Скачать</a>
+      <a href="/blog/">Блог</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://t.me/inter1ark" target="_blank" rel="noopener">Telegram <span class="arrow">↗</span></a>
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="/legal/offer.html">Оферта</a>
+      <a href="/legal/privacy.html">Конфиденциальность</a>
+      <a href="#" class="cookie-link" data-cookie-settings>Настройки cookie</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge</div>
+  </div>
+</footer>
+<script src="/script.js"></script>
+<script src="/metrika.js"></script>
+</body>
+</html>

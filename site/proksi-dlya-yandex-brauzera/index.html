@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Прокси для Яндекс Браузера: настройка без Windows | ProxyBridge</title>
+  <meta name="description" content="Как настроить прокси в Яндекс Браузере: штатный путь через параметры Windows и отдельный прокси только для browser.exe в ProxyBridge, с логином и паролем.">
+  <link rel="canonical" href="https://www.proxybridge.org/proksi-dlya-yandex-brauzera/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:title" content="Прокси для Яндекс Браузера: настройка без Windows | ProxyBridge">
+  <meta property="og:description" content="Как настроить прокси в Яндекс Браузере: штатный путь через параметры Windows и отдельный прокси только для browser.exe в ProxyBridge, с логином и паролем.">
+  <meta property="og:image" content="https://www.proxybridge.org/og-image.jpg">
+  <meta property="og:url" content="https://www.proxybridge.org/proksi-dlya-yandex-brauzera/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="ProxyBridge">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script type="application/ld+json">[{"@type": "Organization", "@id": "https://www.proxybridge.org/#org", "name": "ProxyBridge", "url": "https://www.proxybridge.org/", "logo": "https://www.proxybridge.org/favicon.png", "email": "support@proxybridge.org", "sameAs": ["https://github.com/Inter1ark/Proxy-Bridge", "https://t.me/inter1ark"], "@context": "https://schema.org"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Главная", "item": "https://www.proxybridge.org/"}, {"@type": "ListItem", "position": 2, "name": "Прокси для отдельных программ (Split Tunnel)", "item": "https://www.proxybridge.org/proksi-dlya-otdelnyh-programm/"}, {"@type": "ListItem", "position": 3, "name": "Прокси для Яндекс Браузера", "item": "https://www.proxybridge.org/proksi-dlya-yandex-brauzera/"}], "@context": "https://schema.org"}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Как настроить прокси в Яндекс Браузере только для него?", "acceptedAnswer": {"@type": "Answer", "text": "Штатно браузер берёт системный прокси Windows, поэтому отдельный адрес задают расширением или внешней программой. В ProxyBridge это правило Split Tunnel для browser.exe."}}, {"@type": "Question", "name": "Почему Яндекс Браузер открывает настройки Windows вместо своих?", "acceptedAnswer": {"@type": "Answer", "text": "Браузер построен на Chromium и использует системные параметры сети. Собственного окна прокси в нём нет, кнопка в настройках лишь ведёт в параметры Windows."}}, {"@type": "Question", "name": "Работает ли SOCKS5 с паролем в Яндекс Браузере?", "acceptedAnswer": {"@type": "Answer", "text": "Через системные настройки нет: там нет полей для логина и пароля. Через ProxyBridge да, прокси вводится как socks5://user:pass@ip:port и проверяется подключением."}}]}, {"@type": "SoftwareApplication", "name": "ProxyBridge", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Windows 10, Windows 11, macOS 12+", "softwareVersion": "3.2.0", "downloadUrl": "https://www.proxybridge.org/skachat/", "offers": [{"@type": "Offer", "name": "1 месяц", "price": "99", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=month"}, {"@type": "Offer", "name": "3 месяца", "price": "249", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=3months"}, {"@type": "Offer", "name": "Навсегда", "price": "699", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=lifetime"}], "publisher": {"@id": "https://www.proxybridge.org/#org"}, "@context": "https://schema.org", "url": "https://www.proxybridge.org/proksi-dlya-yandex-brauzera/", "description": "Как настроить прокси в Яндекс Браузере: штатный путь через параметры Windows и отдельный прокси только для browser.exe в ProxyBridge, с логином и паролем."}]</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="logo" viewBox="0 0 48 32"><path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/><path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/></symbol></defs></svg>
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="/" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#product">Продукт</a>
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-blue" href="/skachat/">Скачать <span class="arrow">↘</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="page-hero">
+  <div class="container">
+    <nav class="crumbs" aria-label="Хлебные крошки"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/proksi-dlya-otdelnyh-programm/">Прокси для отдельных программ (Split Tunnel)</a><span aria-hidden="true">/</span><span>Прокси для Яндекс Браузера</span></nav>
+    <div class="eyebrow">Сценарий</div>
+    <h1 class="display">Прокси для Яндекс Браузера</h1>
+    <p class="lead">Нужно, чтобы Яндекс Браузер ходил через прокси, а почта, мессенджеры и обновления работали как раньше? Покажем штатную настройку и вариант, при котором ProxyBridge направляет в прокси только процесс browser.exe.</p>
+    <div class="hero-actions">
+      <a class="btn btn-blue" href="/skachat/">Скачать ProxyBridge <span class="arrow">↘</span></a>
+      <a class="btn-link" href="/cena/">Тарифы от 99 ₽ <span class="arrow">↗</span></a>
+    </div>
+    
+  </div>
+</section>
+<section class="page-body">
+  <div class="container">
+    <div class="page-grid">
+      <article class="article">
+        <h2>Как настроить прокси в Яндекс Браузере штатно</h2><p>Отдельного поля для прокси в Яндекс Браузере нет. Путь такой: меню, «Настройки», раздел «Системные», блок «Сеть», кнопка настроек прокси-сервера. Она открывает окно параметров Windows, и всё, что ты там укажешь, применится не только к браузеру, но и к другим программам, которые берут системные настройки. Второй вариант: расширение-переключатель. Яндекс Браузер ставит дополнения из своего каталога и из интернет-магазина Chrome, так что выбор есть, но возможности у них те же, что у любого браузера на Chromium.</p><div class="steps-box"><h2>Как сделать в ProxyBridge</h2><ol><li>Установи ProxyBridge от имени администратора и активируй ключ.</li><li>Открой Split Tunnel и нажми Browse.</li><li>Выбери browser.exe в папке Yandex\YandexBrowser\Application.</li><li>Укажи прокси для правила в формате http://user:pass@ip:port и проверь его кнопкой VERIFY.</li><li>Нажми APPLY SPLIT TUNNELING и открой в браузере сервис проверки IP.</li></ol></div><h2>Почему системный прокси подходит не всем</h2><p>Если у тебя один HTTP-прокси без пароля и не мешает, что через него пойдёт вся система, штатного способа достаточно. В остальных случаях логичнее отделить браузер от остального трафика.</p><ul><li>Меняется маршрут всего компьютера, хотя нужен только браузер. Если прокси медленный или перестал отвечать, страдают и остальные программы.</li><li>В форме Windows нет логина и пароля. HTTP-прокси с авторизацией браузер спросит во всплывающем окне, а SOCKS5 с паролем так не подключить вовсе.</li><li>Часть программ системный прокси игнорирует, и заранее не всегда понятно, какие именно.</li><li>Расширение действует только на страницы браузера, а SOCKS5 с авторизацией не умеет сам движок Chromium.</li></ul><h2>Split Tunnel для browser.exe</h2><p>В ProxyBridge правило привязывается к имени процесса. У Яндекс Браузера это browser.exe, и все его вкладки и служебные процессы называются так же. Добавь его в Split Tunnel, назначь прокси с логином и паролем и нажми APPLY SPLIT TUNNELING. Трафик браузера пойдёт через прокси, остальные программы останутся на прямом подключении или получат свои адреса. Параметры Windows при этом не меняются.</p><p>Одна тонкость: имя browser.exe довольно общее. Перед добавлением правила открой Диспетчер задач, вкладку «Подробности», и посмотри, нет ли других процессов с таким именем. Если нашлись, учти, что правило по имени процесса затронет и их. Сам браузер обычно лежит в папке AppData\Local\Yandex\YandexBrowser\Application, оттуда его удобно выбрать через Browse.</p><h2>Для каких задач это удобно</h2><ul><li>Проверка поисковой выдачи и рекламы так, как их видит пользователь из другого региона.</li><li>Работа в рекламном кабинете или аккаунте клиента с выделенного IP, пока второй браузер остаётся на твоём адресе.</li><li>Тестирование сайта: вёрстка, цены по регионам, редиректы по геолокации.</li><li>Корпоративный прокси, через который должен ходить только рабочий браузер.</li><li>Вход в панель хостинга или корпоративный портал, где доступ открыт только для адресов из белого списка.</li></ul><h2>Ограничения, о которых лучше знать заранее</h2><p>Через прокси идёт только TCP. UDP, в том числе WebRTC и протокол QUIC, уходит напрямую, поэтому сервис проверки IP иногда показывает твой реальный адрес. Ограничь WebRTC расширением и перепроверь. DNS-запросы по умолчанию тоже идут напрямую, этим управляет опция DNS Bypass в Settings. И не запускай одновременно VPN: ProxyBridge и VPN-клиент оба перехватывают трафик и мешают друг другу.</p><div class="faq"><h2>Частые вопросы</h2><details><summary>Как настроить прокси в Яндекс Браузере только для него?</summary><p>Штатно браузер берёт системный прокси Windows, поэтому отдельный адрес задают расширением или внешней программой. В ProxyBridge это правило Split Tunnel для browser.exe.</p></details><details><summary>Почему Яндекс Браузер открывает настройки Windows вместо своих?</summary><p>Браузер построен на Chromium и использует системные параметры сети. Собственного окна прокси в нём нет, кнопка в настройках лишь ведёт в параметры Windows.</p></details><details><summary>Работает ли SOCKS5 с паролем в Яндекс Браузере?</summary><p>Через системные настройки нет: там нет полей для логина и пароля. Через ProxyBridge да, прокси вводится как socks5://user:pass@ip:port и проверяется подключением.</p></details></div><h2>Читайте также</h2><div class="related-grid"><a href="/proksi-dlya-otdelnyh-programm/">Прокси для отдельных программ</a><a href="/proksi-dlya-chrome/">Прокси для Google Chrome</a><a href="/proverka-proksi/">Проверка прокси перед подключением</a><a href="/proksi-dlya-testirovaniya/">Прокси для тестирования из разных регионов</a><a href="/cena/">Сколько стоит ProxyBridge</a></div>
+      </article>
+      <aside class="aside">
+        <div class="aside-card">
+          <h3>ProxyBridge</h3>
+          <p>Вся система или отдельные программы через HTTP и SOCKS5. Windows 10/11, бета для macOS.</p>
+          <div class="price-line">от 99 ₽</div>
+          <a class="btn btn-blue" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+          <p style="margin:12px 0 0"><a href="/skachat/" style="color:#fff;text-decoration:underline">Скачать программу</a> · <a href="/cena/" style="color:#fff;text-decoration:underline">Все тарифы</a></p>
+        </div>
+        <div class="aside-links"><h3>Рядом по теме</h3><a href="/proksi-dlya-chrome/">Прокси для Google Chrome</a><a href="/proksi-dlya-firefox/">Прокси для Firefox: встроенная настройка и SOCKS5 с паролем</a><a href="/proksi-dlya-telegram-desktop/">Прокси для Telegram Desktop на ПК</a><a href="/proksi-dlya-antidetekt-brauzera/">Прокси для антидетект-браузера и мультиаккаунтинга</a><a href="/proksi-dlya-python-skriptov/">Прокси для Python-скриптов и консольных программ</a></div>
+      </aside>
+    </div>
+  </div>
+</section>
+<section class="cta-band">
+  <div class="container">
+    <div><h2>Направь трафик по своим правилам</h2><p>Ключ от 99 ₽, работает на двух устройствах. Без автосписаний.</p></div>
+    <a class="btn btn-white" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/skachat/">Скачать</a>
+      <a href="/blog/">Блог</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://t.me/inter1ark" target="_blank" rel="noopener">Telegram <span class="arrow">↗</span></a>
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="/legal/offer.html">Оферта</a>
+      <a href="/legal/privacy.html">Конфиденциальность</a>
+      <a href="#" class="cookie-link" data-cookie-settings>Настройки cookie</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge</div>
+  </div>
+</footer>
+<script src="/script.js"></script>
+<script src="/metrika.js"></script>
+</body>
+</html>

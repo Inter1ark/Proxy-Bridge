@@ -27,11 +27,11 @@
 
 <header class="nav" id="nav">
   <div class="container">
-    <a class="brand" href="index.html" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <a class="brand" href="/" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
     <nav class="nav-links" id="navLinks">
-      <a href="index.html#product" data-i18n="nav.product">Продукт</a>
-      <a href="index.html#features" data-i18n="nav.features">Возможности</a>
-      <a href="index.html#pricing" data-i18n="nav.pricing">Подписка</a>
+      <a href="/#product" data-i18n="nav.product">Продукт</a>
+      <a href="/#features" data-i18n="nav.features">Возможности</a>
+      <a href="/#pricing" data-i18n="nav.pricing">Подписка</a>
       <a href="partners.html" data-i18n="nav.partners">Партнёры</a>
       <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
     </nav>
@@ -53,7 +53,7 @@
     <div class="buy-head">
       <div class="eyebrow" data-i18n="buy.eyebrow">Оформление</div>
       <h1 class="display" data-i18n="buy.title">Получить ключ.</h1>
-      <p data-i18n="buy.sub">Выбери тариф и способ оплаты. Ключ появится на следующей странице сразу после оплаты и продублируется на email.</p>
+      <p data-i18n="buy.sub">Выбери тариф и способ оплаты. Ключ появится на следующей странице сразу после оплаты.</p>
     </div>
 
     <form class="buy-grid" id="buyForm" novalidate>
@@ -96,7 +96,7 @@
 
 <footer class="footer">
   <div class="container">
-    <a class="brand" href="index.html"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
     <div class="footer-links">
       <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
       <a href="legal/offer.html" data-i18n="foot.offer">Оферта</a>
@@ -109,6 +109,7 @@
 
 <script src="i18n.js"></script>
 <script src="script.js"></script>
+<script src="/metrika.js"></script>
 <script>
 (function () {
   var API = window.PB_API || '';
@@ -134,12 +135,14 @@
   }
   document.getElementById('planChoice').addEventListener('click', function (e) {
     var l = e.target.closest('label'); if (!l) return; plan = l.getAttribute('data-plan'); render();
+    window.pbTrack && window.pbTrack.detail(plan);
   });
   document.getElementById('methodChoice').addEventListener('click', function (e) {
     var l = e.target.closest('label'); if (!l) return; method = l.getAttribute('data-method'); render();
   });
   document.addEventListener('langchange', render);
   render();
+  window.pbTrack && window.pbTrack.detail(plan);
 
   document.getElementById('buyForm').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -149,6 +152,7 @@
     err.textContent = '';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { err.textContent = t('buy.errEmail', 'Введи корректный email'); return; }
     btn.disabled = true;
+    if (window.pbTrack) { window.pbTrack.add(plan); window.pbTrack.goal('checkout_submit', { plan: plan, method: method }); }
     var label = btn.firstElementChild; var old = label.textContent;
     label.textContent = t('buy.wait', 'Создаём платёж...');
     fetch(API + '/api/checkout', {
@@ -157,7 +161,8 @@
     }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (res) {
         if (!res.ok || !res.d.pay_url) throw new Error(res.d && res.d.error || 'server');
-        location.href = res.d.pay_url;
+        if (window.pbTrack) window.pbTrack.goal('checkout_redirect', { plan: plan, method: method });
+        setTimeout(function () { location.href = res.d.pay_url; }, 250);
       })
       .catch(function () {
         err.textContent = t('buy.errServer', 'Сервис оплаты недоступен, попробуй позже');

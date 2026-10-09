@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db
@@ -101,6 +101,23 @@ def create_app() -> FastAPI:
     app.include_router(admin.router)
 
     # Web admin panel: a single self-contained page. Registered before the static mount.
+    @app.middleware("http")
+    async def slash_redirect(request: Request, call_next):
+        # /page -> /page/ with a permanent redirect when the site has /page/index.html
+        path = request.url.path
+        if (request.method in ("GET", "HEAD") and not path.endswith("/") and "." not in path.rsplit("/", 1)[-1]
+                and not path.startswith(("/api/", "/admin", "/webhook/")) and SITE_DIR.is_dir()):
+            if (SITE_DIR / path.lstrip("/") / "index.html").is_file():
+                q = request.url.query
+                return RedirectResponse(path + "/" + ("?" + q if q else ""), status_code=301)
+        return await call_next(request)
+
+    @app.get("/index.html", include_in_schema=False)
+    def index_html_redirect(request: Request):
+        # one canonical URL for the home page
+        q = request.url.query
+        return RedirectResponse("/" + ("?" + q if q else ""), status_code=301)
+
     @app.get("/admin", include_in_schema=False)
     @app.get("/admin/", include_in_schema=False)
     def admin_ui():

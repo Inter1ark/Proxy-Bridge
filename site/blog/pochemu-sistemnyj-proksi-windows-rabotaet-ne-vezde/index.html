@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Системный прокси Windows не работает: почему | ProxyBridge</title>
+  <meta name="description" content="Системный прокси Windows не работает в части программ? Объясняем, кто читает эту настройку, где ломаются SOCKS5 и авторизация, и как быстро найти причину.">
+  <link rel="canonical" href="https://www.proxybridge.org/blog/pochemu-sistemnyj-proksi-windows-rabotaet-ne-vezde/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:title" content="Системный прокси Windows не работает: почему | ProxyBridge">
+  <meta property="og:description" content="Системный прокси Windows не работает в части программ? Объясняем, кто читает эту настройку, где ломаются SOCKS5 и авторизация, и как быстро найти причину.">
+  <meta property="og:image" content="https://www.proxybridge.org/og-image.jpg">
+  <meta property="og:url" content="https://www.proxybridge.org/blog/pochemu-sistemnyj-proksi-windows-rabotaet-ne-vezde/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="ProxyBridge">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script type="application/ld+json">[{"@type": "Organization", "@id": "https://www.proxybridge.org/#org", "name": "ProxyBridge", "url": "https://www.proxybridge.org/", "logo": "https://www.proxybridge.org/favicon.png", "email": "support@proxybridge.org", "sameAs": ["https://github.com/Inter1ark/Proxy-Bridge", "https://t.me/inter1ark"], "@context": "https://schema.org"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Главная", "item": "https://www.proxybridge.org/"}, {"@type": "ListItem", "position": 2, "name": "Блог", "item": "https://www.proxybridge.org/blog/"}, {"@type": "ListItem", "position": 3, "name": "Почему системный прокси Windows работает не во всех программах", "item": "https://www.proxybridge.org/blog/pochemu-sistemnyj-proksi-windows-rabotaet-ne-vezde/"}], "@context": "https://schema.org"}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Почему системный прокси Windows не работает в Telegram?", "acceptedAnswer": {"@type": "Answer", "text": "Telegram Desktop не обязан использовать системные настройки: у него свой раздел прокси. Укажи прокси там или используй клиент, который перехватывает трафик программы на уровне сети."}}, {"@type": "Question", "name": "Как настроить системный прокси с логином и паролем?", "acceptedAnswer": {"@type": "Answer", "text": "Штатное окно Windows не хранит логин и пароль. Браузер спросит их сам, а остальным программам нужна своя настройка или прокси-клиент с поддержкой авторизации."}}, {"@type": "Question", "name": "Почему после перезагрузки прокси отключается?", "acceptedAnswer": {"@type": "Answer", "text": "Чаще всего настройку перезаписывает групповая политика организации или программа, которая управляет сетью. Проверь, нет ли на компьютере VPN-клиента или корпоративного агента."}}]}, {"@context": "https://schema.org", "@type": "Article", "headline": "Почему системный прокси Windows работает не во всех программах", "description": "Системный прокси Windows не работает в части программ? Объясняем, кто читает эту настройку, где ломаются SOCKS5 и авторизация, и как быстро найти причину.", "inLanguage": "ru", "datePublished": "2026-10-09", "dateModified": "2026-10-09", "author": {"@id": "https://www.proxybridge.org/#org"}, "publisher": {"@id": "https://www.proxybridge.org/#org"}, "mainEntityOfPage": "https://www.proxybridge.org/blog/pochemu-sistemnyj-proksi-windows-rabotaet-ne-vezde/", "image": "https://www.proxybridge.org/og-image.jpg"}]</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="logo" viewBox="0 0 48 32"><path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/><path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/></symbol></defs></svg>
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="/" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#product">Продукт</a>
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-blue" href="/skachat/">Скачать <span class="arrow">↘</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="page-hero">
+  <div class="container">
+    <nav class="crumbs" aria-label="Хлебные крошки"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/blog/">Блог</a><span aria-hidden="true">/</span><span>Почему системный прокси Windows работает не во всех программах</span></nav>
+    <div class="eyebrow">Блог</div>
+    <h1 class="display">Почему системный прокси Windows работает не во всех программах</h1>
+    <p class="lead">Ты указал прокси в параметрах Windows, браузер пошёл через него, а остальные программы как будто ничего не заметили. Объясняем, почему так происходит, как найти причину и когда удобнее перехват на уровне сети.</p>
+    <div class="hero-actions">
+      <a class="btn btn-blue" href="/skachat/">Скачать ProxyBridge <span class="arrow">↘</span></a>
+      <a class="btn-link" href="/cena/">Тарифы от 99 ₽ <span class="arrow">↗</span></a>
+    </div>
+    <div class="page-meta">5 мин чтения · 9 октября 2026</div>
+  </div>
+</section>
+<section class="page-body">
+  <div class="container">
+    <div class="page-grid">
+      <article class="article">
+        <h2>Системный прокси это подсказка, а не правило</h2><p>Когда системный прокси Windows не работает в какой-то программе, чаще всего виновата не опечатка в адресе, а то, как эта настройка устроена. Адрес и порт, которые ты вводишь в «Параметрах» (раздел «Сеть и Интернет», пункт «Прокси-сервер»), сохраняются в настройках текущего пользователя. Windows не заставляет программы ими пользоваться. Это запись, которую приложение может прочитать через системную библиотеку WinINET и учесть, а может проигнорировать. Принудительного маршрута не появляется: пакеты программы, которая не спросила о прокси, уходят напрямую.</p><p>Поэтому один и тот же прокси на одном компьютере одновременно «работает» в браузере и «не работает» в мессенджере, лаунчере или скрипте. Разница не в прокси, а в том, какие программы согласились читать системную настройку. Системный прокси похож на табличку «вход через соседний подъезд»: вежливые программы ей следуют, остальные идут прямой дорогой, и формально никто ничего не нарушает.</p><h2>Кто читает системные настройки, а кто нет</h2><p>Браузеры на Chromium (Chrome, Edge, Яндекс Браузер) по умолчанию берут прокси из системы. Firefox тоже умеет использовать системные параметры, но у него есть своя вкладка с настройками сети, и если там выбран другой вариант, системный прокси для него не существует.</p><p>Дальше картина пёстрая. У многих программ свой сетевой код, который настройки WinINET просто не запрашивает. Консольные утилиты вроде curl ориентируются на переменные окружения HTTP_PROXY и HTTPS_PROXY. Приложения на Java используют собственные параметры запуска. Службы Windows работают от системной учётной записи, и настройки твоего пользователя к ним не относятся. Есть и отдельная системная настройка WinHTTP, которой пользуются некоторые служебные компоненты: её показывает команда netsh winhttp show proxy, и она может не совпадать с тем, что ты видишь в «Параметрах».</p><ul><li>браузеры на Chromium: читают системный прокси;</li><li>Firefox: следует своей настройке в параметрах сети;</li><li>консольные утилиты и скрипты: чаще смотрят на переменные окружения или свои параметры;</li><li>службы и фоновые компоненты: используют WinHTTP или собственную конфигурацию;</li><li>игры, лаунчеры, многие мессенджеры: действуют по своей логике, часто без прокси вовсе.</li></ul><h2>Скрипты и консольные утилиты живут по своим правилам</h2><p>Отдельная категория это всё, что запускается из командной строки: curl, wget, git, менеджеры пакетов, скрипты на Python и Node.js. Большинство из них смотрит на переменные окружения HTTP_PROXY, HTTPS_PROXY и NO_PROXY или на собственные файлы конфигурации. Переменные задаются для текущего окна терминала командой set или в свойствах системы для всех новых процессов. Если ты поменял прокси в «Параметрах», а скрипт продолжает ходить напрямую, это ожидаемо: он о той настройке ничего не знает.</p><p>Есть ещё одна тонкость. Многие библиотеки понимают в переменных окружения только HTTP-прокси, а для SOCKS5 требуют отдельный модуль или особую схему в адресе. Поэтому строка, которая работает в одной утилите, в другой может выдать ошибку разбора. Перед тем как менять код, проверь, что именно ожидает конкретный инструмент, и задай прокси в его формате.</p><h2>SOCKS5 и логин с паролем: где системная настройка заканчивается</h2><p>Окно настройки прокси в Windows рассчитано на простой случай: адрес и порт HTTP-прокси. Поля для логина и пароля там нет. Если прокси требует авторизацию, браузер покажет своё окно ввода пароля, а программа без такого окна получит от прокси ответ 407 и молча не подключится. Покупные прокси очень часто выдаются именно с логином и паролем, так что ситуация встречается постоянно.</p><p>С SOCKS5 ещё сложнее. Переключателя «это SOCKS5» в интерфейсе нет, и даже программы, которые читают системные настройки, ожидают там HTTP-прокси. В итоге SOCKS5 с логином и паролем через штатные средства Windows для произвольной программы фактически не настраивается. Если у тебя именно такой прокси, системная настройка почти наверняка не подойдёт, и решать задачу придётся внутри программы или снаружи, на уровне сети.</p><h2>Исключения, PAC-скрипты и автоопределение</h2><p>Даже в браузере системный прокси может срабатывать не для всех адресов. В тех же параметрах есть список исключений, для которых прокси не используется, и флажок «Не использовать прокси-сервер для локальных адресов». Если туда попал нужный домен, браузер пойдёт к нему напрямую. Кроме ручной настройки, есть сценарий настройки (PAC-файл) и автоматическое определение параметров. Сценарий решает для каждого адреса отдельно, идти через прокси или нет, и может отправлять разные сайты через разные серверы.</p><p>В корпоративной сети эти параметры нередко задаются групповой политикой, и тогда ручные изменения перезаписываются при следующем входе в систему. Если прокси «сам отключается» после перезагрузки, первым делом проверь, не управляется ли настройка организацией или программой, которая берёт сеть под свой контроль, например VPN-клиентом. Ещё один источник путаницы: расширения браузера для работы с прокси. Они берут управление сетевыми настройками внутри браузера и могут отправлять его трафик совсем не туда, куда указывает Windows. На время проверки такие расширения лучше отключить.</p><h2>Как найти причину за несколько минут</h2><p>Диагностику удобно вести от простого к сложному. Задача понять, проблема в самом прокси или в том, что конкретная программа его не использует. Пройди по пунктам по порядку и остановись на том, где картина перестаёт сходиться.</p><ul><li>Открой в браузере сайт проверки IP: если адрес не сменился, проблема в прокси или в исключениях, а не в программе.</li><li>Посмотри, нет ли у программы своего поля для прокси: собственные параметры приложения обычно важнее системных.</li><li>Выполни в командной строке netsh winhttp show proxy и сравни результат с параметрами Windows.</li><li>Если прокси с авторизацией, проверь, умеет ли программа спрашивать логин и пароль.</li><li>Уточни протокол: SOCKS5 через системную настройку обычно не заработает.</li><li>Перезапусти программу после изменения настроек: многие читают параметры прокси только при старте.</li><li>Помни, что звонки и игры используют UDP, а HTTP-прокси с UDP не работает в принципе.</li></ul><h2>Когда проще перехватывать трафик на уровне сети</h2><p>Если нужная программа не поддерживает прокси, логичный выход в том, чтобы не просить её об этом. Прокси-клиенты с перехватом на уровне сетевого драйвера забирают TCP-соединения программы до того, как они уйдут в сеть, и сами отправляют их через прокси. Программе ничего настраивать не нужно, она даже не знает, что работает через прокси.</p><p>ProxyBridge устроен именно так. В системном режиме весь TCP-трафик компьютера идёт через один прокси по кнопке CONNECT. В режиме Split Tunnel ты назначаешь прокси отдельным программам по имени процесса, а остальное идёт напрямую. Поддерживаются HTTP и SOCKS5 с логином и паролем, то есть ровно те случаи, где системная настройка сдаётся. Ограничения тоже стоит держать в голове: UDP идёт мимо прокси, DNS по умолчанию напрямую, а одновременно с VPN-клиентом программа работает плохо, его нужно выключить.</p><div class="faq"><h2>Частые вопросы</h2><details><summary>Почему системный прокси Windows не работает в Telegram?</summary><p>Telegram Desktop не обязан использовать системные настройки: у него свой раздел прокси. Укажи прокси там или используй клиент, который перехватывает трафик программы на уровне сети.</p></details><details><summary>Как настроить системный прокси с логином и паролем?</summary><p>Штатное окно Windows не хранит логин и пароль. Браузер спросит их сам, а остальным программам нужна своя настройка или прокси-клиент с поддержкой авторизации.</p></details><details><summary>Почему после перезагрузки прокси отключается?</summary><p>Чаще всего настройку перезаписывает групповая политика организации или программа, которая управляет сетью. Проверь, нет ли на компьютере VPN-клиента или корпоративного агента.</p></details></div><h2>Читайте также</h2><div class="related-grid"><a href="/kak-nastroit-proksi-v-windows-11/">Как настроить прокси в Windows 11</a><a href="/kak-nastroit-proksi-v-windows-10/">Как настроить прокси в Windows 10</a><a href="/kak-pustit-programmu-cherez-proksi/">Как запустить программу через прокси</a><a href="/socks5-ili-http/">SOCKS5 или HTTP: что выбрать</a><a href="/blog/kak-rabotaet-perehvat-trafika/">Как устроен перехват трафика</a></div>
+      </article>
+      <aside class="aside">
+        <div class="aside-card">
+          <h3>ProxyBridge</h3>
+          <p>Вся система или отдельные программы через HTTP и SOCKS5. Windows 10/11, бета для macOS.</p>
+          <div class="price-line">от 99 ₽</div>
+          <a class="btn btn-blue" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+          <p style="margin:12px 0 0"><a href="/skachat/" style="color:#fff;text-decoration:underline">Скачать программу</a> · <a href="/cena/" style="color:#fff;text-decoration:underline">Все тарифы</a></p>
+        </div>
+        <div class="aside-links"><h3>Рядом по теме</h3><a href="/blog/kak-rabotaet-perehvat-trafika/">Как программа направляет трафик в прокси без настроек приложения</a><a href="/blog/multiakkaunting-i-proksi/">Мультиаккаунтинг и прокси: как не связать аккаунты между собой</a><a href="/blog/rotaciya-proksi/">Ротация прокси: когда она нужна и как переключаться вручную</a><a href="/blog/chek-list-pokupki-proksi/">Чек-лист перед покупкой прокси: 10 вопросов продавцу</a><a href="/blog/ipv4-ili-ipv6-proksi/">IPv4 или IPv6 прокси: что выбрать для программ на Windows</a></div>
+      </aside>
+    </div>
+  </div>
+</section>
+<section class="cta-band">
+  <div class="container">
+    <div><h2>Направь трафик по своим правилам</h2><p>Ключ от 99 ₽, работает на двух устройствах. Без автосписаний.</p></div>
+    <a class="btn btn-white" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/skachat/">Скачать</a>
+      <a href="/blog/">Блог</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://t.me/inter1ark" target="_blank" rel="noopener">Telegram <span class="arrow">↗</span></a>
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="/legal/offer.html">Оферта</a>
+      <a href="/legal/privacy.html">Конфиденциальность</a>
+      <a href="#" class="cookie-link" data-cookie-settings>Настройки cookie</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge</div>
+  </div>
+</footer>
+<script src="/script.js"></script>
+<script src="/metrika.js"></script>
+</body>
+</html>

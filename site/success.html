@@ -26,10 +26,10 @@
 
 <header class="nav" id="nav">
   <div class="container">
-    <a class="brand" href="index.html" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <a class="brand" href="/" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
     <nav class="nav-links" id="navLinks">
-      <a href="index.html#product" data-i18n="nav.product">Продукт</a>
-      <a href="index.html#pricing" data-i18n="nav.pricing">Подписка</a>
+      <a href="/#product" data-i18n="nav.product">Продукт</a>
+      <a href="/#pricing" data-i18n="nav.pricing">Подписка</a>
       <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
     </nav>
     <div class="nav-right">
@@ -64,7 +64,7 @@
       <ol class="next-steps" data-i18n="suc.steps">
         <li>1. Установи ProxyBridge и запусти от имени администратора.</li>
         <li>2. Вставь ключ в окно активации и нажми «Активировать».</li>
-        <li>3. Ключ работает на 2 устройствах. Он также отправлен на твой email.</li>
+        <li>3. Ключ работает на 2 устройствах. Сохрани его: он нужен при переустановке.</li>
       </ol>
       <p style="margin-top:28px"><a class="btn btn-white" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-Setup-3.2.0.exe"><span data-i18n="suc.download">Скачать ProxyBridge</span> <span class="arrow">↘</span></a></p>
     </div>
@@ -78,7 +78,7 @@
 
 <footer class="footer">
   <div class="container">
-    <a class="brand" href="index.html"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
     <div class="footer-links">
       <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
       <a href="legal/offer.html" data-i18n="foot.offer">Оферта</a>
@@ -90,6 +90,7 @@
 
 <script src="i18n.js"></script>
 <script src="script.js"></script>
+<script src="/metrika.js"></script>
 <script>
 (function () {
   var API = window.PB_API || '';
@@ -103,6 +104,7 @@
     if (!d) return;
     if (d.status === 'paid' && d.key) {
       document.getElementById('key').textContent = d.key;
+      if (window.pbTrack) window.pbTrack.purchase(String(token).slice(0, 16), d.plan_id);
       show(paid);
       if (timer) { clearInterval(timer); timer = null; }
     } else if (d.status === 'canceled') {
@@ -128,6 +130,7 @@
 
   document.getElementById('checkBtn').addEventListener('click', function () { poll(true); });
   document.getElementById('copyBtn').addEventListener('click', function () {
+    window.pbTrack && window.pbTrack.goal('copy_key');
     var k = document.getElementById('key').textContent;
     var span = this.firstElementChild, old = span.textContent;
     var done = function () { span.textContent = (window.PB_I18N && window.PB_I18N.lang() === 'en') ? 'Copied' : 'Скопировано'; setTimeout(function () { span.textContent = old; }, 1500); };

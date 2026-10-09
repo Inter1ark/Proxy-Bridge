@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPv4 или IPv6 прокси: что выбрать для Windows | ProxyBridge</title>
+  <meta name="description" content="IPv4 или IPv6 прокси: чем различаются, почему IPv6 открывает не все сайты, как работают вход и выход прокси и что выбрать для программ на Windows. Читай разбор.">
+  <link rel="canonical" href="https://www.proxybridge.org/blog/ipv4-ili-ipv6-proksi/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:title" content="IPv4 или IPv6 прокси: что выбрать для Windows | ProxyBridge">
+  <meta property="og:description" content="IPv4 или IPv6 прокси: чем различаются, почему IPv6 открывает не все сайты, как работают вход и выход прокси и что выбрать для программ на Windows. Читай разбор.">
+  <meta property="og:image" content="https://www.proxybridge.org/og-image.jpg">
+  <meta property="og:url" content="https://www.proxybridge.org/blog/ipv4-ili-ipv6-proksi/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="ProxyBridge">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script type="application/ld+json">[{"@type": "Organization", "@id": "https://www.proxybridge.org/#org", "name": "ProxyBridge", "url": "https://www.proxybridge.org/", "logo": "https://www.proxybridge.org/favicon.png", "email": "support@proxybridge.org", "sameAs": ["https://github.com/Inter1ark/Proxy-Bridge", "https://t.me/inter1ark"], "@context": "https://schema.org"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Главная", "item": "https://www.proxybridge.org/"}, {"@type": "ListItem", "position": 2, "name": "Блог", "item": "https://www.proxybridge.org/blog/"}, {"@type": "ListItem", "position": 3, "name": "IPv4 или IPv6 прокси: что выбрать для программ на Windows", "item": "https://www.proxybridge.org/blog/ipv4-ili-ipv6-proksi/"}], "@context": "https://schema.org"}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Что выбрать для парсинга: IPv4 или IPv6 прокси?", "acceptedAnswer": {"@type": "Answer", "text": "Если целевой сайт поддерживает IPv6, IPv6-прокси дадут больше адресов за те же деньги. Если нет или ты не уверен, бери IPv4: с ним сайт откроется в любом случае."}}, {"@type": "Question", "name": "Почему сайт не открывается через IPv6 прокси?", "acceptedAnswer": {"@type": "Answer", "text": "Скорее всего, у сайта нет IPv6-адреса, и прокси с выходом только по IPv6 не может к нему подключиться. Уточни у продавца, есть ли выход через IPv4 для таких сайтов, или возьми IPv4-прокси."}}, {"@type": "Question", "name": "Можно ли пользоваться IPv6 прокси без IPv6 у провайдера?", "acceptedAnswer": {"@type": "Answer", "text": "Да, если точка входа прокси на IPv4: ты подключаешься по IPv4, а прокси выходит в сеть по IPv6. Если вход тоже только по IPv6, без его поддержки у твоего провайдера подключиться не получится."}}]}, {"@context": "https://schema.org", "@type": "Article", "headline": "IPv4 или IPv6 прокси: что выбрать для программ на Windows", "description": "IPv4 или IPv6 прокси: чем различаются, почему IPv6 открывает не все сайты, как работают вход и выход прокси и что выбрать для программ на Windows. Читай разбор.", "inLanguage": "ru", "datePublished": "2026-10-09", "dateModified": "2026-10-09", "author": {"@id": "https://www.proxybridge.org/#org"}, "publisher": {"@id": "https://www.proxybridge.org/#org"}, "mainEntityOfPage": "https://www.proxybridge.org/blog/ipv4-ili-ipv6-proksi/", "image": "https://www.proxybridge.org/og-image.jpg"}]</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="logo" viewBox="0 0 48 32"><path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/><path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/></symbol></defs></svg>
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="/" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#product">Продукт</a>
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-blue" href="/skachat/">Скачать <span class="arrow">↘</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="page-hero">
+  <div class="container">
+    <nav class="crumbs" aria-label="Хлебные крошки"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/blog/">Блог</a><span aria-hidden="true">/</span><span>IPv4 или IPv6 прокси: что выбрать для программ на Windows</span></nav>
+    <div class="eyebrow">Блог</div>
+    <h1 class="display">IPv4 или IPv6 прокси: что выбрать для программ на Windows</h1>
+    <p class="lead">IPv6-прокси дешевле и их больше, но работают они не со всеми сайтами и программами. Разбираем, чем отличаются оба варианта, где IPv6 даёт выгоду и почему для большинства задач на Windows проще взять IPv4.</p>
+    <div class="hero-actions">
+      <a class="btn btn-blue" href="/skachat/">Скачать ProxyBridge <span class="arrow">↘</span></a>
+      <a class="btn-link" href="/cena/">Тарифы от 99 ₽ <span class="arrow">↗</span></a>
+    </div>
+    <div class="page-meta">5 мин чтения · 9 октября 2026</div>
+  </div>
+</section>
+<section class="page-body">
+  <div class="container">
+    <div class="page-grid">
+      <article class="article">
+        <h2>Чем различаются IPv4 и IPv6</h2><p>Вопрос «IPv4 или IPv6 прокси» почти всегда сводится к цене и совместимости. Адресов IPv4 всего около 4,3 миллиарда, и свободных среди них давно нет: провайдеры покупают и арендуют их на вторичном рынке, поэтому каждый IPv4-прокси стоит заметных денег. В IPv6 адресное пространство огромное, один сервер может получить целые блоки адресов, и продавцы выдают IPv6-прокси сотнями по цене нескольких IPv4.</p><p>Внешне разница видна в записи адреса: IPv4 это четыре числа через точку, IPv6 длинная строка из шестнадцатеричных групп через двоеточие. Но важнее не формат, а то, может ли сайт вообще принять соединение по IPv6 и умеет ли твоя программа с таким адресом работать. Здесь и начинаются ограничения.</p><h2>Главное ограничение: не каждый сайт доступен по IPv6</h2><p>Чтобы к сайту можно было подключиться по IPv6, у его домена должна быть AAAA-запись, а сервер должен принимать такие соединения. Крупные платформы и CDN давно это поддерживают, а многие небольшие сайты, региональные магазины, старые API и корпоративные сервисы доступны только по IPv4. Если прокси выходит в интернет исключительно через IPv6, такой сайт для него просто не откроется: соединение не установится, программа покажет ошибку или будет бесконечно грузиться. Проверить, есть ли у сайта IPv6, можно командой nslookup с типом записи AAAA: если в ответе нет ни одного IPv6-адреса, через прокси с выходом только по IPv6 сайт недоступен.</p><p>Некоторые провайдеры решают это так: если у сайта нет IPv6, соединение выпускается через общий IPv4-адрес. Сайт открывается, но уже не с твоего выделенного адреса. Как именно ведёт себя конкретный тариф, нужно уточнять у продавца заранее, иначе в проверках и статистике появится неожиданная картина.</p><h2>Вход и выход: два разных адреса</h2><p>У любого прокси есть адрес, к которому подключаешься ты, и адрес, с которого он выходит в интернет. Они не обязаны совпадать по версии протокола. Частая схема у IPv6-прокси: точка входа на IPv4 (обычный ip:port), а выход идёт с выделенного IPv6. Это удобно, потому что у многих домашних и офисных подключений IPv6 нет, и к IPv6-адресу напрямую ты бы не подключился.</p><p>Перед покупкой уточни оба адреса. Если продавец даёт точку входа только по IPv6, проверь, есть ли IPv6 у твоего интернет-провайдера: без него прокси будет недоступен с твоего компьютера вовсе. Для ввода в программы адрес входа на IPv4 тоже проще. Строки вида ip:port:user:pass используют двоеточие как разделитель, а в IPv6-адресе двоеточий много, и не каждая программа разберёт такую запись правильно.</p><p>Отдельно стоит помнить про DNS. Клиенты с перехватом на уровне сети передают в прокси уже IP-адрес, который программа получила при разрешении имени, а не само имя сайта. Если компьютер работает только по IPv4, программа выберет IPv4-адрес сайта, и прокси с выходом исключительно по IPv6 не сможет к нему подключиться, даже если у сайта есть и IPv6. Программы, которые сами поддерживают SOCKS5, часто умеют передавать прокси имя хоста, и тогда версию адреса выбирает прокси.</p><h2>Скорость и стабильность</h2><p>Сама версия протокола на скорость почти не влияет: задержку определяют расположение сервера, загрузка канала и маршрут до него. Разница возникает косвенно. Недорогие IPv6-тарифы могут продаваться крупными партиями с одного сервера, и если на нём много клиентов, канал делится между всеми. IPv4-адреса у того же продавца могут жить на других серверах с другой нагрузкой. Поэтому сравнивать стоит не версии протокола, а конкретные тарифы на твоей задаче: возьми по одному тестовому адресу каждого типа и прогони одинаковый сценарий.</p><h2>Программы на Windows и двойной стек</h2><p>Если у подключения есть и IPv4, и IPv6, Windows по умолчанию предпочитает IPv6 для сайтов, которые его поддерживают. Для прокси это важно. Программа, настроенная на прокси, отправит соединение в прокси, и версия протокола дальше решается на его стороне. А программа, которая прокси не использует, пойдёт к сайту напрямую, и нередко именно по IPv6, мимо всех твоих настроек.</p><p>С клиентами, которые перехватывают трафик, стоит отдельно проверить, какие соединения они обрабатывают. Перехват в ProxyBridge рассчитан на IPv4-соединения программ, поэтому, если у тебя дома включён IPv6, проверь результат: открой в нужной программе сайт определения IP и убедись, что видишь адрес прокси, а не своего провайдера. Если сайт показывает твой собственный IPv6, часть трафика идёт напрямую. В этом случае можно отключить протокол IPv6 в свойствах сетевого адаптера на время работы через прокси.</p><h2>Когда IPv6-прокси выгоден</h2><p>IPv6 хорошо работает там, где нужна большая партия адресов под площадку, которая точно поддерживает IPv6. Это сбор данных с крупных сервисов, проверка выдачи и отображения сайта, тестирование собственного сайта, если он настроен на IPv6. Низкая цена адреса позволяет распределить запросы шире, чем на нескольких IPv4, и не экономить на каждом потоке.</p><p>Есть нюанс, о котором продавцы пишут редко. IPv6-адреса раздаются блоками, и сайты нередко оценивают не отдельный адрес, а целую подсеть. Если сотни твоих адресов лежат в одной подсети /64, для системы защиты от ботов они могут выглядеть как один источник. Поэтому большое количество IPv6 не всегда превращается в такое же количество независимых адресов, и перед закупкой партии стоит спросить, из скольких подсетей она набрана.</p><h2>Когда нужен IPv4</h2><p>Для большинства задач на Windows IPv4 остаётся вариантом по умолчанию. Он дороже, но совместим со всем: с любым сайтом, любой программой и любым форматом ввода. IPv4 стоит брать в таких случаях:</p><ul><li>работа в аккаунтах, где важен стабильный и привычный для площадки адрес;</li><li>небольшие сайты, региональные сервисы и API без поддержки IPv6;</li><li>программы, которые не понимают IPv6-адреса в настройках или в строке подключения;</li><li>задачи, где важна точная геолокация: для IPv4 базы геолокации обычно подробнее;</li><li>любые ситуации, когда нет уверенности, что целевой сайт поддерживает IPv6.</li></ul><h2>Как проверить прокси до того, как строить на нём работу</h2><p>Проверка занимает несколько минут и отвечает на главный вопрос: работает ли конкретный адрес с конкретными сайтами из твоей задачи. Начни с одного-двух адресов из партии, а уже потом настраивай всё остальное.</p><ul><li>подключись к прокси и открой сайт определения IP: посмотри, какой адрес и какой версии видит сайт;</li><li>открой два-три сайта, с которыми будешь работать, особенно небольшие: если какой-то не грузится, вероятно, у него нет IPv6;</li><li>сравни геолокацию в паре разных сервисов проверки IP;</li><li>в ProxyBridge для HTTP-прокси нажми VERIFY и посмотри доступность, страну, город и внешний IP, SOCKS5 проверяй подключением;</li><li>если дома есть IPv6, убедись, что программы не выходят в сеть напрямую со своего адреса.</li></ul><div class="faq"><h2>Частые вопросы</h2><details><summary>Что выбрать для парсинга: IPv4 или IPv6 прокси?</summary><p>Если целевой сайт поддерживает IPv6, IPv6-прокси дадут больше адресов за те же деньги. Если нет или ты не уверен, бери IPv4: с ним сайт откроется в любом случае.</p></details><details><summary>Почему сайт не открывается через IPv6 прокси?</summary><p>Скорее всего, у сайта нет IPv6-адреса, и прокси с выходом только по IPv6 не может к нему подключиться. Уточни у продавца, есть ли выход через IPv4 для таких сайтов, или возьми IPv4-прокси.</p></details><details><summary>Можно ли пользоваться IPv6 прокси без IPv6 у провайдера?</summary><p>Да, если точка входа прокси на IPv4: ты подключаешься по IPv4, а прокси выходит в сеть по IPv6. Если вход тоже только по IPv6, без его поддержки у твоего провайдера подключиться не получится.</p></details></div><h2>Читайте также</h2><div class="related-grid"><a href="/kakie-proksi-vybrat/">Какие прокси выбрать</a><a href="/format-proksi/">Формат прокси</a><a href="/proksi-dlya-parsinga/">Прокси для парсинга</a><a href="/proksi-ne-rabotaet/">Прокси не работает: что проверить</a><a href="/blog/chek-list-pokupki-proksi/">Чек-лист перед покупкой прокси</a></div>
+      </article>
+      <aside class="aside">
+        <div class="aside-card">
+          <h3>ProxyBridge</h3>
+          <p>Вся система или отдельные программы через HTTP и SOCKS5. Windows 10/11, бета для macOS.</p>
+          <div class="price-line">от 99 ₽</div>
+          <a class="btn btn-blue" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+          <p style="margin:12px 0 0"><a href="/skachat/" style="color:#fff;text-decoration:underline">Скачать программу</a> · <a href="/cena/" style="color:#fff;text-decoration:underline">Все тарифы</a></p>
+        </div>
+        <div class="aside-links"><h3>Рядом по теме</h3><a href="/blog/kak-rabotaet-perehvat-trafika/">Как программа направляет трафик в прокси без настроек приложения</a><a href="/blog/pochemu-sistemnyj-proksi-windows-rabotaet-ne-vezde/">Почему системный прокси Windows работает не во всех программах</a><a href="/blog/multiakkaunting-i-proksi/">Мультиаккаунтинг и прокси: как не связать аккаунты между собой</a><a href="/blog/rotaciya-proksi/">Ротация прокси: когда она нужна и как переключаться вручную</a><a href="/blog/chek-list-pokupki-proksi/">Чек-лист перед покупкой прокси: 10 вопросов продавцу</a></div>
+      </aside>
+    </div>
+  </div>
+</section>
+<section class="cta-band">
+  <div class="container">
+    <div><h2>Направь трафик по своим правилам</h2><p>Ключ от 99 ₽, работает на двух устройствах. Без автосписаний.</p></div>
+    <a class="btn btn-white" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/skachat/">Скачать</a>
+      <a href="/blog/">Блог</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://t.me/inter1ark" target="_blank" rel="noopener">Telegram <span class="arrow">↗</span></a>
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="/legal/offer.html">Оферта</a>
+      <a href="/legal/privacy.html">Конфиденциальность</a>
+      <a href="#" class="cookie-link" data-cookie-settings>Настройки cookie</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge</div>
+  </div>
+</footer>
+<script src="/script.js"></script>
+<script src="/metrika.js"></script>
+</body>
+</html>

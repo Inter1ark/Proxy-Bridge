@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Перехват трафика Windows: как работает WinDivert | ProxyBridge</title>
+  <meta name="description" content="Перехват трафика Windows без настроек в программах: что делает WinDivert, как работает локальный ретранслятор и почему UDP и DNS идут отдельно. Читай разбор.">
+  <link rel="canonical" href="https://www.proxybridge.org/blog/kak-rabotaet-perehvat-trafika/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:title" content="Перехват трафика Windows: как работает WinDivert | ProxyBridge">
+  <meta property="og:description" content="Перехват трафика Windows без настроек в программах: что делает WinDivert, как работает локальный ретранслятор и почему UDP и DNS идут отдельно. Читай разбор.">
+  <meta property="og:image" content="https://www.proxybridge.org/og-image.jpg">
+  <meta property="og:url" content="https://www.proxybridge.org/blog/kak-rabotaet-perehvat-trafika/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="ProxyBridge">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script type="application/ld+json">[{"@type": "Organization", "@id": "https://www.proxybridge.org/#org", "name": "ProxyBridge", "url": "https://www.proxybridge.org/", "logo": "https://www.proxybridge.org/favicon.png", "email": "support@proxybridge.org", "sameAs": ["https://github.com/Inter1ark/Proxy-Bridge", "https://t.me/inter1ark"], "@context": "https://schema.org"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Главная", "item": "https://www.proxybridge.org/"}, {"@type": "ListItem", "position": 2, "name": "Блог", "item": "https://www.proxybridge.org/blog/"}, {"@type": "ListItem", "position": 3, "name": "Как программа направляет трафик в прокси без настроек приложения", "item": "https://www.proxybridge.org/blog/kak-rabotaet-perehvat-trafika/"}], "@context": "https://schema.org"}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Зачем ProxyBridge права администратора?", "acceptedAnswer": {"@type": "Answer", "text": "Программа загружает сетевой драйвер WinDivert, а Windows разрешает это только администратору. Без драйвера перехват трафика невозможен, поэтому установка и запуск идут с этими правами."}}, {"@type": "Question", "name": "Почему через прокси не идут звонки и игры?", "acceptedAnswer": {"@type": "Answer", "text": "Они в основном используют UDP, а ProxyBridge направляет в прокси только TCP. UDP-трафик идёт напрямую, поэтому для игр и голосовых звонков программа не подходит."}}, {"@type": "Question", "name": "Можно ли использовать перехват трафика вместе с VPN?", "acceptedAnswer": {"@type": "Answer", "text": "Нет, два перехватчика трафика мешают друг другу. На время работы ProxyBridge VPN-клиент нужно выключить."}}]}, {"@context": "https://schema.org", "@type": "Article", "headline": "Как программа направляет трафик в прокси без настроек приложения", "description": "Перехват трафика Windows без настроек в программах: что делает WinDivert, как работает локальный ретранслятор и почему UDP и DNS идут отдельно. Читай разбор.", "inLanguage": "ru", "datePublished": "2026-10-09", "dateModified": "2026-10-09", "author": {"@id": "https://www.proxybridge.org/#org"}, "publisher": {"@id": "https://www.proxybridge.org/#org"}, "mainEntityOfPage": "https://www.proxybridge.org/blog/kak-rabotaet-perehvat-trafika/", "image": "https://www.proxybridge.org/og-image.jpg"}]</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="logo" viewBox="0 0 48 32"><path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/><path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/></symbol></defs></svg>
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="/" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#product">Продукт</a>
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-blue" href="/skachat/">Скачать <span class="arrow">↘</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="page-hero">
+  <div class="container">
+    <nav class="crumbs" aria-label="Хлебные крошки"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/blog/">Блог</a><span aria-hidden="true">/</span><span>Как программа направляет трафик в прокси без настроек приложения</span></nav>
+    <div class="eyebrow">Блог</div>
+    <h1 class="display">Как программа направляет трафик в прокси без настроек приложения</h1>
+    <p class="lead">Прокси-клиент может отправить в прокси трафик любой программы, даже если в ней нет ни одной сетевой настройки. Разбираем, как это устроено: драйвер WinDivert, локальный ретранслятор, таблица исходных адресов и исключения, без которых сеть бы зациклилась.</p>
+    <div class="hero-actions">
+      <a class="btn btn-blue" href="/skachat/">Скачать ProxyBridge <span class="arrow">↘</span></a>
+      <a class="btn-link" href="/cena/">Тарифы от 99 ₽ <span class="arrow">↗</span></a>
+    </div>
+    <div class="page-meta">6 мин чтения · 9 октября 2026</div>
+  </div>
+</section>
+<section class="page-body">
+  <div class="container">
+    <div class="page-grid">
+      <article class="article">
+        <h2>Зачем перехватывать трафик, если у программ есть настройки прокси</h2><p>Перехват трафика Windows нужен там, где настройка прокси внутри каждой программы перестаёт работать. У браузера есть поле для прокси, у Telegram Desktop тоже, а у клиента 1С, игрового лаунчера, консольной утилиты или корпоративного мессенджера его может не быть вовсе. Даже там, где поле есть, часто нельзя указать SOCKS5 с логином и паролем. Когда программ пять, каждую приходится настраивать отдельно, а после обновления настройка иногда сбрасывается.</p><p>Перехват решает задачу с другой стороны. Программа вообще не знает про прокси: она открывает обычное соединение с сервером, а маршрут меняется по пути, внутри сетевого стека системы. Такой подход используют прокси-клиенты вроде ProxyBridge и Proxifier. Ниже механика на уровне идеи, без кода: что делает драйвер, куда попадает пакет, как ретранслятор узнаёт исходный адрес и почему некоторые виды трафика обрабатываются особо.</p><h2>Что делает WinDivert</h2><p>WinDivert это открытый драйвер и библиотека для Windows, которые позволяют обычной программе перехватывать сетевые пакеты. Драйвер встраивается в сетевой стек через Windows Filtering Platform, штатный механизм фильтрации, на котором построены брандмауэр Windows и многие антивирусы. Программа передаёт драйверу фильтр, например «исходящие TCP-пакеты, кроме таких-то адресов». Всё, что подходит под фильтр, драйвер изымает из обычного пути и отдаёт программе.</p><p>Из этого следуют две практические вещи. Во-первых, для загрузки драйвера нужны права администратора, поэтому ProxyBridge устанавливается и запускается с ними. Во-вторых, перехват происходит ниже уровня приложений: программе не нужно поддерживать прокси, достаточно, что она пользуется обычным сетевым стеком Windows. Сам WinDivert ничего не знает о прокси. Он только даёт доступ к пакетам, а вся логика маршрутизации живёт в прокси-клиенте.</p><ul><li>фильтр задаётся выражением по протоколу, направлению, адресам и портам;</li><li>подходящий пакет можно пропустить без изменений, изменить его заголовки или отбросить;</li><li>изменённый пакет повторно отправляется в стек и идёт дальше как обычный;</li><li>пакеты, не попавшие под фильтр, драйвер не трогает вовсе.</li></ul><h2>Локальный ретранслятор и таблица исходных адресов</h2><p>Пакет нельзя просто «переслать в прокси»: прокси ждёт не сырые пакеты, а отдельное TCP-соединение, в начале которого клиент сообщает, куда хочет попасть. Поэтому прокси-клиент поднимает на компьютере локальный ретранслятор (relay), небольшой сервер, который слушает порт на адресе самого компьютера. Когда программа открывает соединение, например, с сайтом на порту 443, перехватчик видит первый пакет, запоминает пару «локальный порт источника и исходный адрес назначения» и переписывает заголовок так, чтобы пакет ушёл в ретранслятор.</p><p>Ретранслятор принимает соединение как обычный сервер. Чтобы понять, куда программа хотела попасть, он смотрит в таблицу по порту источника и находит исходный адрес и порт. Дальше ретранслятор сам подключается к прокси и отправляет запрос в формате протокола: для HTTP это метод CONNECT с адресом и портом, для SOCKS5 команда CONNECT после авторизации логином и паролем. Когда прокси отвечает, что туннель открыт, ретранслятор перекачивает байты в обе стороны. Ответные пакеты перехватчик тоже переписывает, подставляя адрес сайта, поэтому программа уверена, что разговаривает с сервером напрямую.</p><ul><li>программа открывает TCP-соединение с сервером;</li><li>драйвер отдаёт первый пакет прокси-клиенту, тот записывает исходное назначение в таблицу;</li><li>заголовок переписывается, и соединение приходит в локальный ретранслятор;</li><li>ретранслятор находит исходный адрес по порту и открывает туннель через прокси;</li><li>данные идут по туннелю, а ответы возвращаются программе с адресом сервера в заголовке.</li></ul><h2>Как клиент понимает, какая программа открыла соединение</h2><p>В пакете нет имени процесса, там только адреса и порты. Чтобы применить правило вида «chrome.exe через один прокси, telegram.exe через другой», клиент запрашивает у Windows таблицу активных TCP-соединений с идентификаторами процессов. По локальному порту из пакета находится процесс-владелец, по идентификатору его имя, а затем имя сравнивается со списком правил.</p><p>В ProxyBridge это используется в режиме Split Tunnel: каждой программе по имени процесса назначается свой прокси, остальной трафик идёт напрямую. В системном режиме проверка проще, весь TCP-трафик компьютера отправляется через один выбранный прокси. Отсюда ограничение, о котором стоит помнить: правило привязано к имени исполняемого файла, поэтому два окна одной программы получат один и тот же прокси. Если нужны разные IP для разных профилей одного браузера, это задача настроек самого браузера или антидетекта.</p><h2>Почему адрес самого прокси исключается из перехвата</h2><p>Ретранслятор тоже открывает TCP-соединение, только не с сайтом, а с прокси-сервером. Если бы это соединение попало под тот же фильтр, драйвер перехватил бы его, отправил в ретранслятор, и тот попытался бы подключиться к прокси через прокси. Получилась бы петля: каждое новое соединение порождает следующее, и сеть перестаёт работать за считаные мгновения.</p><p>Поэтому в фильтр драйвера сразу добавляется исключение: пакеты к IP-адресу прокси и от него идут мимо перехватчика. Для этого клиенту нужно заранее знать адрес прокси, и если прокси указан доменным именем, его сначала разрешают в IP. Похожим образом отдельно обрабатываются служебные пакеты самого ретранслятора, иначе его ответы снова попадали бы в обработку как новые соединения. Забытое исключение частая причина, почему самодельные решения на базе WinDivert «вешают» интернет целиком.</p><h2>Почему UDP и DNS обрабатываются отдельно</h2><p>Схема с ретранслятором опирается на понятие соединения. У TCP оно есть: рукопожатие, порт источника, поток байтов, который можно направить в туннель. У UDP соединений нет, это отдельные датаграммы. HTTP-прокси с методом CONNECT работает только с TCP. В SOCKS5 есть команда UDP ASSOCIATE, но поддерживают её далеко не все серверы, и она требует отдельного канала. Поэтому ProxyBridge отправляет через прокси только TCP, а UDP идёт напрямую. Голосовые звонки, многие онлайн-игры и часть видео работают по UDP, так что через прокси они не пойдут.</p><p>С DNS отдельная история. Запрос имени обычно уходит по UDP на порт 53 ещё до того, как программа откроет TCP-соединение. В ProxyBridge DNS-запросы по умолчанию идут напрямую, а поведение меняет настройка DNS Bypass. Последствие стоит понимать: если DNS идёт мимо прокси, сервер имён твоего интернет-провайдера видит, какие домены запрашиваются. Для рабочих задач это обычно не критично, но при проверке сайта из другого региона CDN может выдать адрес, подобранный под твоё местоположение, а не под регион прокси.</p><h2>Ограничения, о которых стоит знать заранее</h2><p>Механика объясняет почти все типичные вопросы о поведении таких программ. Если что-то работает не так, как ожидалось, причина обычно в одном из пунктов ниже.</p><ul><li>Два перехватчика конфликтуют: VPN-клиенты вроде WireGuard, AmneziaWG или OpenVPN тоже меняют маршрут пакетов, поэтому на время работы прокси-клиента VPN нужно выключать.</li><li>Перехват не меняет содержимое трафика: защиту данных по-прежнему даёт HTTPS сайта, а прокси меняет только точку выхода в интернет.</li><li>Скорость и задержку определяют прокси-сервер и маршрут до него, сам ретранслятор добавляет лишь немного работы процессору.</li><li>Программы, которые ходят в сеть через собственный драйвер или туннель, могут не попасть под обычный фильтр.</li><li>Без прав администратора драйвер не загрузится, и перехват не начнётся.</li></ul><div class="faq"><h2>Частые вопросы</h2><details><summary>Зачем ProxyBridge права администратора?</summary><p>Программа загружает сетевой драйвер WinDivert, а Windows разрешает это только администратору. Без драйвера перехват трафика невозможен, поэтому установка и запуск идут с этими правами.</p></details><details><summary>Почему через прокси не идут звонки и игры?</summary><p>Они в основном используют UDP, а ProxyBridge направляет в прокси только TCP. UDP-трафик идёт напрямую, поэтому для игр и голосовых звонков программа не подходит.</p></details><details><summary>Можно ли использовать перехват трафика вместе с VPN?</summary><p>Нет, два перехватчика трафика мешают друг другу. На время работы ProxyBridge VPN-клиент нужно выключить.</p></details></div><h2>Читайте также</h2><div class="related-grid"><a href="/proksi-dlya-otdelnyh-programm/">Прокси для отдельных программ</a><a href="/utechka-dns-cherez-proksi/">Утечка DNS через прокси</a><a href="/proksi-ili-vpn/">Прокси или VPN: в чём разница</a><a href="/blog/pochemu-sistemnyj-proksi-windows-rabotaet-ne-vezde/">Почему системный прокси работает не везде</a><a href="/skachat/">Скачать ProxyBridge</a></div>
+      </article>
+      <aside class="aside">
+        <div class="aside-card">
+          <h3>ProxyBridge</h3>
+          <p>Вся система или отдельные программы через HTTP и SOCKS5. Windows 10/11, бета для macOS.</p>
+          <div class="price-line">от 99 ₽</div>
+          <a class="btn btn-blue" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+          <p style="margin:12px 0 0"><a href="/skachat/" style="color:#fff;text-decoration:underline">Скачать программу</a> · <a href="/cena/" style="color:#fff;text-decoration:underline">Все тарифы</a></p>
+        </div>
+        <div class="aside-links"><h3>Рядом по теме</h3><a href="/blog/pochemu-sistemnyj-proksi-windows-rabotaet-ne-vezde/">Почему системный прокси Windows работает не во всех программах</a><a href="/blog/multiakkaunting-i-proksi/">Мультиаккаунтинг и прокси: как не связать аккаунты между собой</a><a href="/blog/rotaciya-proksi/">Ротация прокси: когда она нужна и как переключаться вручную</a><a href="/blog/chek-list-pokupki-proksi/">Чек-лист перед покупкой прокси: 10 вопросов продавцу</a><a href="/blog/ipv4-ili-ipv6-proksi/">IPv4 или IPv6 прокси: что выбрать для программ на Windows</a></div>
+      </aside>
+    </div>
+  </div>
+</section>
+<section class="cta-band">
+  <div class="container">
+    <div><h2>Направь трафик по своим правилам</h2><p>Ключ от 99 ₽, работает на двух устройствах. Без автосписаний.</p></div>
+    <a class="btn btn-white" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/skachat/">Скачать</a>
+      <a href="/blog/">Блог</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://t.me/inter1ark" target="_blank" rel="noopener">Telegram <span class="arrow">↗</span></a>
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="/legal/offer.html">Оферта</a>
+      <a href="/legal/privacy.html">Конфиденциальность</a>
+      <a href="#" class="cookie-link" data-cookie-settings>Настройки cookie</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge</div>
+  </div>
+</footer>
+<script src="/script.js"></script>
+<script src="/metrika.js"></script>
+</body>
+</html>

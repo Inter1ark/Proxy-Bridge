@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Прокси для всей системы Windows: весь TCP-трафик | ProxyBridge</title>
+  <meta name="description" content="Прокси для всей системы Windows: весь TCP-трафик компьютера через твой HTTP или SOCKS5 прокси, даже из программ, которые игнорируют системный прокси. Подключи.">
+  <link rel="canonical" href="https://www.proxybridge.org/proksi-dlya-vsej-sistemy/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:title" content="Прокси для всей системы Windows: весь TCP-трафик | ProxyBridge">
+  <meta property="og:description" content="Прокси для всей системы Windows: весь TCP-трафик компьютера через твой HTTP или SOCKS5 прокси, даже из программ, которые игнорируют системный прокси. Подключи.">
+  <meta property="og:image" content="https://www.proxybridge.org/og-image.jpg">
+  <meta property="og:url" content="https://www.proxybridge.org/proksi-dlya-vsej-sistemy/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="ProxyBridge">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script type="application/ld+json">[{"@type": "Organization", "@id": "https://www.proxybridge.org/#org", "name": "ProxyBridge", "url": "https://www.proxybridge.org/", "logo": "https://www.proxybridge.org/favicon.png", "email": "support@proxybridge.org", "sameAs": ["https://github.com/Inter1ark/Proxy-Bridge", "https://t.me/inter1ark"], "@context": "https://schema.org"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Главная", "item": "https://www.proxybridge.org/"}, {"@type": "ListItem", "position": 2, "name": "Прокси-клиент для Windows 10 и 11", "item": "https://www.proxybridge.org/proksi-klient-windows/"}, {"@type": "ListItem", "position": 3, "name": "Прокси для всей системы Windows", "item": "https://www.proxybridge.org/proksi-dlya-vsej-sistemy/"}], "@context": "https://schema.org"}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Как пустить весь трафик через прокси в Windows 11?", "acceptedAnswer": {"@type": "Answer", "text": "Встроенная настройка прокси действует только на программы, которые её читают. Чтобы через прокси шёл весь TCP-трафик, нужен клиент с перехватом на уровне драйвера, например ProxyBridge в системном режиме."}}, {"@type": "Question", "name": "Почему после включения прокси в Windows программа всё равно показывает мой IP?", "acceptedAnswer": {"@type": "Answer", "text": "Скорее всего, программа не использует системные настройки прокси и подключается напрямую. Также проверь, не работает ли она по UDP: такой трафик через прокси не идёт."}}, {"@type": "Question", "name": "Пойдут ли обновления Windows через прокси в системном режиме?", "acceptedAnswer": {"@type": "Answer", "text": "Да, если они идут по TCP, а это обычный случай. Если обновления не должны тратить трафик прокси, используй Split Tunnel и пусти через прокси только нужные программы."}}]}, {"@type": "SoftwareApplication", "name": "ProxyBridge", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Windows 10, Windows 11, macOS 12+", "softwareVersion": "3.2.0", "downloadUrl": "https://www.proxybridge.org/skachat/", "offers": [{"@type": "Offer", "name": "1 месяц", "price": "99", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=month"}, {"@type": "Offer", "name": "3 месяца", "price": "249", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=3months"}, {"@type": "Offer", "name": "Навсегда", "price": "699", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=lifetime"}], "publisher": {"@id": "https://www.proxybridge.org/#org"}, "@context": "https://schema.org", "url": "https://www.proxybridge.org/proksi-dlya-vsej-sistemy/", "description": "Прокси для всей системы Windows: весь TCP-трафик компьютера через твой HTTP или SOCKS5 прокси, даже из программ, которые игнорируют системный прокси. Подключи."}]</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="logo" viewBox="0 0 48 32"><path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/><path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/></symbol></defs></svg>
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="/" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#product">Продукт</a>
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-blue" href="/skachat/">Скачать <span class="arrow">↘</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="page-hero">
+  <div class="container">
+    <nav class="crumbs" aria-label="Хлебные крошки"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/proksi-klient-windows/">Прокси-клиент для Windows 10 и 11</a><span aria-hidden="true">/</span><span>Прокси для всей системы Windows</span></nav>
+    <div class="eyebrow">Возможности</div>
+    <h1 class="display">Прокси для всей системы Windows</h1>
+    <p class="lead">Включил прокси в параметрах Windows, а часть программ всё равно ходит напрямую. Системный режим ProxyBridge отправляет через прокси весь TCP-трафик компьютера одной кнопкой CONNECT.</p>
+    <div class="hero-actions">
+      <a class="btn btn-blue" href="/skachat/">Скачать ProxyBridge <span class="arrow">↘</span></a>
+      <a class="btn-link" href="/cena/">Тарифы от 99 ₽ <span class="arrow">↗</span></a>
+    </div>
+    
+  </div>
+</section>
+<section class="page-body">
+  <div class="container">
+    <div class="page-grid">
+      <article class="article">
+        <h2>Почему системный прокси Windows не работает в программах</h2><p>Прокси для всей системы Windows в привычном смысле не существует. Настройка в «Параметрах» записывает адрес в системные параметры, а дальше каждая программа сама решает, читать их или нет. Edge и Chrome читают. Многие мессенджеры, торговые терминалы, клиенты на Java, консольные утилиты вроде curl без флагов и программы с собственным сетевым кодом не читают и подключаются напрямую. Отсюда частый запрос «системный прокси windows не работает в программах»: он работает, просто только там, где программа согласна его использовать. Есть ещё отдельная настройка WinHTTP, которую меняют командой netsh winhttp set proxy. Её читают в основном системные службы, а не обычные программы, так что в Windows фактически две разные настройки прокси, и ни одна не обязательна для приложений.</p><p>ProxyBridge не просит согласия. Драйвер WinDivert видит исходящие соединения всех процессов и отправляет их в выбранный HTTP или SOCKS5 прокси. Весь трафик через прокси здесь означает весь TCP-трафик, независимо от того, есть ли у программы настройки.</p><div class="steps-box"><h2>Как сделать в ProxyBridge</h2><ol><li>Вставь адрес прокси на вкладке Dashboard.</li><li>Для HTTP-прокси нажми VERIFY и проверь страну.</li><li>Нажми круглую кнопку CONNECT.</li><li>Проверь внешний IP на любом сайте проверки адреса.</li><li>Включи в Settings Start with Windows и Auto-connect Last Proxy, если подключение нужно постоянно.</li></ol></div><h2>Что именно пойдёт через прокси</h2><p>Через прокси идут TCP-соединения: веб-страницы, API, почта, загрузки, большинство рабочих приложений. UDP идёт напрямую, а на нём работают голосовые и видеозвонки, многие онлайн-игры, часть потокового видео. DNS-запросы (порт 53) по умолчанию тоже уходят напрямую, это меняется настройкой DNS Bypass в Settings. Про то, как это влияет на результат проверки IP, есть отдельная статья про утечку DNS. Если провайдер прокси считает трафик, учти, что в системном режиме через прокси уходят и фоновые загрузки: обновления Windows, синхронизация облачных дисков, обновления программ. Для экономии трафика больше подходит Split Tunnel.</p><h2>Системный режим на практике</h2><p>Представь ноутбук сотрудника, которому служба безопасности выдала прокси с логином и паролем. Браузер через «Параметры» Windows настраивается за минуту, но клиент CRM, торговый терминал и утилита синхронизации файлов продолжают ходить напрямую и упираются в запрет на сетевом экране компании. В системном режиме ProxyBridge все они начинают выходить через прокси без отдельной настройки. Другой случай: тестировщик проверяет, как интернет-магазин показывает цены и доставку для другого региона, и хочет, чтобы и браузер, и десктопное приложение магазина видели один и тот же адрес. Одна кнопка CONNECT даёт это сразу для всего компьютера. В обоих случаях не нужно помнить, какая программа читает системный прокси, а какая нет.</p><h2>Какие задачи решает</h2><ul><li>Выход всего компьютера через корпоративный прокси, когда этого требует политика компании.</li><li>Проверка сайта или приложения так, будто компьютер находится в другом регионе.</li><li>Работа с сервисом, который пускает только с белого IP прокси.</li><li>Подключение программ, которые игнорируют системный прокси Windows.</li><li>Единый внешний IP для всех рабочих программ без настройки каждой.</li></ul><h2>Как держать подключение постоянно</h2><p>В Settings есть четыре полезных переключателя. Start with Windows запускает программу вместе с системой, Auto-connect Last Proxy сразу подключает последний прокси, Minimize to Tray убирает окно в трей при закрытии, Show Notifications сообщает о подключении и отключении. Вместе они дают поведение, близкое к «включил один раз и забыл». Внизу окна видны скорость отдачи и загрузки, время подключения и пинг, по ним легко заметить, что прокси перестал отвечать. Если прокси нужен только в рабочее время, автозапуск можно не включать, а запускать программу и нажимать CONNECT вручную.</p><p>Перед включением выключи VPN-клиенты вроде WireGuard или OpenVPN: два перехватчика трафика конфликтуют. HTTP-прокси перед включением стоит проверить кнопкой VERIFY: если прокси не отвечает, в системном режиме пострадают соединения всего компьютера, а не одной программы.</p><p>Уточнение: системный режим даёт один прокси на весь компьютер, а если разным программам нужны разные адреса или часть программ должна идти напрямую, нужен Split Tunnel.</p><div class="faq"><h2>Частые вопросы</h2><details><summary>Как пустить весь трафик через прокси в Windows 11?</summary><p>Встроенная настройка прокси действует только на программы, которые её читают. Чтобы через прокси шёл весь TCP-трафик, нужен клиент с перехватом на уровне драйвера, например ProxyBridge в системном режиме.</p></details><details><summary>Почему после включения прокси в Windows программа всё равно показывает мой IP?</summary><p>Скорее всего, программа не использует системные настройки прокси и подключается напрямую. Также проверь, не работает ли она по UDP: такой трафик через прокси не идёт.</p></details><details><summary>Пойдут ли обновления Windows через прокси в системном режиме?</summary><p>Да, если они идут по TCP, а это обычный случай. Если обновления не должны тратить трафик прокси, используй Split Tunnel и пусти через прокси только нужные программы.</p></details></div><h2>Читайте также</h2><div class="related-grid"><a href="/proksi-dlya-otdelnyh-programm/">Прокси для отдельных программ</a><a href="/utechka-dns-cherez-proksi/">Утечка DNS через прокси</a><a href="/blog/pochemu-sistemnyj-proksi-windows-rabotaet-ne-vezde/">Почему системный прокси работает не везде</a><a href="/proksi-ne-rabotaet/">Прокси не работает</a><a href="/proksi-klient-windows/">Прокси-клиент для Windows</a></div>
+      </article>
+      <aside class="aside">
+        <div class="aside-card">
+          <h3>ProxyBridge</h3>
+          <p>Вся система или отдельные программы через HTTP и SOCKS5. Windows 10/11, бета для macOS.</p>
+          <div class="price-line">от 99 ₽</div>
+          <a class="btn btn-blue" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+          <p style="margin:12px 0 0"><a href="/skachat/" style="color:#fff;text-decoration:underline">Скачать программу</a> · <a href="/cena/" style="color:#fff;text-decoration:underline">Все тарифы</a></p>
+        </div>
+        <div class="aside-links"><h3>Рядом по теме</h3><a href="/socks5-klient/">SOCKS5-клиент для Windows</a><a href="/http-proksi-klient/">HTTP-прокси клиент для Windows</a><a href="/proksi-dlya-otdelnyh-programm/">Прокси для отдельных программ (Split Tunnel)</a><a href="/proksi-s-avtorizaciej/">Прокси с логином и паролем в программах Windows</a><a href="/spisok-proksi/">Список прокси: импорт из файла и переключение в один клик</a></div>
+      </aside>
+    </div>
+  </div>
+</section>
+<section class="cta-band">
+  <div class="container">
+    <div><h2>Направь трафик по своим правилам</h2><p>Ключ от 99 ₽, работает на двух устройствах. Без автосписаний.</p></div>
+    <a class="btn btn-white" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/skachat/">Скачать</a>
+      <a href="/blog/">Блог</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://t.me/inter1ark" target="_blank" rel="noopener">Telegram <span class="arrow">↗</span></a>
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="/legal/offer.html">Оферта</a>
+      <a href="/legal/privacy.html">Конфиденциальность</a>
+      <a href="#" class="cookie-link" data-cookie-settings>Настройки cookie</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge</div>
+  </div>
+</footer>
+<script src="/script.js"></script>
+<script src="/metrika.js"></script>
+</body>
+</html>

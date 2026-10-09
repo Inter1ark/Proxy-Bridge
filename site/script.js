@@ -290,6 +290,7 @@
   }
 
   $('verifyBtn').addEventListener('click', function () {
+    window.pbTrack && window.pbTrack.goal('demo_verify');
     var p = parseProxy(input.value);
     if (!input.value.trim()) { setStatus('Please enter proxy details', 'warn'); return; }
     if (!p) { setStatus('Invalid proxy format. Use: ip:port:user:pass or socks5://user:pass@ip:port', 'warn'); return; }
@@ -368,6 +369,7 @@
   }
 
   connectBtn.addEventListener('click', function () {
+    if (!connected) window.pbTrack && window.pbTrack.goal('demo_connect');
     if (connected) disconnect(); else connect();
   });
 

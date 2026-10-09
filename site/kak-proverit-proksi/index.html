@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Как проверить прокси: доступность, страна, скорость | ProxyBridge</title>
+  <meta name="description" content="Как проверить прокси: открыт ли порт, работает ли логин, какой IP и страна, какая скорость. Способы через PowerShell, curl, браузер и кнопку VERIFY в ProxyBridge.">
+  <link rel="canonical" href="https://www.proxybridge.org/kak-proverit-proksi/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:title" content="Как проверить прокси: доступность, страна, скорость | ProxyBridge">
+  <meta property="og:description" content="Как проверить прокси: открыт ли порт, работает ли логин, какой IP и страна, какая скорость. Способы через PowerShell, curl, браузер и кнопку VERIFY в ProxyBridge.">
+  <meta property="og:image" content="https://www.proxybridge.org/og-image.jpg">
+  <meta property="og:url" content="https://www.proxybridge.org/kak-proverit-proksi/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="ProxyBridge">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script type="application/ld+json">[{"@type": "Organization", "@id": "https://www.proxybridge.org/#org", "name": "ProxyBridge", "url": "https://www.proxybridge.org/", "logo": "https://www.proxybridge.org/favicon.png", "email": "support@proxybridge.org", "sameAs": ["https://github.com/Inter1ark/Proxy-Bridge", "https://t.me/inter1ark"], "@context": "https://schema.org"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Главная", "item": "https://www.proxybridge.org/"}, {"@type": "ListItem", "position": 2, "name": "Проверка прокси перед подключением", "item": "https://www.proxybridge.org/proverka-proksi/"}, {"@type": "ListItem", "position": 3, "name": "Как проверить прокси: доступность, страна и скорость", "item": "https://www.proxybridge.org/kak-proverit-proksi/"}], "@context": "https://schema.org"}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Как узнать, работает ли прокси?", "acceptedAnswer": {"@type": "Answer", "text": "Открой через него сервис проверки IP: если показан адрес прокси, он работает. В ProxyBridge для HTTP-прокси это делает кнопка VERIFY, SOCKS5 проверяется подключением."}}, {"@type": "Question", "name": "Как проверить SOCKS5 прокси без программ?", "acceptedAnswer": {"@type": "Answer", "text": "В командной строке Windows выполни curl.exe -x socks5://user:pass@ip:port https://ifconfig.me. Если в ответ пришёл IP прокси, он рабочий."}}, {"@type": "Question", "name": "Почему сервисы показывают разные страны для одного прокси?", "acceptedAnswer": {"@type": "Answer", "text": "У сервисов геолокации разные базы, и для резидентных и мобильных IP они часто расходятся. Ориентируйся на большинство сервисов и на то, что заявил провайдер."}}]}, {"@context": "https://schema.org", "@type": "Article", "headline": "Как проверить прокси: доступность, страна и скорость", "description": "Как проверить прокси: открыт ли порт, работает ли логин, какой IP и страна, какая скорость. Способы через PowerShell, curl, браузер и кнопку VERIFY в ProxyBridge.", "inLanguage": "ru", "datePublished": "2026-10-09", "dateModified": "2026-10-09", "author": {"@id": "https://www.proxybridge.org/#org"}, "publisher": {"@id": "https://www.proxybridge.org/#org"}, "mainEntityOfPage": "https://www.proxybridge.org/kak-proverit-proksi/", "image": "https://www.proxybridge.org/og-image.jpg"}]</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="logo" viewBox="0 0 48 32"><path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/><path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/></symbol></defs></svg>
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="/" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#product">Продукт</a>
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-blue" href="/skachat/">Скачать <span class="arrow">↘</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="page-hero">
+  <div class="container">
+    <nav class="crumbs" aria-label="Хлебные крошки"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/proverka-proksi/">Проверка прокси перед подключением</a><span aria-hidden="true">/</span><span>Как проверить прокси: доступность, страна и скорость</span></nav>
+    <div class="eyebrow">Гайд</div>
+    <h1 class="display">Как проверить прокси: доступность, страна и скорость</h1>
+    <p class="lead">Перед работой полезно убедиться, что прокси живой, находится в нужной стране и не тормозит. Разберём, как это сделать встроенными средствами Windows, через браузер и в ProxyBridge.</p>
+    <div class="hero-actions">
+      <a class="btn btn-blue" href="/skachat/">Скачать ProxyBridge <span class="arrow">↘</span></a>
+      <a class="btn-link" href="/cena/">Тарифы от 99 ₽ <span class="arrow">↗</span></a>
+    </div>
+    
+  </div>
+</section>
+<section class="page-body">
+  <div class="container">
+    <div class="page-grid">
+      <article class="article">
+        <h2>Открыт ли порт</h2><p>Самая базовая проверка: принимает ли сервер соединения. В Windows для этого есть PowerShell: команда Test-NetConnection 185.12.34.56 -Port 8000 выведет TcpTestSucceeded: True, если порт открыт. Ответ True ещё не значит, что прокси пустит тебя с твоим логином, но False сразу говорит, что проблема в адресе, порте или самом сервере. Команда ping здесь малополезна: многие прокси-серверы не отвечают на неё и при этом нормально работают. Без PowerShell то же самое покажет попытка подключения в любом клиенте, просто ошибка будет менее понятной.</p><h2>Работает ли прокси и какой у него IP</h2><p>Чтобы узнать, работает ли прокси по-настоящему, через него нужно что-то открыть. Для HTTP-прокси подойдёт системная настройка: Параметры &gt; Сеть и Интернет &gt; Прокси-сервер, адрес и порт, затем любой сервис проверки IP в браузере. Если сайт показывает IP прокси, всё в порядке. SOCKS5 с паролем так не проверить, системная настройка его не поддерживает. Тут выручит curl, который встроен в Windows 10 и 11: команда curl.exe -x socks5://user:pass@ip:port https://ifconfig.me выведет внешний IP прокси. В PowerShell пиши именно curl.exe, иначе сработает другая команда.</p><h2>Страна, город и скорость</h2><p>Страну и город показывают сервисы геолокации IP, но их базы расходятся, особенно для мобильных и резидентных адресов, поэтому сверяйся с двумя или тремя. Скорость меряют обычным спидтестом в браузере уже через прокси. Учитывай, что она зависит и от твоего канала, и от расстояния до сервера: прокси на другом континенте почти всегда отвечает медленнее. Короткая шпаргалка:</p><ul><li>доступность: Test-NetConnection или подключение через клиент;</li><li>IP и страна: сервис проверки IP, открытый через прокси;</li><li>скорость: спидтест в браузере через прокси;</li><li>DNS: тест на утечку DNS, если регион резолвера важен для задачи.</li></ul><h2>Что делать с результатами</h2><p>Каждый неудачный результат указывает на свою причину, и по ним удобно сразу решать, что делать дальше:</p><ul><li>порт закрыт: проверь адрес и порт, срок аренды и то, не привязан ли прокси к другому IP в кабинете провайдера;</li><li>порт открыт, но вход не проходит: сверь логин и пароль, они должны быть от прокси, а не от кабинета;</li><li>IP не той страны: уточни у провайдера, иногда базы геолокации отстают от реального расположения;</li><li>скорость низкая: попробуй другой сервер из пула или регион ближе к тебе;</li><li>через прокси открываются не все сайты: возможно, это IPv6-прокси, а сайт работает только по IPv4.</li></ul><h2>Проверка в ProxyBridge</h2><p>В ProxyBridge HTTP-прокси проверяется одной кнопкой: VERIFY показывает, доступен ли прокси, страну, город с флагом и внешний IP. SOCKS5 через VERIFY не проверяется, его проверяют подключением: нажми CONNECT и посмотри на нижнюю часть окна, где видны скорость отдачи и загрузки, время подключения и пинг. Это удобнее ручных команд, когда прокси много: загрузи их через Proxy List и Load from File и проходи по очереди, а рабочие останутся в истории.</p><div class="faq"><h2>Частые вопросы</h2><details><summary>Как узнать, работает ли прокси?</summary><p>Открой через него сервис проверки IP: если показан адрес прокси, он работает. В ProxyBridge для HTTP-прокси это делает кнопка VERIFY, SOCKS5 проверяется подключением.</p></details><details><summary>Как проверить SOCKS5 прокси без программ?</summary><p>В командной строке Windows выполни curl.exe -x socks5://user:pass@ip:port https://ifconfig.me. Если в ответ пришёл IP прокси, он рабочий.</p></details><details><summary>Почему сервисы показывают разные страны для одного прокси?</summary><p>У сервисов геолокации разные базы, и для резидентных и мобильных IP они часто расходятся. Ориентируйся на большинство сервисов и на то, что заявил провайдер.</p></details></div><h2>Читайте также</h2><div class="related-grid"><a href="/proverka-proksi/">Проверка прокси в ProxyBridge</a><a href="/proksi-ne-rabotaet/">Прокси не работает</a><a href="/utechka-dns-cherez-proksi/">Утечка DNS через прокси</a><a href="/spisok-proksi/">Список прокси</a><a href="/kakie-proksi-vybrat/">Какие прокси выбрать</a></div>
+      </article>
+      <aside class="aside">
+        <div class="aside-card">
+          <h3>ProxyBridge</h3>
+          <p>Вся система или отдельные программы через HTTP и SOCKS5. Windows 10/11, бета для macOS.</p>
+          <div class="price-line">от 99 ₽</div>
+          <a class="btn btn-blue" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+          <p style="margin:12px 0 0"><a href="/skachat/" style="color:#fff;text-decoration:underline">Скачать программу</a> · <a href="/cena/" style="color:#fff;text-decoration:underline">Все тарифы</a></p>
+        </div>
+        
+      </aside>
+    </div>
+  </div>
+</section>
+<section class="cta-band">
+  <div class="container">
+    <div><h2>Направь трафик по своим правилам</h2><p>Ключ от 99 ₽, работает на двух устройствах. Без автосписаний.</p></div>
+    <a class="btn btn-white" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/skachat/">Скачать</a>
+      <a href="/blog/">Блог</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://t.me/inter1ark" target="_blank" rel="noopener">Telegram <span class="arrow">↗</span></a>
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="/legal/offer.html">Оферта</a>
+      <a href="/legal/privacy.html">Конфиденциальность</a>
+      <a href="#" class="cookie-link" data-cookie-settings>Настройки cookie</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge</div>
+  </div>
+</footer>
+<script src="/script.js"></script>
+<script src="/metrika.js"></script>
+</body>
+</html>

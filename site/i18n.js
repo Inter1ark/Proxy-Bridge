@@ -15,7 +15,7 @@
     'nav.partners': 'Partners',
     'nav.download': 'Download',
 
-    'hero.eyebrow': 'Proxy client for Windows',
+    'hero.eyebrow': 'Proxy client for Windows and macOS',
     'hero.title': 'Connection on<br><span class="mark">your</span> terms.',
     'hero.sub': 'The whole system or selected apps.<br>One client for all your proxies.',
     'hero.download': 'Download for Windows',
@@ -87,14 +87,14 @@
     'plan.buy': 'Buy',
     'pricing.legal': 'By paying you accept the <a href="legal/offer.html">public offer</a>, <a href="legal/privacy.html">privacy policy</a> and <a href="legal/refund.html">refund terms</a>.',
     'foot.offer': 'Offer', 'foot.privacy': 'Privacy', 'foot.refund': 'Refunds',
-    'buy.eyebrow': 'Checkout', 'buy.title': 'Get a key.', 'buy.sub': 'Pick a plan and a payment method. The key appears on the next page right after payment and is also sent to your email.',
+    'buy.eyebrow': 'Checkout', 'buy.title': 'Get a key.', 'buy.sub': 'Pick a plan and a payment method. The key appears on the next page right after payment.',
     'buy.plan': 'Plan', 'buy.email': 'Email for the key', 'buy.method': 'Payment method', 'buy.summary': 'Order', 'buy.total': 'Total', 'buy.pay': 'Go to payment',
     'buy.fine': 'By clicking the button you accept the <a href="legal/offer.html">offer</a> and the <a href="legal/privacy.html">privacy policy</a>. Digital product, delivered instantly.',
     'buy.errEmail': 'Enter a valid email', 'buy.errServer': 'Payment service is unavailable, try again later', 'buy.wait': 'Creating payment...',
     'buy.m': '1 month', 'buy.mSub': '30 days of access', 'buy.q': '3 months', 'buy.qSub': '90 days, save 16%', 'buy.l': 'Lifetime', 'buy.lSub': 'No expiry',
     'suc.title': 'Thank you.', 'suc.waiting': 'Waiting for payment confirmation. This page updates automatically, do not close it.',
     'suc.paid': 'Payment received. Your license key:', 'suc.copy': 'Copy key', 'suc.copied': 'Copied',
-    'suc.steps': '<li>1. Install ProxyBridge and run it as administrator.</li><li>2. Paste the key into the activation window and press Activate.</li><li>3. The key works on up to 2 devices. It is also sent to your email.</li>',
+    'suc.steps': '<li>1. Install ProxyBridge and run it as administrator.</li><li>2. Paste the key into the activation window and press Activate.</li><li>3. The key works on up to 2 devices. Save it: you need it when reinstalling.</li>',
     'suc.check': 'I have paid, check now', 'suc.canceled': 'Payment was canceled. You can start over.', 'suc.back': 'Back to checkout', 'suc.download': 'Download ProxyBridge',
     'pricing.planName': 'ProxyBridge Pro',
     'pricing.planTag': '1 month',
@@ -108,7 +108,7 @@
     'pay.rubSub': 'Card, SBP and more via YooKassa',
     'pay.crypto': 'In crypto',
     'pay.cryptoSub': 'USDT, TON, BTC and more via CryptoBot',
-    'pricing.payNote': 'The key appears on the page after payment and is also sent by email. Payment questions: support@proxybridge.org.',
+    'pricing.payNote': 'The key appears on the page right after payment. Payment questions: support@proxybridge.org.',
 
     'partners.title': 'Proxy providers',
     'partners.sub': 'Trusted sources for your proxies',
@@ -206,7 +206,7 @@
   if (sw) {
     sw.addEventListener('click', function (e) {
       var b = e.target.closest('button');
-      if (b) apply(b.getAttribute('data-lang'));
+      if (b) { apply(b.getAttribute('data-lang')); if (b.getAttribute('data-lang') === 'en' && window.pbTrack) window.pbTrack.goal('lang_en'); }
     });
   }
 })();

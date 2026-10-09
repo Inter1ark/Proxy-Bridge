@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Прокси для Chrome: отдельный IP только для браузера | ProxyBridge</title>
+  <meta name="description" content="Прокси для Chrome без изменения настроек всей Windows: флаг запуска, расширение или Split Tunnel в ProxyBridge с SOCKS5 и паролем. Пошаговая настройка.">
+  <link rel="canonical" href="https://www.proxybridge.org/proksi-dlya-chrome/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:title" content="Прокси для Chrome: отдельный IP только для браузера | ProxyBridge">
+  <meta property="og:description" content="Прокси для Chrome без изменения настроек всей Windows: флаг запуска, расширение или Split Tunnel в ProxyBridge с SOCKS5 и паролем. Пошаговая настройка.">
+  <meta property="og:image" content="https://www.proxybridge.org/og-image.jpg">
+  <meta property="og:url" content="https://www.proxybridge.org/proksi-dlya-chrome/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="ProxyBridge">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script type="application/ld+json">[{"@type": "Organization", "@id": "https://www.proxybridge.org/#org", "name": "ProxyBridge", "url": "https://www.proxybridge.org/", "logo": "https://www.proxybridge.org/favicon.png", "email": "support@proxybridge.org", "sameAs": ["https://github.com/Inter1ark/Proxy-Bridge", "https://t.me/inter1ark"], "@context": "https://schema.org"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Главная", "item": "https://www.proxybridge.org/"}, {"@type": "ListItem", "position": 2, "name": "Прокси для отдельных программ (Split Tunnel)", "item": "https://www.proxybridge.org/proksi-dlya-otdelnyh-programm/"}, {"@type": "ListItem", "position": 3, "name": "Прокси для Google Chrome", "item": "https://www.proxybridge.org/proksi-dlya-chrome/"}], "@context": "https://schema.org"}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Как подключить прокси в хроме с логином и паролем?", "acceptedAnswer": {"@type": "Answer", "text": "Для HTTP-прокси Chrome сам покажет окно авторизации. SOCKS5 с логином и паролем браузер не поддерживает ни флагом, ни через Windows, поэтому нужен внешний клиент, например ProxyBridge с форматом socks5://user:pass@ip:port."}}, {"@type": "Question", "name": "Можно ли включить прокси только для Chrome, а не для всего компьютера?", "acceptedAnswer": {"@type": "Answer", "text": "Да. Штатно это делает флаг --proxy-server с отдельным профилем или расширение, в ProxyBridge правило Split Tunnel для chrome.exe. Остальной трафик при этом идёт напрямую."}}, {"@type": "Question", "name": "Почему сайт видит реальный IP, хотя chrome через прокси?", "acceptedAnswer": {"@type": "Answer", "text": "Чаще всего причина в QUIC или WebRTC: оба работают по UDP, а он идёт мимо прокси. Отключи QUIC в chrome://flags, ограничь WebRTC расширением и проверь ещё раз."}}]}, {"@type": "SoftwareApplication", "name": "ProxyBridge", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Windows 10, Windows 11, macOS 12+", "softwareVersion": "3.2.0", "downloadUrl": "https://www.proxybridge.org/skachat/", "offers": [{"@type": "Offer", "name": "1 месяц", "price": "99", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=month"}, {"@type": "Offer", "name": "3 месяца", "price": "249", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=3months"}, {"@type": "Offer", "name": "Навсегда", "price": "699", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=lifetime"}], "publisher": {"@id": "https://www.proxybridge.org/#org"}, "@context": "https://schema.org", "url": "https://www.proxybridge.org/proksi-dlya-chrome/", "description": "Прокси для Chrome без изменения настроек всей Windows: флаг запуска, расширение или Split Tunnel в ProxyBridge с SOCKS5 и паролем. Пошаговая настройка."}]</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="logo" viewBox="0 0 48 32"><path d="M0 32 L15 9 L27 24 L21 32 Z" fill="#ffffff"/><path d="M13 32 L30 1 L48 32 Z" fill="#2d5bff"/></symbol></defs></svg>
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="/" aria-label="ProxyBridge"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#product">Продукт</a>
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-blue" href="/skachat/">Скачать <span class="arrow">↘</span></a>
+      <button class="nav-burger" id="navBurger" aria-label="Меню">
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 1h20M0 7h20M0 13h20"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="page-hero">
+  <div class="container">
+    <nav class="crumbs" aria-label="Хлебные крошки"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/proksi-dlya-otdelnyh-programm/">Прокси для отдельных программ (Split Tunnel)</a><span aria-hidden="true">/</span><span>Прокси для Google Chrome</span></nav>
+    <div class="eyebrow">Сценарий</div>
+    <h1 class="display">Прокси для Google Chrome</h1>
+    <p class="lead">Хочешь пустить Chrome через прокси, а остальные программы оставить на обычном подключении? Ниже встроенные способы и их ограничения, а затем настройка, при которой ProxyBridge назначает прокси только процессу chrome.exe.</p>
+    <div class="hero-actions">
+      <a class="btn btn-blue" href="/skachat/">Скачать ProxyBridge <span class="arrow">↘</span></a>
+      <a class="btn-link" href="/cena/">Тарифы от 99 ₽ <span class="arrow">↗</span></a>
+    </div>
+    
+  </div>
+</section>
+<section class="page-body">
+  <div class="container">
+    <div class="page-grid">
+      <article class="article">
+        <h2>Где в Chrome настройки прокси</h2><p>Своего окна для прокси у Chrome нет. Если открыть «Настройки», раздел «Система» и пункт «Открыть настройки прокси-сервера для компьютера», браузер просто отправит тебя в параметры Windows. То есть прокси для Chrome по умолчанию тот же, что и у всей системы: что указано в Windows, то и использует браузер. Чтобы понять, как подключить прокси в хроме и не задеть остальное, полезно знать три пути: системный прокси, флаг запуска и расширение. У каждого есть свои ограничения.</p><div class="steps-box"><h2>Как сделать в ProxyBridge</h2><ol><li>Скачай ProxyBridge, установи от имени администратора и введи ключ при первом запуске.</li><li>Перейди в режим Split Tunnel.</li><li>Нажми Browse и выбери chrome.exe или впиши имя процесса вручную.</li><li>Вставь для правила прокси в формате socks5://user:pass@ip:port или ip:port:user:pass.</li><li>Нажми APPLY SPLIT TUNNELING и перезапусти Chrome, чтобы через прокси пошли и уже открытые соединения.</li></ol></div><h2>Три встроенных способа и их минусы</h2><p>Если прокси у тебя HTTP без пароля и нужен разово, флага хватит. Сложности начинаются, когда провайдер выдал SOCKS5 с авторизацией, когда Chrome должен работать на одном IP, а другая программа на другом, и когда не хочется трогать системные настройки, от которых зависят остальные приложения.</p><ul><li>Системный прокси Windows: «Параметры», «Сеть и Интернет», «Прокси-сервер», ручная настройка. Влияет на все программы, которые читают системные настройки, а не только на Chrome. Полей для логина и пароля нет, форма рассчитана на HTTP-прокси.</li><li>Флаг запуска: в свойствах ярлыка после пути к chrome.exe дописывают --proxy-server=&quot;socks5://ip:port&quot;. Флаг срабатывает только для нового экземпляра браузера: если Chrome уже открыт, новое окно присоединится к старому процессу без флага. Поэтому его ставят вместе с отдельной папкой профиля через --user-data-dir. Логин и пароль для SOCKS5 так не передать.</li><li>Расширение-менеджер прокси: удобно переключать адреса прямо в браузере, но SOCKS5 с паролем движок Chrome не поддерживает и через расширения, а самому расширению приходится давать доступ ко всем сайтам.</li></ul><h2>Chrome через прокси в режиме Split Tunnel</h2><p>ProxyBridge перехватывает соединения на уровне сетевого драйвера, поэтому Chrome не нужны ни флаги, ни расширения. В режиме Split Tunnel ты добавляешь правило для процесса chrome.exe и указываешь для него прокси в формате socks5://user:pass@ip:port, http://user:pass@ip:port или ip:port:user:pass. Логин и пароль работают для обоих протоколов. Вкладки, расширения и служебные процессы Chrome называются chrome.exe, так что под правило попадает весь браузер. Остальные программы идут напрямую или через свои правила: например, Chrome на одном прокси, парсер на другом, мессенджер без прокси.</p><p>HTTP-прокси перед применением можно проверить кнопкой VERIFY: программа покажет страну, город и внешний IP. SOCKS5 так не проверяется, его проверяют подключением, открыв в Chrome любой сервис определения IP.</p><h2>Что учесть, чтобы не было сюрпризов</h2><ul><li>Через прокси идёт только TCP. Chrome часто соединяется с сайтами по протоколу QUIC, а он работает поверх UDP и уйдёт напрямую. Чтобы этого не было, в chrome://flags отключи пункт Experimental QUIC protocol.</li><li>WebRTC тоже использует UDP и может показать сайту реальный IP. Встроенного переключателя в Chrome нет, поставь расширение, ограничивающее WebRTC, и проверь результат на сайте проверки утечек.</li><li>DNS-запросы по умолчанию идут напрямую, это регулирует настройка DNS Bypass.</li><li>Не включай одновременно VPN: два перехватчика трафика конфликтуют. Убери и системный прокси Windows или флаг, чтобы не получилась цепочка из двух прокси.</li></ul><div class="faq"><h2>Частые вопросы</h2><details><summary>Как подключить прокси в хроме с логином и паролем?</summary><p>Для HTTP-прокси Chrome сам покажет окно авторизации. SOCKS5 с логином и паролем браузер не поддерживает ни флагом, ни через Windows, поэтому нужен внешний клиент, например ProxyBridge с форматом socks5://user:pass@ip:port.</p></details><details><summary>Можно ли включить прокси только для Chrome, а не для всего компьютера?</summary><p>Да. Штатно это делает флаг --proxy-server с отдельным профилем или расширение, в ProxyBridge правило Split Tunnel для chrome.exe. Остальной трафик при этом идёт напрямую.</p></details><details><summary>Почему сайт видит реальный IP, хотя chrome через прокси?</summary><p>Чаще всего причина в QUIC или WebRTC: оба работают по UDP, а он идёт мимо прокси. Отключи QUIC в chrome://flags, ограничь WebRTC расширением и проверь ещё раз.</p></details></div><h2>Читайте также</h2><div class="related-grid"><a href="/proksi-dlya-otdelnyh-programm/">Прокси для отдельных программ</a><a href="/proksi-dlya-firefox/">Прокси для Firefox</a><a href="/proksi-s-avtorizaciej/">Прокси с логином и паролем</a><a href="/utechka-dns-cherez-proksi/">Утечка DNS через прокси</a><a href="/skachat/">Скачать ProxyBridge</a></div>
+      </article>
+      <aside class="aside">
+        <div class="aside-card">
+          <h3>ProxyBridge</h3>
+          <p>Вся система или отдельные программы через HTTP и SOCKS5. Windows 10/11, бета для macOS.</p>
+          <div class="price-line">от 99 ₽</div>
+          <a class="btn btn-blue" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+          <p style="margin:12px 0 0"><a href="/skachat/" style="color:#fff;text-decoration:underline">Скачать программу</a> · <a href="/cena/" style="color:#fff;text-decoration:underline">Все тарифы</a></p>
+        </div>
+        <div class="aside-links"><h3>Рядом по теме</h3><a href="/proksi-dlya-yandex-brauzera/">Прокси для Яндекс Браузера</a><a href="/proksi-dlya-firefox/">Прокси для Firefox: встроенная настройка и SOCKS5 с паролем</a><a href="/proksi-dlya-telegram-desktop/">Прокси для Telegram Desktop на ПК</a><a href="/proksi-dlya-antidetekt-brauzera/">Прокси для антидетект-браузера и мультиаккаунтинга</a><a href="/proksi-dlya-python-skriptov/">Прокси для Python-скриптов и консольных программ</a></div>
+      </aside>
+    </div>
+  </div>
+</section>
+<section class="cta-band">
+  <div class="container">
+    <div><h2>Направь трафик по своим правилам</h2><p>Ключ от 99 ₽, работает на двух устройствах. Без автосписаний.</p></div>
+    <a class="btn btn-white" href="/buy.html" data-goal="seo_cta">Купить ключ <span class="arrow">↗</span></a>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <div class="footer-links">
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/skachat/">Скачать</a>
+      <a href="/blog/">Блог</a>
+      <a href="/partners.html">Партнёры</a>
+      <a href="https://t.me/inter1ark" target="_blank" rel="noopener">Telegram <span class="arrow">↗</span></a>
+      <a href="mailto:support@proxybridge.org">support@proxybridge.org</a>
+      <a href="/legal/offer.html">Оферта</a>
+      <a href="/legal/privacy.html">Конфиденциальность</a>
+      <a href="#" class="cookie-link" data-cookie-settings>Настройки cookie</a>
+    </div>
+    <div class="copy">© 2026 ProxyBridge</div>
+  </div>
+</footer>
+<script src="/script.js"></script>
+<script src="/metrika.js"></script>
+</body>
+</html>

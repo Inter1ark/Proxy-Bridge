@@ -3,13 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ProxyBridge: прокси-клиент для Windows</title>
-  <meta name="description" content="ProxyBridge направляет трафик всей системы или отдельных программ через HTTP и SOCKS5 прокси. Windows 10/11, open source.">
-  <meta property="og:title" content="ProxyBridge: прокси-клиент для Windows">
+  <title>ProxyBridge: прокси-клиент для Windows и macOS | SOCKS5 и HTTP</title>
+  <meta name="description" content="Прокси-клиент ProxyBridge направляет трафик всей системы или отдельных программ через HTTP и SOCKS5 прокси. Windows 10/11 и macOS. Ключ от 99 ₽.">
+  <meta property="og:title" content="ProxyBridge: прокси-клиент для Windows и macOS | SOCKS5 и HTTP">
   <meta property="og:description" content="Вся система или отдельные приложения. Один клиент для твоих прокси. HTTP и SOCKS5, Windows 10/11, open source.">
   <meta property="og:image" content="https://www.proxybridge.org/og-image.jpg">
   <meta property="og:url" content="https://www.proxybridge.org/">
   <meta property="og:type" content="website">
+  <link rel="canonical" href="https://www.proxybridge.org/">
+  <meta name="yandex-verification" content="b1df600eff1a84d4">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="ProxyBridge">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">[{"@context": "https://schema.org", "@type": "Organization", "@id": "https://www.proxybridge.org/#org", "name": "ProxyBridge", "url": "https://www.proxybridge.org/", "logo": "https://www.proxybridge.org/favicon.png", "email": "support@proxybridge.org", "sameAs": ["https://github.com/Inter1ark/Proxy-Bridge", "https://t.me/inter1ark"]}, {"@context": "https://schema.org", "@type": "WebSite", "@id": "https://www.proxybridge.org/#site", "name": "ProxyBridge", "url": "https://www.proxybridge.org/", "inLanguage": "ru", "publisher": {"@id": "https://www.proxybridge.org/#org"}}, {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "ProxyBridge", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Windows 10, Windows 11, macOS 12+", "softwareVersion": "3.2.0", "url": "https://www.proxybridge.org/", "downloadUrl": "https://www.proxybridge.org/skachat/", "image": "https://www.proxybridge.org/og-image.jpg", "screenshot": "https://www.proxybridge.org/images/app/dashboard.png", "description": "Прокси-клиент ProxyBridge направляет трафик всей системы или отдельных программ через HTTP и SOCKS5 прокси. Windows 10/11 и macOS. Ключ от 99 ₽.", "publisher": {"@id": "https://www.proxybridge.org/#org"}, "offers": [{"@type": "Offer", "name": "1 месяц", "price": "99", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=month", "availability": "https://schema.org/InStock"}, {"@type": "Offer", "name": "3 месяца", "price": "249", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=3months", "availability": "https://schema.org/InStock"}, {"@type": "Offer", "name": "Навсегда", "price": "699", "priceCurrency": "RUB", "url": "https://www.proxybridge.org/buy.html?plan=lifetime", "availability": "https://schema.org/InStock"}]}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Что такое ProxyBridge?", "acceptedAnswer": {"@type": "Answer", "text": "Прокси-клиент для Windows и macOS. Он направляет трафик всего компьютера или отдельных программ через твой HTTP или SOCKS5 прокси, даже если в самой программе нет настроек прокси."}}, {"@type": "Question", "name": "Можно ли направить через прокси только одну программу?", "acceptedAnswer": {"@type": "Answer", "text": "Да, на Windows для этого есть режим Split Tunnel: каждой программе назначается свой прокси по имени процесса, остальной трафик идёт напрямую."}}, {"@type": "Question", "name": "Поддерживаются ли прокси с логином и паролем?", "acceptedAnswer": {"@type": "Answer", "text": "Да. Прокси вводится в формате socks5://user:pass@ip:port, http://user:pass@ip:port или ip:port:user:pass."}}, {"@type": "Question", "name": "Сколько стоит ProxyBridge?", "acceptedAnswer": {"@type": "Answer", "text": "99 ₽ за месяц, 249 ₽ за 3 месяца или 699 ₽ навсегда. Один ключ работает на двух устройствах, автосписаний нет."}}, {"@type": "Question", "name": "Даёт ли ProxyBridge сами прокси?", "acceptedAnswer": {"@type": "Answer", "text": "Нет, программа подключается к прокси, который ты покупаешь у провайдера. Проверенные провайдеры собраны на странице партнёров."}}, {"@type": "Question", "name": "Работает ли ProxyBridge вместе с VPN?", "acceptedAnswer": {"@type": "Answer", "text": "Одновременно с VPN-клиентом программа работает нестабильно: два перехватчика трафика конфликтуют. На время работы ProxyBridge VPN лучше выключить."}}]}]</script>
   <meta name="theme-color" content="#0a0e1a">
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -31,7 +38,7 @@
 
 <header class="nav" id="nav">
   <div class="container">
-    <a class="brand" href="index.html" aria-label="ProxyBridge">
+    <a class="brand" href="/" aria-label="ProxyBridge">
       <svg><use href="#logo"/></svg>
       ProxyBridge
     </a>
@@ -60,8 +67,8 @@
 
 <section class="hero" id="product">
   <div class="container hero-head">
-    <div class="eyebrow" data-i18n="hero.eyebrow">Прокси-клиент для Windows</div>
-    <h1 class="display" data-i18n="hero.title">Соединение по<br><span class="mark">твоим</span> правилам.</h1>
+    <h1 class="hero-h1"><span class="eyebrow" data-i18n="hero.eyebrow">Прокси-клиент для Windows и macOS</span>
+    <span class="display" data-i18n="hero.title">Соединение по<br><span class="mark">твоим</span> правилам.</span></h1>
     <p class="hero-sub" data-i18n="hero.sub">Вся система или отдельные приложения.<br>Один клиент для твоих прокси.</p>
     <div class="hero-actions">
       <a class="btn btn-blue" href="https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.2.0/ProxyBridge-Setup-3.2.0.exe"><span data-i18n="hero.download">Скачать для Windows</span> <span class="arrow">↘</span></a>
@@ -291,6 +298,17 @@
         <div><h3 data-i18n="f3.title">Автоподключение</h3><p data-i18n="f3.text">Запуск вместе с Windows, работа из трея и подключение к последнему прокси без твоего участия.</p></div>
       </div>
     </div>
+
+    <div class="home-links" aria-label="Возможности ProxyBridge">
+      <a href="/proksi-klient-windows/">Прокси-клиент для Windows</a>
+      <a href="/socks5-klient/">SOCKS5-клиент</a>
+      <a href="/proksi-dlya-otdelnyh-programm/">Прокси для отдельных программ</a>
+      <a href="/proksi-dlya-vsej-sistemy/">Прокси для всей системы</a>
+      <a href="/proksi-s-avtorizaciej/">Прокси с логином и паролем</a>
+      <a href="/alternativa-proxifier/">Альтернатива Proxifier</a>
+      <a href="/proksi-klient-macos/">Версия для macOS</a>
+      <a href="/vozmozhnosti/">Все возможности</a>
+    </div>
   </div>
 </section>
 
@@ -400,7 +418,7 @@
         <span><b data-i18n="pay.crypto">Криптовалютой</b><span data-i18n="pay.cryptoSub">USDT, TON, BTC и другие через CryptoBot</span></span>
         <span class="arrow">↗</span>
       </a>
-      <p class="pay-note" data-i18n="pricing.payNote">Ключ появляется на странице после оплаты и дублируется на email. Вопросы по оплате: support@proxybridge.org.</p>
+      <p class="pay-note" data-i18n="pricing.payNote">Ключ появляется на странице сразу после оплаты. Вопросы по оплате: support@proxybridge.org.</p>
     </div>
     <p class="pricing-legal" data-i18n="pricing.legal">Оплачивая, ты принимаешь <a href="legal/offer.html">публичную оферту</a>, <a href="legal/privacy.html">политику конфиденциальности</a> и <a href="legal/refund.html">условия возврата</a>.</p>
   </div>
@@ -419,6 +437,20 @@
       <a href="https://www.webshare.io/?referral_code=inter1ark" target="_blank" rel="noopener">Webshare</a>
     </div>
     <a class="partners-all" href="partners.html"><span data-i18n="partners.all">Все партнёры</span> <span class="arrow">↗</span></a>
+  </div>
+</section>
+
+<section class="home-faq" id="faq">
+  <div class="container">
+    <h2 class="display">Частые вопросы.</h2>
+    <div class="faq">
+      <details><summary>Что такое ProxyBridge?</summary><p>Прокси-клиент для Windows и macOS. Он направляет трафик всего компьютера или отдельных программ через твой HTTP или SOCKS5 прокси, даже если в самой программе нет настроек прокси.</p></details>
+      <details><summary>Можно ли направить через прокси только одну программу?</summary><p>Да, на Windows для этого есть режим Split Tunnel: каждой программе назначается свой прокси по имени процесса, остальной трафик идёт напрямую.</p></details>
+      <details><summary>Поддерживаются ли прокси с логином и паролем?</summary><p>Да. Прокси вводится в формате socks5://user:pass@ip:port, http://user:pass@ip:port или ip:port:user:pass.</p></details>
+      <details><summary>Сколько стоит ProxyBridge?</summary><p>99 ₽ за месяц, 249 ₽ за 3 месяца или 699 ₽ навсегда. Один ключ работает на двух устройствах, автосписаний нет.</p></details>
+      <details><summary>Даёт ли ProxyBridge сами прокси?</summary><p>Нет, программа подключается к прокси, который ты покупаешь у провайдера. Проверенные провайдеры собраны на странице партнёров.</p></details>
+      <details><summary>Работает ли ProxyBridge вместе с VPN?</summary><p>Одновременно с VPN-клиентом программа работает нестабильно: два перехватчика трафика конфликтуют. На время работы ProxyBridge VPN лучше выключить.</p></details>
+    </div>
   </div>
 </section>
 
@@ -471,7 +503,7 @@
 
 <footer class="footer">
   <div class="container">
-    <a class="brand" href="index.html"><svg><use href="#logo"/></svg> ProxyBridge</a>
+    <a class="brand" href="/"><svg><use href="#logo"/></svg> ProxyBridge</a>
     <div class="footer-links">
       <a href="https://github.com/Inter1ark/Proxy-Bridge" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
       <a href="https://t.me/inter1ark" target="_blank" rel="noopener">Telegram <span class="arrow">↗</span></a>
@@ -480,6 +512,11 @@
       <a href="legal/offer.html" data-i18n="foot.offer">Оферта</a>
       <a href="legal/privacy.html" data-i18n="foot.privacy">Конфиденциальность</a>
       <a href="legal/refund.html" data-i18n="foot.refund">Возврат</a>
+      <a href="/vozmozhnosti/">Возможности</a>
+      <a href="/cena/">Цены</a>
+      <a href="/skachat/">Скачать</a>
+      <a href="/blog/">Блог</a>
+      <a href="#" class="cookie-link" data-cookie-settings>Настройки cookie</a>
     </div>
     <div class="copy">© 2026 ProxyBridge · MIT</div>
   </div>
@@ -487,6 +524,7 @@
 
 <script src="i18n.js"></script>
 <script src="script.js"></script>
+<script src="/metrika.js"></script>
 <script defer data-domain="www.proxybridge.org" src="https://analytics.tiiny.net/js/plausible.js"></script>
 </body>
 </html>
