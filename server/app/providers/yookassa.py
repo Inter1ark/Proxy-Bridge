@@ -84,3 +84,24 @@ def get_payment(payment_id: str) -> dict:
         "payment_method_type": (data.get("payment_method") or {}).get("type"),
         "income_amount": (data.get("income_amount") or {}).get("value"),
     }
+
+
+def create_refund(payment_id: str, amount_rub: int, idempotence_key: str) -> dict:
+    """Refund a succeeded payment in full. The idempotence key makes retries safe.
+
+    Returns {"id", "status"}.
+    """
+    payload = {"payment_id": payment_id, "amount": {"value": f"{amount_rub:.2f}", "currency": "RUB"}}
+    headers = {"Idempotence-Key": idempotence_key, "Content-Type": "application/json"}
+    try:
+        with httpx.Client(auth=_auth(), timeout=TIMEOUT) as client:
+            resp = client.post(f"{API_URL}/refunds", json=payload, headers=headers)
+            data = resp.json()
+    except YooKassaError:
+        raise
+    except Exception as exc:
+        raise YooKassaError(f"request failed: {exc}") from exc
+    if resp.status_code not in (200, 201):
+        raise YooKassaError(f"refund failed: {resp.status_code} {data.get('description', data)}")
+    logger.info("YooKassa refund %s for payment %s: %s", data.get("id"), payment_id, data.get("status"))
+    return {"id": data.get("id"), "status": data.get("status")}

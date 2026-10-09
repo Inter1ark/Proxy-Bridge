@@ -72,7 +72,7 @@
       check: 'Проверить', added: 'Добавлено: ', bad: 'Не распознано строк: ', dup: 'Такие прокси уже есть в списке',
       empty: 'Вставь хотя бы один адрес прокси', imported: 'Импортировано из файла: ', importedNone: 'Прокси из файла уже в списке',
       placeholder: 'socks5://user:pass@host:port\nМожно вставить сразу несколько, по одному в строке',
-      logs: 'В программе откроется папка с журналами', updWait: 'проверка обновлений...', updOk: 'У тебя последняя версия 3.3.0',
+      logs: 'В программе откроется папка с журналами', updWait: 'проверка обновлений...', updOk: 'У тебя последняя версия 3.4.0',
       unbind: 'В программе это освободит место для другого устройства', rename: 'Переименовать', del: 'Удалить',
       B: 'Б', KB: 'КБ', MB: 'МБ', GB: 'ГБ', dec: ',', ya: 'Яндекс Браузер', power: 'Подключить или отключить'
     },
@@ -87,7 +87,7 @@
       check: 'Check', added: 'Added: ', bad: 'Lines not recognized: ', dup: 'These proxies are already in the list',
       empty: 'Paste at least one proxy address', imported: 'Imported from file: ', importedNone: 'Proxies from the file are already in the list',
       placeholder: 'socks5://user:pass@host:port\nPaste several at once, one per line',
-      logs: 'The app opens the folder with log files', updWait: 'checking for updates...', updOk: 'You have the latest version 3.3.0',
+      logs: 'The app opens the folder with log files', updWait: 'checking for updates...', updOk: 'You have the latest version 3.4.0',
       unbind: 'In the app this frees a slot for another device', rename: 'Rename', del: 'Delete',
       B: 'B', KB: 'KB', MB: 'MB', GB: 'GB', dec: '.', ya: 'Yandex Browser', power: 'Connect or disconnect'
     }

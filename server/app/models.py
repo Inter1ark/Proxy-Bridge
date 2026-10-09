@@ -90,6 +90,72 @@ class License(Base):
         return from_db(self.expires_at) <= now
 
 
+class StoreProxy(Base):
+    """A proxy bought in the app. Vendor details stay on the server and are never sent to the client."""
+
+    __tablename__ = "store_proxies"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    license_key: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)          # dc | traffic
+    vendor: Mapped[str] = mapped_column(String(8), nullable=False)          # cy | sx
+    account: Mapped[str] = mapped_column(String(16), nullable=False)        # fingerprint of the vendor key
+    vendor_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="provisioning")
+    host: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    port: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    login: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    password: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False, default="")
+    country_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    state: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    state_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    city: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    city_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ptype: Mapped[str] = mapped_column(String(16), nullable=False, default="datacenter")
+    rotation: Mapped[str | None] = mapped_column(String(16), nullable=True)  # static | interval | request
+    ttl: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gb_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    bytes_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Last raw counter seen at the vendor, to accumulate usage even if the vendor counter resets.
+    bytes_raw: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    renew_pending: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now_db)
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class StoreOrder(Base):
+    """Payment for a store product: a new proxy, a renewal or a traffic top-up."""
+
+    __tablename__ = "store_orders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    license_key: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    product: Mapped[str] = mapped_column(String(16), nullable=False)        # dc | dc_renew | traffic | topup
+    params: Mapped[str] = mapped_column(String(1024), nullable=False, default="{}")
+    amount_rub: Mapped[int] = mapped_column(Integer, nullable=False)
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")  # pending | paid | canceled
+    provider_payment_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
+    pay_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    income_rub: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fail_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now_db)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Fulfillment after payment: "" -> queued -> working -> done | failed | manual
+    fulfill: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    fulfill_error: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    vendor_order_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    proxy_id: Mapped[int | None] = mapped_column(ForeignKey("store_proxies.id"), nullable=True)
+    refunded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    fulfilled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class Device(Base):
     __tablename__ = "devices"
     __table_args__ = (UniqueConstraint("license_id", "hwid", name="uq_device_license_hwid"),)

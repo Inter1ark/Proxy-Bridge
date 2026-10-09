@@ -11,8 +11,9 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from .config import settings
-from .models import Device, License, Order, from_db, iso_z, to_db, utcnow
+from .models import Device, License, Order, StoreOrder, StoreProxy, from_db, iso_z, to_db, utcnow
 from .plans import PLANS
+from .store.service import _product_title
 
 MSK = timezone(timedelta(hours=3))
 
@@ -379,6 +380,163 @@ def list_licenses(db: Session, conds: list, page: int = 1, per_page: int = 50) -
         "page": page,
         "per_page": per_page,
         "pages": max(1, -(-total // per_page)),
+    }
+
+
+# ---------- proxy store ----------
+
+STORE_STATUSES = ("pending", "paid", "canceled")
+STORE_FULFILL = ("queued", "working", "done", "failed", "manual")
+STORE_PROXY_STATUSES = ("provisioning", "active", "exhausted", "expired", "failed")
+ATTENTION_FULFILL = ("failed", "manual")
+
+
+def store_needs_attention(order: StoreOrder) -> bool:
+    return order.fulfill in ATTENTION_FULFILL and not order.refunded
+
+
+# Only "failed" means "nothing was bought". A "manual" order may have reached the vendor
+# (purchase outcome unknown), so it is never retried from the panel.
+RETRY_FULFILL = ("failed",)
+
+
+def store_can_retry(order: StoreOrder) -> bool:
+    """Nothing was bought at the vendor, so the worker may simply try again."""
+    return (order.status == "paid" and order.fulfill in RETRY_FULFILL and not order.refunded
+            and not order.vendor_order_id)
+
+
+def store_order_item(order: StoreOrder) -> dict:
+    try:
+        title = _product_title(order)
+    except (ValueError, TypeError):
+        title = order.product
+    return {
+        "id": order.id,
+        "sid": f"S{order.id}",
+        "created_at": iso_z(order.created_at),
+        "paid_at": iso_z(order.paid_at),
+        "license_key": order.license_key,
+        "product": order.product,
+        "title": title,
+        "amount_rub": order.amount_rub,
+        "income_rub": order.income_rub,
+        "cost_usd": order.cost_usd,
+        "method": order.method,
+        "method_title": METHOD_TEXT.get(order.method, order.method),
+        "pay_type": order.pay_type,
+        "pay_type_text": pay_type_text(order.pay_type),
+        "status": order.status,
+        "fulfill": order.fulfill,
+        "fulfill_error": order.fulfill_error,
+        "refunded": bool(order.refunded),
+        "proxy_id": order.proxy_id,
+        "attention": store_needs_attention(order),
+        "can_retry": store_can_retry(order),
+    }
+
+
+def store_order_filters(status: str | None = None, fulfill: str | None = None, q: str | None = None) -> list:
+    """fulfill: one state, a comma separated list, or "attention" (failed or manual, not refunded)."""
+    conds = []
+    if status:
+        conds.append(StoreOrder.status == status)
+    if fulfill == "attention":
+        conds += [StoreOrder.fulfill.in_(ATTENTION_FULFILL), StoreOrder.refunded.is_(False)]
+    elif fulfill:
+        conds.append(StoreOrder.fulfill.in_([f for f in fulfill.split(",") if f]))
+    q = (q or "").strip()
+    if q:
+        like = f"%{q.lower()}%"
+        parts = [func.lower(StoreOrder.license_key).like(like), StoreOrder.token == q]
+        digits = q.lstrip("#").lstrip("Ss")
+        if digits.isdigit():
+            parts.append(StoreOrder.id == int(digits))
+        conds.append(or_(*parts))
+    return conds
+
+
+def list_store_orders(db: Session, conds: list, limit: int = 200) -> dict:
+    total = db.scalar(select(func.count(StoreOrder.id)).where(*conds)) or 0
+    orders = db.scalars(select(StoreOrder).where(*conds).order_by(StoreOrder.id.desc()).limit(limit)).all()
+    return {"items": [store_order_item(o) for o in orders], "total": total, "limit": limit}
+
+
+def store_proxy_item(p: StoreProxy) -> dict:
+    # Never include the proxy login or password here.
+    return {
+        "id": p.id,
+        "license_key": p.license_key,
+        "kind": p.kind,
+        "vendor": p.vendor,
+        "status": p.status,
+        "country_code": p.country_code,
+        "state": p.state,
+        "city": p.city,
+        "ptype": p.ptype,
+        "rotation": p.rotation,
+        "ttl": p.ttl,
+        "gb_total": p.gb_total,
+        "gb_used": round((p.bytes_used or 0) / 1e9, 3),
+        "expires_at": iso_z(p.expires_at),
+        "renew_pending": int(p.renew_pending or 0),
+        "created_at": iso_z(p.created_at),
+        "address": f"{p.host}:{p.port}" if p.host else "",
+    }
+
+
+def store_proxy_filters(status: str | None = None, q: str | None = None) -> list:
+    conds = []
+    if status:
+        conds.append(StoreProxy.status == status)
+    q = (q or "").strip()
+    if q:
+        like = f"%{q.lower()}%"
+        parts = [func.lower(StoreProxy.license_key).like(like), func.lower(StoreProxy.host).like(like)]
+        digits = q.lstrip("#")
+        if digits.isdigit():
+            parts.append(StoreProxy.id == int(digits))
+        conds.append(or_(*parts))
+    return conds
+
+
+def list_store_proxies(db: Session, conds: list, limit: int = 200) -> dict:
+    total = db.scalar(select(func.count(StoreProxy.id)).where(*conds)) or 0
+    rows = db.scalars(select(StoreProxy).where(*conds).order_by(StoreProxy.id.desc()).limit(limit)).all()
+    return {"items": [store_proxy_item(p) for p in rows], "total": total, "limit": limit}
+
+
+def store_summary(db: Session) -> dict:
+    paid = [StoreOrder.status == "paid"]
+    revenue = db.scalar(select(func.coalesce(func.sum(StoreOrder.amount_rub), 0)).where(*paid)) or 0
+    paid_count = db.scalar(select(func.count(StoreOrder.id)).where(*paid)) or 0
+    income = db.scalar(select(func.coalesce(func.sum(StoreOrder.income_rub), 0.0)).where(*paid)) or 0.0
+    income_known = db.scalar(select(func.count(StoreOrder.id))
+                             .where(*paid, StoreOrder.income_rub.isnot(None))) or 0
+    cost = db.scalar(select(func.coalesce(func.sum(StoreOrder.cost_usd), 0.0))
+                     .where(StoreOrder.fulfill == "done")) or 0.0
+    refunded_rub = db.scalar(select(func.coalesce(func.sum(StoreOrder.amount_rub), 0))
+                             .where(*paid, StoreOrder.refunded.is_(True))) or 0
+    refunded_count = db.scalar(select(func.count(StoreOrder.id))
+                               .where(*paid, StoreOrder.refunded.is_(True))) or 0
+    by_fulfill = {f: 0 for f in STORE_FULFILL}
+    for state, count in db.execute(select(StoreOrder.fulfill, func.count(StoreOrder.id))
+                                   .where(StoreOrder.fulfill != "").group_by(StoreOrder.fulfill)).all():
+        by_fulfill[state] = int(count)
+    attention = db.scalar(select(func.count(StoreOrder.id))
+                          .where(StoreOrder.fulfill.in_(ATTENTION_FULFILL), StoreOrder.refunded.is_(False))) or 0
+    active = db.scalar(select(func.count(StoreProxy.id)).where(StoreProxy.status == "active")) or 0
+    return {
+        "revenue_rub": int(revenue),
+        "paid_count": int(paid_count),
+        "income_rub": round(float(income), 2),
+        "income_known": int(income_known),
+        "cost_usd": round(float(cost), 2),
+        "refunded_rub": int(refunded_rub),
+        "refunded_count": int(refunded_count),
+        "by_fulfill": by_fulfill,
+        "attention": int(attention),
+        "active_proxies": int(active),
     }
 
 

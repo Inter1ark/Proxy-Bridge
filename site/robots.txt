@@ -9,6 +9,7 @@ Disallow: /api/
 Disallow: /admin
 Disallow: /success.html
 Clean-param: plan&method /buy.html
+Clean-param: order /kupit-proksi/
 Clean-param: token /success.html
 Clean-param: lang /
 Allow: /

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from .. import admin_data, mailer
@@ -20,7 +20,7 @@ from ..config import settings
 from ..db import get_db
 from ..errors import ApiError
 from ..keys import normalize_key
-from ..models import License, Order, to_db, utcnow
+from ..models import License, Order, StoreOrder, to_db, utcnow
 from ..orders import backfill_provider_details, check_order_with_provider, issue_license, order_to_dict
 from ..plans import get_plan
 from ..routers.checkout import is_valid_email
@@ -268,3 +268,74 @@ def license_extend(key: str, req: ExtendRequest, db: Session = Depends(get_db)):
     lic.expires_at = base + timedelta(days=req.days)
     db.commit()
     return _license_response(db, lic)
+
+
+# ---------- proxy store ----------
+
+def _check_store_filters(status: str | None, fulfill: str | None) -> None:
+    if status and status not in admin_data.STORE_STATUSES:
+        raise ApiError(400, "bad_status")
+    if fulfill and fulfill != "attention":
+        if any(f not in admin_data.STORE_FULFILL for f in fulfill.split(",") if f):
+            raise ApiError(400, "bad_fulfill")
+
+
+@router.get("/store/orders", dependencies=[Depends(require_admin)])
+def store_orders(status: str | None = None, fulfill: str | None = None, q: str | None = None,
+                 limit: int = Query(default=200, ge=1, le=1000), db: Session = Depends(get_db)):
+    _check_store_filters(status, fulfill)
+    conds = admin_data.store_order_filters(status=status, fulfill=fulfill, q=q)
+    return admin_data.list_store_orders(db, conds, limit=limit)
+
+
+@router.get("/store/proxies", dependencies=[Depends(require_admin)])
+def store_proxies(status: str | None = None, q: str | None = None,
+                  limit: int = Query(default=200, ge=1, le=1000), db: Session = Depends(get_db)):
+    if status and status not in admin_data.STORE_PROXY_STATUSES:
+        raise ApiError(400, "bad_status")
+    conds = admin_data.store_proxy_filters(status=status, q=q)
+    return admin_data.list_store_proxies(db, conds, limit=limit)
+
+
+@router.get("/store/summary", dependencies=[Depends(require_admin)])
+def store_summary(db: Session = Depends(get_db)):
+    return admin_data.store_summary(db)
+
+
+def _get_store_order(db: Session, order_id: int) -> StoreOrder:
+    order = db.get(StoreOrder, order_id)
+    if order is None:
+        raise ApiError(404, "not_found")
+    return order
+
+
+@router.post("/store/orders/{order_id:int}/retry", dependencies=[Depends(require_admin)])
+def store_order_retry(order_id: int, db: Session = Depends(get_db)):
+    """Put a failed order back in the worker queue. Only when nothing was bought at the vendor."""
+    _get_store_order(db, order_id)
+    # Conditional update: a concurrent worker pass or a second click cannot queue it twice.
+    res = db.execute(update(StoreOrder).where(
+        StoreOrder.id == order_id,
+        StoreOrder.status == "paid",
+        StoreOrder.fulfill.in_(admin_data.RETRY_FULFILL),
+        StoreOrder.refunded.is_(False),
+        or_(StoreOrder.vendor_order_id.is_(None), StoreOrder.vendor_order_id == ""),
+    ).values(fulfill="queued", fulfill_error=None))
+    db.commit()
+    if res.rowcount != 1:
+        raise ApiError(409, "cannot_retry")
+    order = _get_store_order(db, order_id)
+    db.refresh(order)
+    return {"ok": True, "order": admin_data.store_order_item(order)}
+
+
+@router.post("/store/orders/{order_id:int}/mark-refunded", dependencies=[Depends(require_admin)])
+def store_order_mark_refunded(order_id: int, db: Session = Depends(get_db)):
+    """The owner returned the money by hand (or at the provider dashboard)."""
+    order = _get_store_order(db, order_id)
+    if order.status != "paid":
+        raise ApiError(409, "not_paid")
+    order.refunded = True
+    db.commit()
+    db.refresh(order)
+    return {"ok": True, "order": admin_data.store_order_item(order)}

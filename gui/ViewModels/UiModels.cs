@@ -8,7 +8,7 @@ using ProxyBridge.GUI.Services;
 namespace ProxyBridge.GUI.ViewModels;
 
 /// <summary>Top tabs.</summary>
-public enum AppPage { Home, Proxies, Settings }
+public enum AppPage { Home, Proxies, Store, Settings }
 
 public enum StatusKind { Neutral, Success, Warning, Error }
 

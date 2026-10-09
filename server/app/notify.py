@@ -26,10 +26,6 @@ def _admin_ids() -> list[int]:
 
 def notify_paid_order(order, key: str) -> None:
     """Send a purchase summary to every admin. Never raises."""
-    token = settings.TELEGRAM_BOT_TOKEN
-    ids = _admin_ids()
-    if not token or not ids:
-        return
     plan = get_plan(order.plan_id)
     title = plan.title if plan else order.plan_id
     price = f"{plan.price_rub} ₽" if plan else ""
@@ -42,6 +38,15 @@ def notify_paid_order(order, key: str) -> None:
         f"Ключ: {key}\n"
         f"Заказ: {order.id}"
     )
+    send_admin(text)
+
+
+def send_admin(text: str) -> None:
+    """Send a message to every admin. Never raises."""
+    token = settings.TELEGRAM_BOT_TOKEN
+    ids = _admin_ids()
+    if not token or not ids:
+        return
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     for chat_id in ids:
         try:

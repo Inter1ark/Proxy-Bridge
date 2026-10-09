@@ -86,6 +86,8 @@ public class MainWindowViewModel : ViewModelBase
     {
         ShowHomeCommand = new RelayCommand(() => ShowPage(AppPage.Home));
         ShowProxiesCommand = new RelayCommand(() => ShowPage(AppPage.Proxies));
+        ShowStoreCommand = new RelayCommand(() => ShowPage(AppPage.Store));
+        Store = new StoreViewModel(AddStoreProxy, raw => FindProxy(raw) != null, () => _mainWindow);
         ShowSettingsCommand = new RelayCommand(() => ShowPage(AppPage.Settings));
 
         MainActionCommand = new RelayCommand(async () => await MainAction());
@@ -132,6 +134,7 @@ public class MainWindowViewModel : ViewModelBase
             OnPropertyChanged(nameof(HasProxies));
             OnPropertyChanged(nameof(HasNoProxies));
             OnPropertyChanged(nameof(ProxiesCountText));
+            Store.SyncInList();
         };
         Status.PropertyChanged += (_, e) =>
         {
@@ -151,6 +154,10 @@ public class MainWindowViewModel : ViewModelBase
     // ====================================================================
     public ICommand ShowHomeCommand { get; }
     public ICommand ShowProxiesCommand { get; }
+    public ICommand ShowStoreCommand { get; }
+
+    /// <summary>"Get proxy" page.</summary>
+    public StoreViewModel Store { get; }
     public ICommand ShowSettingsCommand { get; }
     public ICommand MainActionCommand { get; }
     public ICommand AddRuleCommand { get; }
@@ -219,12 +226,14 @@ public class MainWindowViewModel : ViewModelBase
             if (!SetProperty(ref _page, value)) return;
             OnPropertyChanged(nameof(IsHomePage));
             OnPropertyChanged(nameof(IsProxiesPage));
+            OnPropertyChanged(nameof(IsStorePage));
             OnPropertyChanged(nameof(IsSettingsPage));
         }
     }
 
     public bool IsHomePage => _page == AppPage.Home;
     public bool IsProxiesPage => _page == AppPage.Proxies;
+    public bool IsStorePage => _page == AppPage.Store;
     public bool IsSettingsPage => _page == AppPage.Settings;
 
     private void ShowPage(AppPage page)
@@ -233,6 +242,16 @@ public class MainWindowViewModel : ViewModelBase
         if (page != AppPage.Home) ClosePicker();
         foreach (var p in Proxies) p.IsEditing = false;
         Page = page;
+        if (page == AppPage.Store) _ = Store.OnShownAsync();
+    }
+
+    /// <summary>Adds a proxy bought in the store to the list and checks it. False when it was already there.</summary>
+    private bool AddStoreProxy(string raw)
+    {
+        var (added, _, _) = AddLines(new[] { raw });
+        if (added.Count == 0) return false;
+        _ = CheckMany(added);
+        return true;
     }
 
     // ====================================================================

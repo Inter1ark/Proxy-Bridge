@@ -1,38 +1,30 @@
 {
-  "version": "3.3.0",
-  "published": "2026-10-09",
+  "version": "3.4.0",
+  "published": "2026-10-10",
   "min_supported": "3.2.0",
   "notes": {
     "ru": [
-      "Новый интерфейс: на главной правила «программа и её прокси», вкладки Главная, Прокси, Настройки",
-      "Работает вместе с VPN-клиентами: WireGuard, AmneziaWG и другими",
-      "Новое ядро: закрыта критическая уязвимость, выше скорость, меньше нагрузка на процессор",
-      "Проверка HTTP и SOCKS5 прокси через сам прокси: флаг страны, город, внешний IP, задержка",
-      "Настоящие счётчики трафика и задержки",
-      "Русский и английский язык интерфейса",
-      "Автоматические обновления",
-      "Логи для поддержки: Настройки, Открыть папку логов"
+      "Новая вкладка «Получить прокси»: покупка прокси прямо в программе",
+      "Выделенные прокси на 30 дней с безлимитным трафиком",
+      "Прокси с оплатой за трафик: страна, регион, город, тип и смена IP",
+      "Купленный прокси сам появляется во вкладке «Прокси»"
     ],
     "en": [
-      "New interface: rules \"app and its proxy\" on the Home tab, tabs Home, Proxies, Settings",
-      "Works alongside VPN clients: WireGuard, AmneziaWG and others",
-      "New core: a critical vulnerability fixed, faster, lower CPU load",
-      "HTTP and SOCKS5 proxy check through the proxy itself: country flag, city, exit IP, latency",
-      "Real traffic and latency counters",
-      "Russian and English interface",
-      "Automatic updates",
-      "Support logs: Settings, Open logs folder"
+      "New Get proxy tab: buy proxies right in the app",
+      "Dedicated proxies for 30 days with unlimited traffic",
+      "Pay per GB proxies: country, region, city, type and IP rotation",
+      "A bought proxy is added to the Proxies tab automatically"
     ]
   },
   "windows": {
-    "url": "https://www.proxybridge.org/download/ProxyBridge-Setup-3.3.0.exe",
-    "fallback_url": "https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.3.0/ProxyBridge-Setup-3.3.0.exe",
-    "sha256": "33f4cb7ed3838b59f3c0d1b884d28274f76014498f27a156f4adccd76f6687a3",
-    "size": 47689504
+    "url": "https://www.proxybridge.org/download/ProxyBridge-Setup-3.4.0.exe",
+    "fallback_url": "https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.4.0/ProxyBridge-Setup-3.4.0.exe",
+    "sha256": "1bdf50534e5298cf97a3f8d6acd6ffb498a756586e6d701bb1fca7c2522564e9",
+    "size": 47734523
   },
   "macos": {
-    "arm64": "https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.3.0/ProxyBridge-3.3.0-macOS-arm64.zip",
-    "x64": "https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.3.0/ProxyBridge-3.3.0-macOS-x64.zip",
+    "arm64": "https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.4.0/ProxyBridge-3.4.0-macOS-arm64.zip",
+    "x64": "https://github.com/Inter1ark/Proxy-Bridge/releases/download/v3.4.0/ProxyBridge-3.4.0-macOS-x64.zip",
     "page": "https://www.proxybridge.org/skachat/"
   }
 }
