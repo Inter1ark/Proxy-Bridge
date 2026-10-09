@@ -1,0 +1,418 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ProxyBridge.GUI.ViewModels"
+             xmlns:s="using:ProxyBridge.GUI.Services"
+             xmlns:i="using:ProxyBridge.GUI.Services"
+             xmlns:c="using:ProxyBridge.GUI.Controls"
+             x:Class="ProxyBridge.GUI.Views.Pages.StorePage"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="True">
+
+    <UserControl.Styles>
+        <Style Selector="Border.srow">
+            <Setter Property="BorderBrush" Value="{StaticResource PbLineBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="28,12,20,12"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.srow:pointerover">
+            <Setter Property="Background" Value="#06FFFFFF"/>
+        </Style>
+        <Style Selector="ComboBox.pick">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="MaxDropDownHeight" Value="360"/>
+        </Style>
+        <Style Selector="TextBlock.flabel">
+            <Setter Property="FontFamily" Value="{StaticResource PbMonoFont}"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="LetterSpacing" Value="0.6"/>
+            <Setter Property="Foreground" Value="{StaticResource PbMutedBrush}"/>
+            <Setter Property="Margin" Value="0,6,0,0"/>
+        </Style>
+        <!-- segmented buttons in the panel: compact, two lines when they carry a price -->
+        <Style Selector="Button.seg.opt">
+            <Setter Property="Height" Value="NaN"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.seg.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource PbAccentHoverBrush}"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+        </Style>
+        <Style Selector="Button.seg.opt TextBlock.sub">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Opacity" Value="0.8"/>
+        </Style>
+        <Style Selector="ProgressBar.usage">
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="MinHeight" Value="4"/>
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="100"/>
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.Resources>
+        <DataTemplate x:Key="CountryTemplate" x:DataType="s:StoreCountry">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <c:FlagImage CountryCode="{Binding Code}" Width="20" Height="14" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="GeoTemplate" x:DataType="vm:StoreGeoChoice">
+            <TextBlock Text="{Binding Display}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid ColumnDefinitions="*,430">
+
+        <!-- ===================== My purchases ===================== -->
+        <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="28,20,20,14">
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="title" FontSize="28" LineHeight="34" Text="{i:Tr store.title_caps}"/>
+                    <TextBlock Classes="mono" FontSize="12.5" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                               Text="{i:Tr store.subtitle}"/>
+                </StackPanel>
+                <Button Grid.Column="1" Classes="pb outline sm" VerticalAlignment="Bottom" Margin="16,0,0,2"
+                        IsEnabled="{Binding !Store.ListLoading}"
+                        Command="{Binding Store.RefreshListCommand}">
+                    <StackPanel>
+                        <c:Icon Data="{StaticResource IcoRefresh}"/>
+                        <TextBlock Text="{i:Tr store.list.refresh}"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- empty -->
+            <StackPanel Grid.Row="1" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        MaxWidth="440" Margin="24" IsVisible="{Binding Store.HasNoPurchases}">
+                <Border Classes="ring" HorizontalAlignment="Center">
+                    <c:Icon Data="{StaticResource IcoGlobe}"/>
+                </Border>
+                <TextBlock Classes="display" FontSize="22" HorizontalAlignment="Center" Text="{i:Tr store.empty_title_caps}"/>
+                <TextBlock Classes="mono" FontSize="12.5" LineHeight="19" TextAlignment="Center" TextWrapping="Wrap"
+                           Text="{i:Tr store.empty_text}"/>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding Store.HasPurchases}">
+                <ItemsControl ItemsSource="{Binding Store.Purchases}" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,1,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:StoreProxyRow">
+                            <Border Classes="srow">
+                                <Grid ColumnDefinitions="34,*,Auto" MinHeight="48">
+                                    <c:FlagImage Grid.Column="0" CountryCode="{Binding CountryCode}" Width="22" Height="16"
+                                                 HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,4,0,0"/>
+
+                                    <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,12,0">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <TextBlock Classes="name" FontSize="17" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" MaxWidth="300" Text="{Binding Title}"/>
+                                            <Border Classes="chip" Padding="6,0,6,1" VerticalAlignment="Center">
+                                                <TextBlock FontSize="11" Text="{Binding TypeText}"/>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                     Fill="{StaticResource PbCyanBrush}" IsVisible="{Binding IsActive}"/>
+                                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                     Fill="{StaticResource PbDangerBrush}" IsVisible="{Binding IsProblem}"/>
+                                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                     Fill="{StaticResource PbMutedBrush}" IsVisible="{Binding IsProvisioning}"/>
+                                            <TextBlock Classes="mono" FontSize="12.5" Classes.cyan="{Binding IsActive}"
+                                                       Classes.danger="{Binding IsProblem}" Text="{Binding StatusText}"/>
+                                            <TextBlock Classes="mono" FontSize="12.5" Foreground="{StaticResource PbText2Brush}"
+                                                       Text="{Binding DetailText}"/>
+                                            <TextBlock Classes="mono" FontSize="12" Foreground="{StaticResource PbMutedBrush}"
+                                                       IsVisible="{Binding RotationText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                       Text="{Binding RotationText}"/>
+                                        </StackPanel>
+                                        <ProgressBar Classes="usage" MaxWidth="320" HorizontalAlignment="Left" Width="320"
+                                                     IsVisible="{Binding ShowUsage}" Value="{Binding UsedPercent}"/>
+                                        <TextBlock Classes="mono" FontSize="12.5" Foreground="{StaticResource PbTextBrush}"
+                                                   IsVisible="{Binding IsReady}" Text="{Binding HostPort}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                                                VerticalAlignment="Center" Spacing="2">
+                                        <Button Classes="pb outline sm" Margin="2,0" IsVisible="{Binding CanAddToList}"
+                                                Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).Store.AddToListCommand}"
+                                                CommandParameter="{Binding}" ToolTip.Tip="{i:Tr store.list.add_tip}">
+                                            <StackPanel>
+                                                <c:Icon Data="{StaticResource IcoPlus}"/>
+                                                <TextBlock Text="{i:Tr store.list.add}"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Classes="pb outline sm" Margin="2,0" IsVisible="{Binding CanTopup}"
+                                                Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).Store.TopupCommand}"
+                                                CommandParameter="{Binding}">
+                                            <TextBlock Text="{i:Tr store.list.topup}"/>
+                                        </Button>
+                                        <Button Classes="pb outline sm" Margin="2,0" IsVisible="{Binding CanRenew}"
+                                                Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).Store.RenewCommand}"
+                                                CommandParameter="{Binding}">
+                                            <TextBlock Text="{i:Tr store.list.renew}"/>
+                                        </Button>
+                                        <Button Classes="pb icon" Margin="0" IsVisible="{Binding CanRefreshIp}" IsEnabled="{Binding !Busy}"
+                                                Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).Store.RefreshIpCommand}"
+                                                CommandParameter="{Binding}" ToolTip.Tip="{i:Tr store.list.new_ip_tip}">
+                                            <c:Icon Data="{StaticResource IcoRefresh}"/>
+                                        </Button>
+                                        <Button Classes="pb icon" Margin="0" IsVisible="{Binding IsReady}"
+                                                Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).Store.CopyCommand}"
+                                                CommandParameter="{Binding}" ToolTip.Tip="{i:Tr store.list.copy_tip}">
+                                            <c:Icon Data="{StaticResource IcoCopy}"/>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <Border Grid.Row="2" Classes="notice" Margin="28,0,20,14"
+                    Classes.success="{Binding Store.ListStatus.IsSuccess}"
+                    Classes.warning="{Binding Store.ListStatus.IsWarning}"
+                    Classes.danger="{Binding Store.ListStatus.IsError}"
+                    IsVisible="{Binding Store.ListStatus.HasText}">
+                <TextBlock Classes="mono" FontSize="12" TextWrapping="Wrap" Text="{Binding Store.ListStatus.Text}"/>
+            </Border>
+        </Grid>
+
+        <!-- ===================== Buy panel ===================== -->
+        <Border Grid.Column="1" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="1,0,0,0">
+            <Grid RowDefinitions="*,Auto">
+                <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="24,22,24,12" Spacing="10">
+
+                        <!-- loading / error before the catalog arrives -->
+                        <StackPanel Spacing="10" IsVisible="{Binding Store.IsLoading}">
+                            <TextBlock Classes="hdr" Text="{i:Tr store.buy_caps}"/>
+                            <ProgressBar IsIndeterminate="True" Height="3" MinHeight="3"/>
+                            <TextBlock Classes="mono" FontSize="12" Text="{i:Tr store.loading}"/>
+                        </StackPanel>
+                        <StackPanel Spacing="10" IsVisible="{Binding !Store.IsLoaded}">
+                            <Button Classes="pb outline" HorizontalAlignment="Left" IsVisible="{Binding !Store.IsLoading}"
+                                    Command="{Binding Store.ReloadCommand}">
+                                <StackPanel>
+                                    <c:Icon Data="{StaticResource IcoRefresh}"/>
+                                    <TextBlock Text="{i:Tr store.retry}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <StackPanel Spacing="10" IsVisible="{Binding Store.ShowForm}">
+
+                            <!-- product switch -->
+                            <StackPanel Spacing="10" IsVisible="{Binding Store.IsPickMode}">
+                                <TextBlock Classes="hdr" Text="{i:Tr store.buy_caps}"/>
+                                <Border Classes="segmented">
+                                    <Grid ColumnDefinitions="*,*">
+                                        <Button Grid.Column="0" Classes="seg opt" Classes.active="{Binding Store.IsDcMode}"
+                                                IsEnabled="{Binding Store.HasDc}" Command="{Binding Store.ShowDcCommand}">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="{i:Tr store.mode.dc}" HorizontalAlignment="Center"/>
+                                                <TextBlock Classes="sub" Text="{i:Tr store.mode.dc_sub}" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="1" Classes="seg opt" Classes.active="{Binding Store.IsTrafficMode}"
+                                                IsEnabled="{Binding Store.HasTraffic}" Command="{Binding Store.ShowTrafficCommand}">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="{i:Tr store.mode.traffic}" HorizontalAlignment="Center"/>
+                                                <TextBlock Classes="sub" Text="{i:Tr store.mode.traffic_sub}" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- renew / top up header -->
+                            <StackPanel Spacing="6" IsVisible="{Binding Store.IsTargetMode}">
+                                <Button Classes="pb ghost sm" HorizontalAlignment="Left" Padding="0" Command="{Binding Store.BackCommand}">
+                                    <TextBlock Text="{i:Tr store.back}"/>
+                                </Button>
+                                <TextBlock Classes="hdr" IsVisible="{Binding Store.IsRenewMode}" Text="{i:Tr store.renew_caps}"/>
+                                <TextBlock Classes="hdr" IsVisible="{Binding Store.IsTopupMode}" Text="{i:Tr store.topup_caps}"/>
+                                <TextBlock Classes="name" FontSize="16" TextWrapping="Wrap" Text="{Binding Store.TargetTitle}"/>
+                            </StackPanel>
+
+                            <!-- dedicated -->
+                            <StackPanel Spacing="6" IsVisible="{Binding Store.IsDcMode}">
+                                <TextBlock Classes="flabel" Text="{i:Tr store.country}"/>
+                                <ComboBox Classes="pick" ItemsSource="{Binding Store.DcCountries}"
+                                          SelectedItem="{Binding Store.DcCountry}"
+                                          ItemTemplate="{StaticResource CountryTemplate}"/>
+                                <TextBlock Classes="mono" FontSize="12" LineHeight="18" TextWrapping="Wrap" Margin="0,6,0,0"
+                                           Foreground="{StaticResource PbText2Brush}" Text="{i:Tr store.dc.about}"/>
+                            </StackPanel>
+
+                            <!-- traffic -->
+                            <StackPanel Spacing="6" IsVisible="{Binding Store.IsTrafficMode}">
+                                <TextBlock Classes="flabel" Text="{i:Tr store.country}"/>
+                                <ComboBox Classes="pick" ItemsSource="{Binding Store.TrafficCountries}"
+                                          SelectedItem="{Binding Store.Country}"
+                                          ItemTemplate="{StaticResource CountryTemplate}"/>
+                                <Grid ColumnDefinitions="*,8,*">
+                                    <StackPanel Grid.Column="0" Spacing="6">
+                                        <TextBlock Classes="flabel" Text="{i:Tr store.region}"/>
+                                        <ComboBox Classes="pick" ItemsSource="{Binding Store.States}"
+                                                  SelectedItem="{Binding Store.State}"
+                                                  ItemTemplate="{StaticResource GeoTemplate}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="6">
+                                        <TextBlock Classes="flabel" Text="{i:Tr store.city}"/>
+                                        <ComboBox Classes="pick" ItemsSource="{Binding Store.Cities}"
+                                                  SelectedItem="{Binding Store.City}" IsEnabled="{Binding Store.HasCities}"
+                                                  ItemTemplate="{StaticResource GeoTemplate}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Classes="flabel" Text="{i:Tr store.type}"/>
+                                <Border Classes="segmented">
+                                    <Grid ColumnDefinitions="*,*,*">
+                                        <Button Grid.Column="0" Classes="seg opt" Classes.active="{Binding Store.IsMobile}"
+                                                Command="{Binding Store.SetTypeCommand}" CommandParameter="mobile">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="{i:Tr store.type.mobile}" HorizontalAlignment="Center"/>
+                                                <TextBlock Classes="sub" Text="{Binding Store.MobilePrice}" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="1" Classes="seg opt" Classes.active="{Binding Store.IsResidential}"
+                                                Command="{Binding Store.SetTypeCommand}" CommandParameter="residential">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="{i:Tr store.type.residential}" HorizontalAlignment="Center"/>
+                                                <TextBlock Classes="sub" Text="{Binding Store.ResidentialPrice}" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="2" Classes="seg opt" Classes.active="{Binding Store.IsDatacenter}"
+                                                Command="{Binding Store.SetTypeCommand}" CommandParameter="datacenter">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="{i:Tr store.type.datacenter}" HorizontalAlignment="Center"/>
+                                                <TextBlock Classes="sub" Text="{Binding Store.DatacenterPrice}" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                                <TextBlock Classes="mono warning" FontSize="12" TextWrapping="Wrap"
+                                           IsVisible="{Binding Store.AvailabilityText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                           Text="{Binding Store.AvailabilityText}"/>
+
+                                <TextBlock Classes="flabel" Text="{i:Tr store.rotation}"/>
+                                <Border Classes="segmented">
+                                    <Grid ColumnDefinitions="*,*,*">
+                                        <Button Grid.Column="0" Classes="seg opt" Classes.active="{Binding Store.IsStatic}"
+                                                Command="{Binding Store.SetRotationCommand}" CommandParameter="static">
+                                            <TextBlock Text="{i:Tr store.rot.static}" TextWrapping="Wrap" TextAlignment="Center"/>
+                                        </Button>
+                                        <Button Grid.Column="1" Classes="seg opt" Classes.active="{Binding Store.IsInterval}"
+                                                Command="{Binding Store.SetRotationCommand}" CommandParameter="interval">
+                                            <TextBlock Text="{i:Tr store.rot.interval}" TextWrapping="Wrap" TextAlignment="Center"/>
+                                        </Button>
+                                        <Button Grid.Column="2" Classes="seg opt" Classes.active="{Binding Store.IsPerRequest}"
+                                                Command="{Binding Store.SetRotationCommand}" CommandParameter="request">
+                                            <TextBlock Text="{i:Tr store.rot.request}" TextWrapping="Wrap" TextAlignment="Center"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                                <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Store.IsInterval}">
+                                    <TextBlock Classes="mono" FontSize="12.5" VerticalAlignment="Center" Text="{i:Tr store.rot.every}"/>
+                                    <TextBox Width="80" Height="36" MinHeight="36" Padding="8,4" HorizontalContentAlignment="Center"
+                                             Text="{Binding Store.TtlText}" MaxLength="4"/>
+                                    <TextBlock Classes="mono" FontSize="12.5" VerticalAlignment="Center" Text="{i:Tr store.rot.minutes}"/>
+                                </StackPanel>
+                                <TextBlock Classes="mono" FontSize="11.5" LineHeight="17" TextWrapping="Wrap"
+                                           Foreground="{StaticResource PbMutedBrush}" Text="{i:Tr store.rot.help}"/>
+                            </StackPanel>
+
+                            <!-- amount of traffic (new proxy or top up) -->
+                            <StackPanel Spacing="6" IsVisible="{Binding Store.ShowGb}">
+                                <TextBlock Classes="flabel" Text="{i:Tr store.gb}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Button Classes="pb outline" Width="40" Height="40" Padding="0" Command="{Binding Store.GbMinusCommand}">
+                                        <TextBlock Text="-" FontSize="18" HorizontalAlignment="Center"/>
+                                    </Button>
+                                    <TextBox Width="90" Height="40" MinHeight="40" Padding="8,4" HorizontalContentAlignment="Center"
+                                             FontSize="16" Text="{Binding Store.GbText}" MaxLength="4"/>
+                                    <Button Classes="pb outline" Width="40" Height="40" Padding="0" Command="{Binding Store.GbPlusCommand}">
+                                        <c:Icon Data="{StaticResource IcoPlus}"/>
+                                    </Button>
+                                    <TextBlock Classes="mono" FontSize="12.5" VerticalAlignment="Center" Margin="6,0,0,0" Text="{i:Tr store.gb_unit}"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- payment method -->
+                            <TextBlock Classes="flabel" Text="{i:Tr store.method}"/>
+                            <Border Classes="segmented">
+                                <Grid ColumnDefinitions="*,*">
+                                    <Button Grid.Column="0" Classes="seg opt" Classes.active="{Binding Store.IsCard}"
+                                            Command="{Binding Store.SetMethodCommand}" CommandParameter="yookassa">
+                                        <TextBlock Text="{i:Tr store.method.card}"/>
+                                    </Button>
+                                    <Button Grid.Column="1" Classes="seg opt" Classes.active="{Binding Store.IsCrypto}"
+                                            Command="{Binding Store.SetMethodCommand}" CommandParameter="cryptobot">
+                                        <TextBlock Text="{i:Tr store.method.crypto}"/>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- total and pay -->
+                <Border Grid.Row="1" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,1,0,0"
+                        Padding="24,14,24,18" IsVisible="{Binding Store.ShowForm}">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Classes="flabel" Margin="0" Text="{i:Tr store.total}"/>
+                                <TextBlock Classes="mono" FontSize="12" Foreground="{StaticResource PbText2Brush}"
+                                           TextWrapping="Wrap" Text="{Binding Store.PriceNote}"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" FontSize="28" FontWeight="Bold" VerticalAlignment="Center"
+                                       Margin="12,0,0,0" Text="{Binding Store.PriceText}"/>
+                        </Grid>
+                        <Button Classes="pb primary" HorizontalAlignment="Stretch" Height="46"
+                                IsVisible="{Binding Store.IsNotWaiting}"
+                                IsEnabled="{Binding Store.CanPay}" Command="{Binding Store.PayCommand}">
+                            <TextBlock Text="{Binding Store.PayButtonText}"/>
+                        </Button>
+                        <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding Store.IsWaiting}">
+                            <Button Grid.Column="0" Classes="pb outline" HorizontalAlignment="Stretch"
+                                    Command="{Binding Store.OpenPayPageCommand}">
+                                <StackPanel>
+                                    <c:Icon Data="{StaticResource IcoExternal}"/>
+                                    <TextBlock Text="{i:Tr store.open_payment}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="2" Classes="pb ghost" HorizontalAlignment="Stretch"
+                                    Command="{Binding Store.CancelWaitCommand}">
+                                <TextBlock Text="{i:Tr store.stop_waiting}"/>
+                            </Button>
+                        </Grid>
+                        <ProgressBar IsIndeterminate="True" Height="3" MinHeight="3" IsVisible="{Binding Store.IsWaiting}"/>
+                        <Border Classes="notice"
+                                Classes.success="{Binding Store.Status.IsSuccess}"
+                                Classes.warning="{Binding Store.Status.IsWarning}"
+                                Classes.danger="{Binding Store.Status.IsError}"
+                                IsVisible="{Binding Store.Status.HasText}">
+                            <TextBlock Classes="mono" FontSize="12" TextWrapping="Wrap" Text="{Binding Store.Status.Text}"/>
+                        </Border>
+                        <TextBlock Classes="mono" FontSize="11" LineHeight="16" TextWrapping="Wrap"
+                                   Foreground="{StaticResource PbMutedBrush}" Text="{i:Tr store.fineprint}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- catalog error -->
+                <Border Grid.Row="1" Classes="notice danger" Margin="24,0,24,18"
+                        IsVisible="{Binding Store.ShowLoadError}">
+                    <TextBlock Classes="mono" FontSize="12" TextWrapping="Wrap" Text="{Binding Store.Status.Text}"/>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

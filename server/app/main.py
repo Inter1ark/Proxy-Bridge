@@ -19,7 +19,8 @@ from fastapi.staticfiles import StaticFiles
 from . import db
 from .config import SERVER_DIR, settings
 from .errors import ApiError
-from .routers import admin, checkout, license, webhook
+from .routers import admin, checkout, license, store, webhook
+from .store import service as store_service
 from .models import Order
 from .orders import backfill_provider_details, check_order_with_provider  # noqa: F401
 
@@ -67,6 +68,8 @@ async def lifespan(app: FastAPI):
     stop = threading.Event()
     thread = threading.Thread(target=pending_order_poller, args=(stop,), name="order-poller", daemon=True)
     thread.start()
+    store_thread = threading.Thread(target=store_service.worker, args=(stop,), name="store-worker", daemon=True)
+    store_thread.start()
     yield
     stop.set()
 
@@ -99,6 +102,7 @@ def create_app() -> FastAPI:
     app.include_router(checkout.router)
     app.include_router(webhook.router)
     app.include_router(admin.router)
+    app.include_router(store.router)
 
     # Web admin panel: a single self-contained page. Registered before the static mount.
     @app.middleware("http")
