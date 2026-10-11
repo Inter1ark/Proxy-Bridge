@@ -1,5 +1,5 @@
 !define PRODUCT_NAME "ProxyBridge"
-!define PRODUCT_VERSION "3.4.0"
+!define PRODUCT_VERSION "3.4.1"
 !define PRODUCT_PUBLISHER "ProxyBridge Team"
 !define PRODUCT_WEB_SITE "https://www.proxybridge.org"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
@@ -80,6 +80,11 @@ Section "MainSection" SEC01
   File "..\gui\bin\Release\net9.0-windows\win-x64\publish\*.dll"
   File /nonfatal "..\gui\bin\Release\net9.0-windows\win-x64\publish\*.json"
   File /nonfatal "..\gui\bin\Release\net9.0-windows\win-x64\publish\*.pdb"
+
+  ; License texts: ours (MIT, with the upstream core attribution) and third-party notices
+  File /oname=LICENSE.txt "..\LICENSE"
+  File "..\THIRD_PARTY_NOTICES.txt"
+  File "WinDivert-LICENSE.txt"
   
   ; Localization
   SetOutPath "$INSTDIR\ru"
@@ -137,6 +142,9 @@ Section Uninstall
   Delete "$INSTDIR\WinDivert64.sys"
   Delete "$INSTDIR\*.dll"
   Delete "$INSTDIR\*.json"
+  Delete "$INSTDIR\LICENSE.txt"
+  Delete "$INSTDIR\THIRD_PARTY_NOTICES.txt"
+  Delete "$INSTDIR\WinDivert-LICENSE.txt"
   Delete "$INSTDIR\uninst.exe"
   
   ; Remove directories

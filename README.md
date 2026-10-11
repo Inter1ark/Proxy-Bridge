@@ -34,7 +34,7 @@
 
 1. Скачай `ProxyBridge-Setup-3.2.0.exe` на [странице релизов](https://github.com/Inter1ark/Proxy-Bridge/releases/latest).
 2. Запусти установщик от имени администратора: права нужны драйверу WinDivert.
-3. При первом запуске программа попросит ключ лицензии. Ключ покупается на [proxybridge.org/buy.html](https://www.proxybridge.org/buy.html) и приходит на страницу после оплаты и на email.
+3. При первом запуске программа попросит ключ лицензии. Ключ покупается на [proxybridge.org/buy.html](https://www.proxybridge.org/buy.html) и показывается на странице сразу после оплаты.
 4. Вставь прокси, нажми VERIFY, затем CONNECT.
 
 ### Подписка
@@ -104,3 +104,11 @@ dotnet publish gui\ProxyBridge.GUI.csproj -c Release -r win-x64 --self-contained
 ## Лицензия кода
 
 Исходный код распространяется под лицензией MIT, см. [LICENSE](LICENSE). Готовые сборки с сайта и ключи активации предоставляются на условиях [публичной оферты](https://www.proxybridge.org/legal/offer.html).
+
+### Сторонний код
+
+ProxyBridge (proxybridge.org) это самостоятельный продукт команды ProxyBridge Team. Он не связан с InterceptSuite, не одобрен и не спонсируется ими.
+
+Сетевое ядро для Windows (`src/`, `ProxyBridgeCore.dll`) основано на ядре открытого проекта [ProxyBridge от Anof-cyber/InterceptSuite](https://github.com/InterceptSuite/ProxyBridge) и используется с изменениями по лицензии MIT. Уведомление об авторских правах сохранено в [LICENSE](LICENSE), в заголовке каждого файла ядра, на странице лицензии в установщике и в файле `THIRD_PARTY_NOTICES.txt`, который устанавливается вместе с программой и открывается в «Настройки → Лицензии открытого ПО».
+
+Интерфейс программы (`gui/`), ядро для macOS (`core-go/`), сервер лицензий и оплаты (`server/`) и сайт (`site/`) написаны командой ProxyBridge. Полный список сторонних компонентов и их лицензий: [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).

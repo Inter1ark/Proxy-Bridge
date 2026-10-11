@@ -92,6 +92,9 @@ foreach ($t in $targets) {
     Copy-Item (Join-Path $publishDir "*") $macos -Recurse -Force
     Copy-Item (Join-Path $coreDir ("dist\" + $t.core)) (Join-Path $macos "pbcore") -Force
     Copy-Item $icns (Join-Path $resources "logo.icns") -Force
+    $repoRoot = Split-Path $macDir -Parent
+    Copy-Item (Join-Path $repoRoot "LICENSE") (Join-Path $resources "LICENSE.txt") -Force
+    Copy-Item (Join-Path $repoRoot "THIRD_PARTY_NOTICES.txt") (Join-Path $resources "THIRD_PARTY_NOTICES.txt") -Force
     Write-InfoPlist (Join-Path $contents "Info.plist") $Version
     [System.IO.File]::WriteAllText((Join-Path $contents "PkgInfo"), "APPL????", (New-Object System.Text.UTF8Encoding($false)))
 

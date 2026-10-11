@@ -511,5 +511,6 @@
   "store.err.bad_ttl": "Enter the IP change interval in minutes, 1 to 1440.",
   "store.err.disabled": "The store is closed for now.",
   "store.err.server": "Server error. Try again.",
-  "store.err.pick_country": "Pick a country."
+  "store.err.pick_country": "Pick a country.",
+  "help.notices": "Open source licenses"
 }

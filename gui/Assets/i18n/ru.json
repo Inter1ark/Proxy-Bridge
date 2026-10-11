@@ -511,5 +511,6 @@
   "store.err.bad_ttl": "Укажи интервал смены IP в минутах, от 1 до 1440.",
   "store.err.disabled": "Магазин временно закрыт.",
   "store.err.server": "Ошибка сервера. Попробуй ещё раз.",
-  "store.err.pick_country": "Выбери страну."
+  "store.err.pick_country": "Выбери страну.",
+  "help.notices": "Лицензии открытого ПО"
 }

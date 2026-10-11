@@ -283,6 +283,15 @@
                                             Foreground="{StaticResource PbMutedBrush}"/>
                                 </Grid>
                             </Button>
+                            <Button Classes="pb linkrow" Command="{Binding OpenNoticesCommand}">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <c:Icon Data="{StaticResource IcoInfo}" Width="17" Height="17" StrokeThickness="1.5" Foreground="{StaticResource PbText2Brush}"/>
+                                    <TextBlock Grid.Column="1" Classes="mono" FontSize="13" Margin="12,0" VerticalAlignment="Center"
+                                               Foreground="{StaticResource PbTextBrush}" Text="{i:Tr help.notices}"/>
+                                    <c:Icon Grid.Column="2" Classes="go" Data="{StaticResource IcoArrowUpRight}" Width="16" Height="16"
+                                            Foreground="{StaticResource PbMutedBrush}"/>
+                                </Grid>
+                            </Button>
                             <Border Classes="srow" Padding="0,16,0,6">
                                 <Grid ColumnDefinitions="Auto,*">
                                     <c:BrandMark Width="33" Height="22" VerticalAlignment="Top" Margin="0,2,0,0"/>
