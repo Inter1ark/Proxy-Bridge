@@ -50,5 +50,9 @@ core-go/dist/
 mac/dist/
 
 # Auto-update: installers are uploaded to the server, not committed; the manifest is committed
-site/download/
-!site/update/latest.json
+# The website lives in its own folder and on the server, not in this repository
+site/
+
+# Vendor adapters of the proxy store: deployed to the server only, never published
+server/app/store/traffic.py
+server/app/store/dedicated.py

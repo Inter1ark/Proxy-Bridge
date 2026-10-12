@@ -16,7 +16,6 @@
 | `src/` | Нативное ядро `ProxyBridgeCore.dll` на C: перехват пакетов WinDivert, локальный relay, правила |
 | `cli/` | Консольная версия для скриптов и отладки |
 | `installer/` | Скрипт NSIS для `ProxyBridge-Setup-x.y.z.exe` |
-| `site/` | Сайт [proxybridge.org](https://www.proxybridge.org) |
 | `server/` | Сервер лицензий и оплаты |
 | `docs/` | Контракт API между программой, сайтом и сервером |
 
@@ -111,4 +110,4 @@ ProxyBridge (proxybridge.org) это самостоятельный продук
 
 Сетевое ядро для Windows (`src/`, `ProxyBridgeCore.dll`) основано на ядре открытого проекта [ProxyBridge от Anof-cyber/InterceptSuite](https://github.com/InterceptSuite/ProxyBridge) и используется с изменениями по лицензии MIT. Уведомление об авторских правах сохранено в [LICENSE](LICENSE), в заголовке каждого файла ядра, на странице лицензии в установщике и в файле `THIRD_PARTY_NOTICES.txt`, который устанавливается вместе с программой и открывается в «Настройки → Лицензии открытого ПО».
 
-Интерфейс программы (`gui/`), ядро для macOS (`core-go/`), сервер лицензий и оплаты (`server/`) и сайт (`site/`) написаны командой ProxyBridge. Полный список сторонних компонентов и их лицензий: [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).
+Интерфейс программы (`gui/`), ядро для macOS (`core-go/`), сервер лицензий и оплаты (`server/`) и сайт [proxybridge.org](https://www.proxybridge.org) написаны командой ProxyBridge. Полный список сторонних компонентов и их лицензий: [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).

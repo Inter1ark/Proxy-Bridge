@@ -4,7 +4,11 @@ import pytest
 
 from app.config import settings
 from app.models import StoreOrder, StoreProxy, from_db, to_db, utcnow
-from app.store import dedicated, pricing, service, traffic
+from app.store import pricing, service
+
+# The vendor adapters are not in the public repository: skip these tests without them.
+tv = pytest.importorskip("app.store.traffic")
+dv = pytest.importorskip("app.store.dedicated")
 
 from .conftest import HWID_A, HWID_B
 
@@ -19,7 +23,7 @@ def store(client, monkeypatch, mock_yookassa, issue_key):
     monkeypatch.setattr(settings, "TRAFFIC_API_KEYS_NEW", "")
     monkeypatch.setattr(settings, "STORE_TRAFFIC_COST_LEGACY", "mobile:6,residential:5.5,datacenter:0.9")
     monkeypatch.setattr(settings, "STORE_TRAFFIC_COST_NEW", "mobile:3,residential:3,datacenter:3")
-    traffic._balances.clear()
+    tv._balances.clear()
     monkeypatch.setattr(settings, "DEDICATED_API_KEYS", "dkey1")
     monkeypatch.setattr(settings, "STORE_TRAFFIC_USD_PER_GB", "mobile:6,residential:5.5,datacenter:0.9")
     monkeypatch.setattr(settings, "STORE_FEE_PCT", 4.5)
@@ -35,16 +39,16 @@ def store(client, monkeypatch, mock_yookassa, issue_key):
         "buy_error": None, "create_error": None,
     }
 
-    monkeypatch.setattr(traffic, "balance", lambda acc, max_age=60: state["t_balance"][acc.key])
-    monkeypatch.setattr(traffic, "countries", lambda: [{"id": 2921044, "code": "DE", "name": "Germany"},
+    monkeypatch.setattr(tv, "balance", lambda acc, max_age=60: state["t_balance"][acc.key])
+    monkeypatch.setattr(tv, "countries", lambda: [{"id": 2921044, "code": "DE", "name": "Germany"},
                                                   {"id": 6252001, "code": "US", "name": "United States"}])
-    monkeypatch.setattr(traffic, "states", lambda cid: [{"id": 11, "name": "Bavaria"}])
-    monkeypatch.setattr(traffic, "cities", lambda cid, sid: [{"id": 12, "name": "Munich"}])
-    monkeypatch.setattr(traffic, "available", lambda code, ptype: not (code == "US" and ptype == "mobile"))
+    monkeypatch.setattr(tv, "states", lambda cid: [{"id": 11, "name": "Bavaria"}])
+    monkeypatch.setattr(tv, "cities", lambda cid, sid: [{"id": 12, "name": "Munich"}])
+    monkeypatch.setattr(tv, "available", lambda code, ptype: not (code == "US" and ptype == "mobile"))
 
     def create_port(acc, country_code, state_name, city, ptype, rotation, ttl, gb):
         if state["create_error"]:
-            raise traffic.TrafficError(state["create_error"], 400)
+            raise tv.TrafficError(state["create_error"], 400)
         pid = 1000 + len(state["created"])
         state["created"].append({"acc": acc.key, "country": country_code, "state": state_name, "city": city,
                                  "type": ptype, "rotation": rotation, "ttl": ttl, "gb": gb})
@@ -52,19 +56,19 @@ def store(client, monkeypatch, mock_yookassa, issue_key):
                 "state_id": 11 if state_name else None, "city_id": 12 if city else None,
                 "name": "vendor default name", "refresh_link": "https://vendor/refresh?apiKey=SECRET"}
 
-    monkeypatch.setattr(traffic, "create_port", create_port)
-    monkeypatch.setattr(traffic, "update_port", lambda acc, pid, *a: state["updated"].append((pid, a[-1])) or {})
-    monkeypatch.setattr(traffic, "archive", lambda acc, pid: state["archived"].append(pid))
-    monkeypatch.setattr(traffic, "unarchive", lambda acc, pid: state["unarchived"].append(pid))
-    monkeypatch.setattr(traffic, "delete", lambda acc, pid: state["deleted"].append(pid))
-    monkeypatch.setattr(traffic, "port_traffic", lambda acc, pid: state["traffic"].get(pid, 0))
+    monkeypatch.setattr(tv, "create_port", create_port)
+    monkeypatch.setattr(tv, "update_port", lambda acc, pid, *a: state["updated"].append((pid, a[-1])) or {})
+    monkeypatch.setattr(tv, "archive", lambda acc, pid: state["archived"].append(pid))
+    monkeypatch.setattr(tv, "unarchive", lambda acc, pid: state["unarchived"].append(pid))
+    monkeypatch.setattr(tv, "delete", lambda acc, pid: state["deleted"].append(pid))
+    monkeypatch.setattr(tv, "port_traffic", lambda acc, pid: state["traffic"].get(pid, 0))
     monkeypatch.setattr(service, "probe", lambda p: state["probe"])
 
     product = {"id": "prod-de", "location_country_code": "DE", "days": 30, "price_usd": "1.75",
                "discounted_price": None, "stock_status": "in_stock"}
-    monkeypatch.setattr(dedicated, "balance", lambda acc: state["d_balance"][acc.key])
-    monkeypatch.setattr(dedicated, "dc_countries", lambda days: ["BG", "DE"])
-    monkeypatch.setattr(dedicated, "dc_product", lambda code, days: dict(product) if code in ("BG", "DE") else None)
+    monkeypatch.setattr(dv, "balance", lambda acc: state["d_balance"][acc.key])
+    monkeypatch.setattr(dv, "dc_countries", lambda days: ["BG", "DE"])
+    monkeypatch.setattr(dv, "dc_product", lambda code, days: dict(product) if code in ("BG", "DE") else None)
 
     def buy(acc, product_id):
         if state["buy_error"]:
@@ -74,9 +78,9 @@ def store(client, monkeypatch, mock_yookassa, issue_key):
         state["d_orders"][oid] = {"id": oid, "order_status": "server_purchase_in_progress"}
         return oid
 
-    monkeypatch.setattr(dedicated, "buy", buy)
-    monkeypatch.setattr(dedicated, "find_order", lambda acc, oid, max_pages=10: state["d_orders"].get(oid))
-    monkeypatch.setattr(dedicated, "set_auto_renew", lambda acc, oid, on: state["auto_renew"].append((oid, on)))
+    monkeypatch.setattr(dv, "buy", buy)
+    monkeypatch.setattr(dv, "find_order", lambda acc, oid, max_pages=10: state["d_orders"].get(oid))
+    monkeypatch.setattr(dv, "set_auto_renew", lambda acc, oid, on: state["auto_renew"].append((oid, on)))
     monkeypatch.setattr("app.providers.yookassa.create_refund",
                         lambda pid, amount, key: state["refunds"].append((pid, amount, key)) or {"status": "succeeded"})
 
@@ -236,7 +240,7 @@ def test_dc_order_flow_and_unknown_outcome(client, store, db_session):
     assert body["proxy"]["can_renew"] is True
 
     # A purchase whose outcome is unknown is never retried or refunded automatically.
-    store["buy_error"] = dedicated.DedicatedError("timeout", sent=True)
+    store["buy_error"] = dv.DedicatedError("timeout", sent=True)
     r = post(client, "/order", store, product="dc", method="yookassa", params={"country": "BG"})
     token2 = r.json()["token"]
     pay(store, token2)
@@ -405,7 +409,7 @@ def test_dir_calls_skip_accounts_without_money(monkeypatch):
     assert calls == ["rich"]  # the working account is remembered
 
 
-def test_cy_egress_fallback_and_stale_catalog(monkeypatch):
+def test_dedicated_egress_fallback_and_stale_catalog(monkeypatch):
     from app.store import dedicated as dmod
     monkeypatch.setattr(settings, "DEDICATED_API_KEYS", "k1")
     monkeypatch.setattr(settings, "DEDICATED_HTTP_PROXY", "http://dead:1,http://alive:2")

@@ -31,7 +31,13 @@ from ..errors import ApiError
 from ..keys import normalize_key
 from ..models import License, StoreOrder, StoreProxy, from_db, iso_z, to_db, utcnow
 from ..providers import cryptopay, yookassa
-from . import dedicated, pricing, traffic
+from . import pricing
+
+try:
+    # Vendor adapters are deployed with the server and are not in the public repository.
+    from . import dedicated, traffic
+except ImportError:  # pragma: no cover
+    from . import _no_vendor as dedicated, _no_vendor as traffic
 
 logger = logging.getLogger("proxybridge.store")
 

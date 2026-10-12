@@ -70,7 +70,10 @@ class Settings:
         self.STORE_TRAFFIC_COST_LEGACY: str = env.get("STORE_TRAFFIC_COST_LEGACY", "mobile:6,residential:5.5,datacenter:0.9")
         self.STORE_TRAFFIC_COST_NEW: str = env.get("STORE_TRAFFIC_COST_NEW", "mobile:3,residential:3,datacenter:3")
         self.DEDICATED_API_KEYS: str = env.get("DEDICATED_API_KEYS", "")
-        # Outbound HTTP proxy for the dedicated vendor API (it is not reachable from every network), e.g. http://user:pass@host:port
+        # Vendor API base URLs (kept out of the code).
+        self.TRAFFIC_API_URL: str = env.get("TRAFFIC_API_URL", "").rstrip("/")
+        self.DEDICATED_API_URL: str = env.get("DEDICATED_API_URL", "").rstrip("/")
+        # Outbound HTTP proxies for the dedicated vendor API (comma separated, tried in turn)
         self.DEDICATED_HTTP_PROXY: str = env.get("DEDICATED_HTTP_PROXY", "")
         self.STORE_DC_PRICE_RUB: int = int(env.get("STORE_DC_PRICE_RUB", "400") or 400)
         self.STORE_DC_DAYS: int = int(env.get("STORE_DC_DAYS", "30") or 30)
