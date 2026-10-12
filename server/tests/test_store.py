@@ -382,3 +382,57 @@ def test_website_cabinet_can_buy_and_list(client, store, db_session):
     assert client.post("/api/store/proxies", json={"cabinet": "W-" + "b" * 30}).json()["proxies"] == []
     assert post(client, "/proxies", store).json()["proxies"] == []
     assert client.post("/api/store/order/status", json={"cabinet": "W-" + "b" * 30, "token": token}).status_code == 404
+
+
+def test_dir_calls_skip_accounts_without_money(monkeypatch):
+    from app.store import traffic as tmod
+    monkeypatch.setattr(settings, "TRAFFIC_API_KEYS", "broke,rich")
+    monkeypatch.setattr(settings, "TRAFFIC_API_KEYS_NEW", "")
+    tmod._dir_good["fp"] = ""
+    calls = []
+
+    def fake_request(acc, method, path, params=None, body=None):
+        calls.append(acc.key)
+        if acc.key == "broke":
+            raise tmod.TrafficError("GET /proxy/search: 400 Insufficient funds on the balance sheet", 400)
+        return {"countries": [{"id": 1, "code": "DE", "name": "Germany"}]}
+
+    monkeypatch.setattr(tmod, "_request", fake_request)
+    assert tmod._dir_request("/dir/countries")["countries"][0]["code"] == "DE"
+    assert calls == ["broke", "rich"]
+    calls.clear()
+    tmod._dir_request("/dir/countries")
+    assert calls == ["rich"]  # the working account is remembered
+
+
+def test_cy_egress_fallback_and_stale_catalog(monkeypatch):
+    from app.store import dedicated as dmod
+    monkeypatch.setattr(settings, "DEDICATED_API_KEYS", "k1")
+    monkeypatch.setattr(settings, "DEDICATED_HTTP_PROXY", "http://dead:1,http://alive:2")
+    dmod._egress_good["i"] = 0
+    used = []
+
+    def fake_via(proxy, acc, method, path, params, body):
+        used.append(proxy)
+        if proxy == "http://dead:1":
+            raise dmod.DedicatedError("proxy refused", sent=False)
+        return {"results": [], "next": None}
+
+    monkeypatch.setattr(dmod, "_request_via", fake_via)
+    dmod._cache.clear()
+    assert dmod._products() == []
+    assert used == ["http://dead:1", "http://alive:2"] and dmod._egress_good["i"] == 1
+
+    # an unknown outcome is never retried through another egress
+    def unsure(proxy, acc, method, path, params, body):
+        raise dmod.DedicatedError("read timeout", sent=True)
+    monkeypatch.setattr(dmod, "_request_via", unsure)
+    with pytest.raises(dmod.DedicatedError):
+        dmod.buy(dmod.accounts()[0], "p1")
+
+    # catalog keeps the last good list when the vendor is unreachable
+    dmod._cache["dc"] = (dmod.time.time() - 3600, [{"id": "x"}])
+    def down(proxy, acc, method, path, params, body):
+        raise dmod.DedicatedError("proxy refused", sent=False)
+    monkeypatch.setattr(dmod, "_request_via", down)
+    assert dmod._products() == [{"id": "x"}]
