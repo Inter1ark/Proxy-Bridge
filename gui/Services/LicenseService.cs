@@ -428,6 +428,7 @@ public class LicenseService
         "month" => I18n.T("plan.month"),
         "3months" => I18n.T("plan.3months"),
         "lifetime" => I18n.T("plan.lifetime"),
+        "trial" => I18n.T("plan.trial"),
         _ => string.IsNullOrWhiteSpace(plan) ? "" : plan
     };
 

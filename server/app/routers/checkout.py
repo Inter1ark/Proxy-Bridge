@@ -14,7 +14,7 @@ from ..db import get_db
 from ..errors import ApiError
 from ..models import Order
 from ..orders import check_order_with_provider, order_to_dict
-from ..plans import get_plan, plans_list
+from ..plans import get_public_plan, plans_list
 from ..providers import cryptopay, yookassa
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def plans():
 
 @router.post("/checkout")
 def checkout(req: CheckoutRequest, db: Session = Depends(get_db)):
-    plan = get_plan(req.plan_id)
+    plan = get_public_plan(req.plan_id)
     if plan is None:
         raise ApiError(400, "bad_plan")
     email = (req.email or "").strip().lower()

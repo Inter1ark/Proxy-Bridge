@@ -27,7 +27,8 @@ def issue_license(db: Session, plan_id: str, email: str | None, order: Order | N
     plan = get_plan(plan_id)
     if plan is None:
         raise ValueError(f"unknown plan {plan_id}")
-    expires_at = None if plan.days is None else to_db(utcnow() + timedelta(days=plan.days))
+    # The trial day starts at the first activation (see routers/license.py), not at issue time.
+    expires_at = None if plan.days is None or plan.id == "trial" else to_db(utcnow() + timedelta(days=plan.days))
     for _ in range(10):
         key = generate_key()
         if db.scalar(select(License.id).where(License.key == key)) is None:

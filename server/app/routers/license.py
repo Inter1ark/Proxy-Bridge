@@ -1,6 +1,7 @@
 """License endpoints used by the Windows client: activate, verify, deactivate."""
 
 import re
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -63,6 +64,9 @@ def activate(req: LicenseRequest, db: Session = Depends(get_db)):
             raise ApiError(403, "device_limit")
         device = Device(license=lic, hwid=hwid)
         db.add(device)
+        if lic.plan_id == "trial" and lic.expires_at is None:
+            # the trial day starts now
+            lic.expires_at = to_db(utcnow() + timedelta(days=1))
     device.app_version = (req.app_version or "")[:32]
     device.last_seen = to_db(utcnow())
     db.commit()

@@ -21,7 +21,19 @@ PLANS: dict[str, Plan] = {
 }
 
 
+# Not for sale: issued by the admin only. The day starts at the first activation.
+TRIAL = Plan("trial", "Пробный день", 0, 1)
+
+
 def get_plan(plan_id: object) -> Plan | None:
+    """Any known plan, including the admin-only trial."""
+    if not isinstance(plan_id, str):
+        return None
+    return PLANS.get(plan_id) or (TRIAL if plan_id == TRIAL.id else None)
+
+
+def get_public_plan(plan_id: object) -> Plan | None:
+    """Plans that can be bought on the site."""
     if not isinstance(plan_id, str):
         return None
     return PLANS.get(plan_id)
