@@ -436,3 +436,20 @@ def test_cy_egress_fallback_and_stale_catalog(monkeypatch):
         raise dmod.DedicatedError("proxy refused", sent=False)
     monkeypatch.setattr(dmod, "_request_via", down)
     assert dmod._products() == [{"id": "x"}]
+
+
+def test_cost_ceiling_allows_selling_below_cost(client, store, db_session, monkeypatch):
+    # only legacy accounts (residential 5.5), selling basis 3: blocked by default, allowed with a ceiling
+    monkeypatch.setattr(settings, "STORE_TRAFFIC_USD_PER_GB", "mobile:3,residential:3,datacenter:0.9")
+    monkeypatch.setattr(settings, "STORE_TRAFFIC_MAX_COST", "")
+    r = post(client, "/order", store, product="traffic", method="yookassa", params=traffic_params(gb=1))
+    assert r.status_code == 409 and r.json()["error"] == "out_of_stock"
+
+    monkeypatch.setattr(settings, "STORE_TRAFFIC_MAX_COST", "mobile:6,residential:5.5,datacenter:0.9")
+    r = post(client, "/order", store, product="traffic", method="yookassa", params=traffic_params(gb=1))
+    assert r.status_code == 200 and r.json()["amount_rub"] == 252  # ceil(3 * 80 / 0.955), still the low price
+    pay(store, r.json()["token"])
+    post(client, "/order/status", store, token=r.json()["token"])
+    run(db_session)
+    order = db_session.query(StoreOrder).filter(StoreOrder.product == "traffic").one()
+    assert order.cost_usd == 5.5 and store["created"][-1]["acc"] == "tkey1"

@@ -275,13 +275,13 @@ def _traffic_committed_usd(db: Session, acc: traffic.Account) -> float:
 def pick_traffic_account(db: Session, ptype: str, gb: int, prefer_fp: str | None = None) -> traffic.Account | None:
     """The cheapest account for the type that can pay for the GB.
 
-    Accounts whose cost for the type is above the selling price basis are never used, and
-    accounts without enough free balance are skipped silently.
+    Accounts whose cost for the type is above the ceiling (STORE_TRAFFIC_MAX_COST, by default the
+    selling basis) are never used, and accounts without enough free balance are skipped silently.
     """
-    basis = pricing.usd_per_gb().get(ptype)
-    if basis is None:
+    ceiling = pricing.max_cost_per_gb().get(ptype)
+    if ceiling is None:
         return None
-    accs = [a for a in traffic.accounts() if a.cost(ptype) is not None and a.cost(ptype) <= basis + 1e-9]
+    accs = [a for a in traffic.accounts() if a.cost(ptype) is not None and a.cost(ptype) <= ceiling + 1e-9]
     if prefer_fp:
         accs = [a for a in accs if a.fp == prefer_fp]
     best, best_key = None, None

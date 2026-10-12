@@ -77,6 +77,9 @@ class Settings:
         # Selling price basis per GB, USD (plus the payment fee and markup). An account is used for a
         # type only when its cost for that type is not above this, so traffic is never sold at a loss.
         self.STORE_TRAFFIC_USD_PER_GB: str = env.get("STORE_TRAFFIC_USD_PER_GB", "mobile:3,residential:3,datacenter:0.9")
+        # Highest per-GB cost an account may have to be used for a type, USD. Empty = the selling
+        # basis above (never sell at a loss). Set higher on purpose to sell a type below cost.
+        self.STORE_TRAFFIC_MAX_COST: str = env.get("STORE_TRAFFIC_MAX_COST", "")
         self.STORE_FEE_PCT: float = float(env.get("STORE_FEE_PCT", "4.5") or 4.5)
         self.STORE_MARKUP_PCT: float = float(env.get("STORE_MARKUP_PCT", "0") or 0)
         self.STORE_MIN_GB: int = int(env.get("STORE_MIN_GB", "1") or 1)

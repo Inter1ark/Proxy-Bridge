@@ -59,6 +59,13 @@ def usd_per_gb() -> dict[str, float]:
     return {t: out[t] for t in TRAFFIC_TYPES if t in out and out[t] > 0}
 
 
+def max_cost_per_gb() -> dict[str, float]:
+    """Cost ceiling per type for picking accounts: STORE_TRAFFIC_MAX_COST, else the selling basis."""
+    basis = usd_per_gb()
+    ceiling = settings.parse_prices(settings.STORE_TRAFFIC_MAX_COST)
+    return {t: max(ceiling.get(t, basis[t]), basis[t]) for t in basis}
+
+
 def _factor() -> float:
     fee = min(max(settings.STORE_FEE_PCT, 0.0), 50.0)
     markup = max(settings.STORE_MARKUP_PCT, 0.0)
@@ -78,8 +85,8 @@ def traffic_price_rub(ptype: str, gb: int, rate: float | None = None) -> int:
 
 
 def traffic_cost_usd(ptype: str, gb: int) -> float:
-    """Upper bound of what the GB cost us (accounts above the price basis are never used)."""
-    return usd_per_gb()[ptype] * gb
+    """Upper bound of what the GB cost us (accounts above the cost ceiling are never used)."""
+    return max_cost_per_gb()[ptype] * gb
 
 
 def dc_price_rub() -> int:
