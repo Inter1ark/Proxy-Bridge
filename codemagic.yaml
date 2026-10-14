@@ -1,0 +1,131 @@
+workflows:
+  mac-build:
+    name: macOS build, sign, package and launch test
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      vars:
+        VERSION: "3.4.1"
+    scripts:
+      - name: Install .NET 9 and Go
+        script: |
+          set -e
+          curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+          bash /tmp/dotnet-install.sh --channel 9.0 --install-dir "$HOME/.dotnet"
+          echo "PATH=$HOME/.dotnet:$HOME/go-sdk/go/bin:$PATH" >> "$CM_ENV"
+          echo "DOTNET_ROOT=$HOME/.dotnet" >> "$CM_ENV"
+          GO_VER=$(awk '/^go /{print $2}' core-go/go.mod)
+          mkdir -p "$HOME/go-sdk"
+          curl -sSL "https://go.dev/dl/go${GO_VER}.darwin-arm64.tar.gz" | tar -xz -C "$HOME/go-sdk"
+          "$HOME/go-sdk/go/bin/go" version
+          "$HOME/.dotnet/dotnet" --version
+
+      - name: Diagnose the current release zip (built on Windows)
+        script: |
+          set +e
+          mkdir -p out diag && cd diag
+          curl -sSL -o old.zip "https://github.com/Inter1ark/Proxy-Bridge/releases/download/v${VERSION}/ProxyBridge-${VERSION}-macOS-arm64.zip"
+          ditto -x -k old.zip .
+          app="$(ls -d *.app | head -1)"
+          echo "== codesign"; codesign -dv --verbose=4 "$app" 2>&1 | head -20
+          codesign --verify --deep --strict --verbose=2 "$app" 2>&1 | tail -5
+          echo "== spctl"; spctl --assess --type execute --verbose=4 "$app" 2>&1
+          echo "== direct start"
+          PROXYBRIDGE_CONFIG_DIR="$(mktemp -d)" "$app/Contents/MacOS/ProxyBridge" > ../out/old-zip-start.log 2>&1 &
+          pid=$!; sleep 15
+          if kill -0 "$pid" 2>/dev/null; then echo "OLD ZIP: RUNNING"; kill "$pid"; else echo "OLD ZIP: EXITED"; fi
+          tail -n 40 ../out/old-zip-start.log
+          echo "== open via LaunchServices"
+          open "$app"; sleep 10
+          pgrep -fl ProxyBridge || echo "not running after open"
+          pkill -f ProxyBridge || true
+          log show --last 2m --style compact --predicate 'eventMessage CONTAINS[c] "ProxyBridge"' 2>/dev/null | tail -40 > ../out/old-zip-system.log
+          tail -n 25 ../out/old-zip-system.log
+          exit 0
+
+      - name: Build pbcore
+        script: |
+          set -e
+          cd core-go
+          go test ./...
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o dist/pbcore-darwin-arm64 .
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/pbcore-darwin-amd64 .
+
+      - name: Build, sign and package
+        script: |
+          set -euo pipefail
+          mkdir -p out work
+          build_one() {
+            rid="$1"; suffix="$2"; core="$3"
+            pub="work/publish-$rid"
+            dotnet publish gui/ProxyBridge.GUI.csproj -c Release -r "$rid" --self-contained \
+              -p:PublishSingleFile=false -p:DebugType=none -o "$pub"
+            root="work/root-$suffix"
+            app="$root/ProxyBridge.app"
+            mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+            cp -R "$pub"/. "$app/Contents/MacOS/"
+            rm -f "$app/Contents/MacOS/ProxyBridgeCore.dll" "$app/Contents/MacOS/WinDivert.dll" "$app/Contents/MacOS/WinDivert64.sys"
+            cp "core-go/dist/$core" "$app/Contents/MacOS/pbcore"
+            cp branding/logo.icns "$app/Contents/Resources/logo.icns"
+            cp LICENSE "$app/Contents/Resources/LICENSE.txt"
+            cp THIRD_PARTY_NOTICES.txt "$app/Contents/Resources/THIRD_PARTY_NOTICES.txt"
+            printf 'APPL????' > "$app/Contents/PkgInfo"
+            cat > "$app/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleName</key><string>ProxyBridge</string>
+              <key>CFBundleDisplayName</key><string>ProxyBridge</string>
+              <key>CFBundleIdentifier</key><string>org.proxybridge.app</string>
+              <key>CFBundleVersion</key><string>${VERSION}</string>
+              <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+              <key>CFBundlePackageType</key><string>APPL</string>
+              <key>CFBundleExecutable</key><string>ProxyBridge</string>
+              <key>CFBundleIconFile</key><string>logo.icns</string>
+              <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+              <key>LSMinimumSystemVersion</key><string>12.0</string>
+              <key>NSHighResolutionCapable</key><true/>
+              <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+          </dict>
+          </plist>
+          EOF
+            chmod +x "$app/Contents/MacOS/ProxyBridge" "$app/Contents/MacOS/pbcore"
+            # Ad-hoc signature: every file in Contents/MacOS, then the bundle (no Apple account needed).
+            find "$app/Contents/MacOS" -type f -print0 | xargs -0 -n 1 codesign --force --sign - --timestamp=none
+            codesign --force --sign - --timestamp=none "$app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            # Installer package: an app installed by Installer is not quarantined.
+            pkgbuild --analyze --root "$root" "work/comp-$suffix.plist"
+            plutil -replace 0.BundleIsRelocatable -bool NO "work/comp-$suffix.plist"
+            pkgbuild --root "$root" --component-plist "work/comp-$suffix.plist" --install-location /Applications \
+              --identifier org.proxybridge.app --version "$VERSION" "out/ProxyBridge-${VERSION}-macOS-$suffix.pkg"
+            ditto -c -k --sequesterRsrc --keepParent "$app" "out/ProxyBridge-${VERSION}-macOS-$suffix.zip"
+          }
+          build_one osx-arm64 arm64 pbcore-darwin-arm64
+          build_one osx-x64 x64 pbcore-darwin-amd64
+          ls -la out
+
+      - name: Install the arm64 package and start the app
+        script: |
+          set +e
+          sudo installer -pkg "out/ProxyBridge-${VERSION}-macOS-arm64.pkg" -target /
+          app=/Applications/ProxyBridge.app
+          echo "quarantine after install:"; xattr -p com.apple.quarantine "$app" 2>/dev/null || echo "none"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          spctl --assess --type execute --verbose=4 "$app"
+          "$app/Contents/MacOS/pbcore" --version
+          PROXYBRIDGE_CONFIG_DIR="$(mktemp -d)" "$app/Contents/MacOS/ProxyBridge" > out/pkg-app-start.log 2>&1 &
+          pid=$!; sleep 25
+          if kill -0 "$pid" 2>/dev/null; then echo "PKG APP: RUNNING after 25 s"; else echo "PKG APP: EXITED"; fi
+          screencapture -x out/pkg-app-start.png
+          kill "$pid" 2>/dev/null
+          tail -n 40 out/pkg-app-start.log
+          exit 0
+
+    artifacts:
+      - out/*.pkg
+      - out/*.zip
+      - out/*.png
+      - out/*.log
