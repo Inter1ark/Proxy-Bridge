@@ -1,7 +1,8 @@
 //go:build darwin || linux
 
-// pbcore routes all TCP traffic of the machine through one SOCKS5 or HTTP
-// proxy using a TUN interface and a userspace network stack.
+// pbcore routes the TCP traffic of the machine through SOCKS5 or HTTP proxies
+// using a TUN interface and a userspace network stack. Which program's
+// connections go where is decided by per-program rules (see internal/rules).
 package main
 
 import (
@@ -24,7 +25,7 @@ import (
 	"proxybridge/core/internal/control"
 	"proxybridge/core/internal/engine"
 	"proxybridge/core/internal/netcfg"
-	"proxybridge/core/internal/proxy"
+	"proxybridge/core/internal/rules"
 	"proxybridge/core/internal/status"
 )
 
@@ -69,8 +70,10 @@ func (l logger) Errorf(f string, a ...any) { l.logf(levelError, f, a...) }
 
 func main() {
 	var (
-		proxyURL     = flag.String("proxy", "", "upstream proxy: socks5://user:pass@host:port or http://user:pass@host:port")
+		proxyURL     = flag.String("proxy", "", "route everything through this proxy: socks5://user:pass@host:port or http://user:pass@host:port")
 		proxyFile    = flag.String("proxy-file", "", "read the proxy URL from this file instead of --proxy; the file is deleted after reading")
+		rulesFile    = flag.String("rules-file", "", "JSON rule set (proxies and per-program rules); the file is deleted after reading")
+		exemptPIDs   = flag.String("exempt-pid", "", "comma separated pids whose connections always go direct (the parent pid is exempt by default)")
 		tunName      = flag.String("tun-name", defaultTunName, "TUN interface name (darwin: utun or utunN, auto-assigned)")
 		tunAddr      = flag.String("tun-addr", "10.255.0.2/24", "TUN local address with prefix")
 		tunPeer      = flag.String("tun-peer", "", "TUN point-to-point peer address (default: first host of --tun-addr)")
@@ -109,17 +112,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *proxyFile != "" {
-		b, err := os.ReadFile(*proxyFile)
-		if err != nil {
-			fail("read --proxy-file: %v", err)
-			os.Exit(1)
-		}
-		_ = os.Remove(*proxyFile)
-		*proxyURL = strings.TrimSpace(string(b))
-	}
-
-	cfg, err := proxy.Parse(*proxyURL)
+	set, err := loadRules(*rulesFile, *proxyFile, *proxyURL)
 	if err != nil {
 		fail("%v", err)
 		os.Exit(1)
@@ -164,31 +157,15 @@ func main() {
 		log.Infof("control token: %s", token)
 	}
 
-	// Resolve the proxy host now, before routing changes, and keep only the IP.
-	proxyIP, err := resolveIPv4(cfg.Host)
-	if err != nil {
-		fail("resolve proxy host %q: %v", cfg.Host, err)
-		os.Exit(1)
+	exempt := []int{os.Getpid(), *parentPID}
+	for _, part := range strings.Split(*exemptPIDs, ",") {
+		if pid, err := strconv.Atoi(strings.TrimSpace(part)); err == nil && pid > 0 {
+			exempt = append(exempt, pid)
+		}
 	}
-	serverAddr := net.JoinHostPort(proxyIP.String(), strconv.Itoa(cfg.Port))
-	log.Infof("proxy %s -> %s", cfg.Redacted(), serverAddr)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	// The control socket comes up first so a supervisor can watch every event.
-	if *controlPort > 0 {
-		srv, err := control.Listen(*controlPort, token, rep, func() {
-			log.Infof("stop requested over control socket")
-			cancel()
-		})
-		if err != nil {
-			fail("%v", err)
-			os.Exit(1)
-		}
-		defer srv.Close()
-		log.Infof("control socket on %s", srv.Addr())
-	}
 
 	netcfg.Logf = log.Debugf
 	var undo netcfg.Undo
@@ -200,6 +177,48 @@ func main() {
 		rep.Emit(status.Line{Status: "down"})
 		os.Exit(exitCode)
 	}()
+
+	gw, err := netcfg.DefaultGateway()
+	if err != nil {
+		fail("%v", err)
+		exitCode = 1
+		return
+	}
+	log.Infof("original default route: gateway=%s interface=%s", gw.IP, gw.Interface)
+
+	// The router resolves and pins the proxies now, before routing changes.
+	rt := newRouter(log, gw, &undo, exempt)
+	if err := rt.Load(set); err != nil {
+		fail("%v", err)
+		exitCode = 1
+		return
+	}
+
+	// The control socket comes up first so a supervisor can watch every event.
+	if *controlPort > 0 {
+		srv, err := control.Listen(*controlPort, token, rep, func() {
+			log.Infof("stop requested over control socket")
+			cancel()
+		}, func(payload []byte) error {
+			newSet, err := rules.Parse(payload)
+			if err != nil {
+				return err
+			}
+			if err := rt.Load(newSet); err != nil {
+				return err
+			}
+			log.Infof("rules replaced: %d rules, %d proxies", len(newSet.Rules), len(newSet.Proxies))
+			rep.Rules(len(newSet.Rules))
+			return nil
+		})
+		if err != nil {
+			fail("%v", err)
+			exitCode = 1
+			return
+		}
+		defer srv.Close()
+		log.Infof("control socket on %s", srv.Addr())
+	}
 
 	dev, err := tun.CreateTUN(*tunName, *mtu)
 	if err != nil {
@@ -234,32 +253,19 @@ func main() {
 		return
 	}
 
-	gw, err := netcfg.DefaultGateway()
-	if err != nil {
-		fail("%v", err)
-		exitCode = 1
-		return
-	}
-	log.Infof("original default route: gateway=%s interface=%s", gw.IP, gw.Interface)
-
-	// The proxy server and the direct resolver must stay reachable outside the tunnel.
-	if err := netcfg.AddHostRoute(proxyIP, gw, &undo); err != nil {
-		fail("host route for proxy %s: %v", proxyIP, err)
-		exitCode = 1
-		return
-	}
-	if dnsAddr.IsValid() && dnsAddr != proxyIP {
+	// The direct resolver must stay reachable outside the tunnel.
+	if dnsAddr.IsValid() {
 		if err := netcfg.AddHostRoute(dnsAddr, gw, &undo); err != nil {
-			// Not fatal: the resolver may be on the local link already.
+			// Not fatal: the resolver may be on the local link already, or be a proxy IP.
 			log.Warnf("host route for dns %s: %v", dnsAddr, err)
 		}
 	}
 
 	stats := &engine.Counters{}
-	dialer := proxy.NewDialer(cfg, serverAddr, 15*time.Second)
 	eng, err := engine.New(dev, engine.Options{
 		MTU:   uint32(*mtu),
-		Dial:  dialer.Dial,
+		Dial:  rt.directDial,
+		Route: rt.Decide,
 		DNS:   dnsHostPort(dnsAddr),
 		Logf:  log.Debugf,
 		Stats: stats,
@@ -278,8 +284,8 @@ func main() {
 		return
 	}
 
-	rep.Up(ifName, cfg.Redacted())
-	log.Infof("up: all TCP traffic now goes through %s", cfg.Redacted())
+	rep.UpWithRules(ifName, rt.Summary(), len(set.Rules), rt.Procmap())
+	log.Infof("up: %d rules, all other programs -> %s (process attribution: %s)", len(set.Rules), rt.Summary(), rt.Procmap())
 
 	sigs := make(chan os.Signal, 2)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -311,33 +317,40 @@ func main() {
 	}
 }
 
+// loadRules builds the initial rule set: from --rules-file, or from a single
+// proxy (--proxy / --proxy-file) as "everything through this proxy".
+func loadRules(rulesFile, proxyFile, proxyURL string) (*rules.Set, error) {
+	if rulesFile != "" {
+		b, err := os.ReadFile(rulesFile)
+		if err != nil {
+			return nil, fmt.Errorf("read --rules-file: %w", err)
+		}
+		_ = os.Remove(rulesFile)
+		return rules.Parse(b)
+	}
+	if proxyFile != "" {
+		b, err := os.ReadFile(proxyFile)
+		if err != nil {
+			return nil, fmt.Errorf("read --proxy-file: %w", err)
+		}
+		_ = os.Remove(proxyFile)
+		proxyURL = strings.TrimSpace(string(b))
+	}
+	if strings.TrimSpace(proxyURL) == "" {
+		return nil, fmt.Errorf("no --rules-file and no --proxy given")
+	}
+	set := &rules.Set{
+		Proxies: []rules.Proxy{{ID: 1, URL: proxyURL}},
+		Rules:   []rules.Rule{{Process: "*", Action: rules.ActionProxy, Proxy: 1}},
+	}
+	return set, set.Validate()
+}
+
 func dnsHostPort(a netip.Addr) string {
 	if !a.IsValid() {
 		return ""
 	}
 	return net.JoinHostPort(a.String(), "53")
-}
-
-func resolveIPv4(host string) (netip.Addr, error) {
-	if ip, err := netip.ParseAddr(host); err == nil {
-		if !ip.Is4() {
-			return netip.Addr{}, fmt.Errorf("IPv6 proxy addresses are not supported")
-		}
-		return ip, nil
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	ips, err := net.DefaultResolver.LookupNetIP(ctx, "ip4", host)
-	if err != nil {
-		return netip.Addr{}, err
-	}
-	for _, ip := range ips {
-		ip = ip.Unmap()
-		if ip.Is4() {
-			return ip, nil
-		}
-	}
-	return netip.Addr{}, fmt.Errorf("no IPv4 address")
 }
 
 func processAlive(pid int) bool {

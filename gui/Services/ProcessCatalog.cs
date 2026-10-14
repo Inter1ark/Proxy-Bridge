@@ -12,8 +12,10 @@ namespace ProxyBridge.GUI.Services;
 public sealed record RunningProgram(string ExeName, string Path, bool HasWindow);
 
 /// <summary>
-/// Lists running programs for the app picker: one entry per exe name, with the image path when it
-/// can be read without elevation. Programs with a window come first. Windows only (empty elsewhere).
+/// Lists running programs for the app picker: one entry per program, with the image path when it
+/// can be read without elevation. Programs with a window come first.
+/// Windows: one entry per exe name. macOS: one entry per .app bundle (helpers are folded into their
+/// bundle), plus plain executables started by the user (homebrew tools, scripts).
 /// </summary>
 public static class ProcessCatalog
 {
@@ -40,6 +42,7 @@ public static class ProcessCatalog
 
     public static List<RunningProgram> List()
     {
+        if (OperatingSystem.IsMacOS()) return ListMac();
         var result = new List<RunningProgram>();
         if (!OperatingSystem.IsWindows()) return result;
 
@@ -88,6 +91,100 @@ public static class ProcessCatalog
             .ThenBy(r => IsWindowsDir(r.Path))
             .ThenBy(r => r.ExeName, StringComparer.OrdinalIgnoreCase));
         return result;
+    }
+
+    // ------------------------------------------------------------------
+    // macOS
+    // ------------------------------------------------------------------
+
+    /// <summary>Directories whose programs are system services, not something a user routes.</summary>
+    private static readonly string[] MacSystemPrefixes =
+    {
+        "/System/", "/usr/libexec/", "/usr/sbin/", "/sbin/", "/Library/Apple/", "/Library/PrivilegedHelperTools/",
+        "/usr/local/libexec/", "/opt/homebrew/libexec/", "/Library/Application Support/",
+        "/private/var/", "/var/", "/Library/Frameworks/", "/usr/lib/"
+    };
+
+    /// <summary>Executable names that are shells or launchers, not programs anybody wants to route.</summary>
+    private static readonly HashSet<string> MacHiddenNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "bash", "zsh", "sh", "fish", "login", "ssh-agent", "launchd", "sudo", "su", "ps", "distnoted",
+        "cfprefsd", "mdworker", "mdworker_shared", "trustd", "secd", "nsurlsessiond", "tccd",
+        "lsd", "iconservicesagent", "pbcore", "ProxyBridge"
+    };
+
+    /// <summary>
+    /// "ps -axo pid=,comm=" prints the full executable path of every process on macOS. Helpers inside
+    /// an .app bundle are folded into the outermost bundle, which is what the core matches on too.
+    /// </summary>
+    private static List<RunningProgram> ListMac()
+    {
+        var result = new List<RunningProgram>();
+        string output;
+        try
+        {
+            var psi = new ProcessStartInfo("/bin/ps", "-axo pid=,comm=")
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true
+            };
+            using var p = Process.Start(psi);
+            if (p == null) return result;
+            output = p.StandardOutput.ReadToEnd();
+            p.WaitForExit(5000);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"ps failed: {ex.Message}");
+            return result;
+        }
+
+        var selfBundle = MacBundlePath(Environment.ProcessPath ?? "");
+        var byKey = new Dictionary<string, RunningProgram>(StringComparer.OrdinalIgnoreCase);
+        foreach (var raw in output.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            var sp = line.IndexOf(' ');
+            if (sp <= 0) continue;
+            var path = line.Substring(sp + 1).Trim();
+            if (!path.StartsWith("/", StringComparison.Ordinal)) continue;
+            if (MacSystemPrefixes.Any(pre => path.StartsWith(pre, StringComparison.Ordinal))) continue;
+
+            var bundle = MacBundlePath(path);
+            if (bundle.Length > 0)
+            {
+                if (selfBundle.Length > 0 && string.Equals(bundle, selfBundle, StringComparison.Ordinal)) continue;
+                // bundles that live inside another bundle or inside the system are not user programs
+                if (bundle.StartsWith("/System/", StringComparison.Ordinal)) continue;
+                var name = System.IO.Path.GetFileName(bundle); // "Telegram.app"
+                if (MacHiddenNames.Contains(System.IO.Path.GetFileNameWithoutExtension(name))) continue;
+                if (!byKey.ContainsKey(bundle))
+                    byKey[bundle] = new RunningProgram(name, bundle, HasWindow: true);
+                continue;
+            }
+
+            var exe = System.IO.Path.GetFileName(path);
+            if (exe.Length == 0 || MacHiddenNames.Contains(exe)) continue;
+            if (!byKey.ContainsKey(path))
+                byKey[path] = new RunningProgram(exe, path, HasWindow: false);
+        }
+
+        result.AddRange(byKey.Values
+            .OrderByDescending(r => r.HasWindow)
+            .ThenByDescending(r => r.Path.StartsWith("/Applications/", StringComparison.Ordinal))
+            .ThenBy(r => r.ExeName, StringComparer.OrdinalIgnoreCase));
+        return result;
+    }
+
+    /// <summary>"/Applications/Google Chrome.app" for any executable inside that bundle, or "".</summary>
+    public static string MacBundlePath(string exePath)
+    {
+        if (string.IsNullOrEmpty(exePath)) return "";
+        var i = exePath.IndexOf(".app/", StringComparison.OrdinalIgnoreCase);
+        if (i < 0) return exePath.EndsWith(".app", StringComparison.OrdinalIgnoreCase) ? exePath : "";
+        return exePath.Substring(0, i + 4);
     }
 
     private static bool IsWindowsDir(string path)

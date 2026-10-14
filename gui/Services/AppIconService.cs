@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,9 +12,10 @@ using Avalonia.Threading;
 namespace ProxyBridge.GUI.Services;
 
 /// <summary>
-/// Real program icons for the routing diagram (Windows only). The icon comes from the running
-/// process image if the program is running, otherwise from the stored exe path. Results (including
-/// "no icon") are cached per process name; lookups run on a worker thread.
+/// Real program icons for the routing diagram. Windows: from the running process image or the stored
+/// exe path. macOS: a thumbnail of the .app bundle rendered by the system (qlmanage), with the
+/// bundle's .icns as a fallback. Results (including "no icon") are cached per process name;
+/// lookups run on a worker thread.
 /// </summary>
 public static class AppIconService
 {
@@ -24,7 +26,7 @@ public static class AppIconService
     /// <summary>Calls <paramref name="onReady"/> on the UI thread with the icon or null. Cached results are returned synchronously.</summary>
     public static void Request(string processName, string? exePath, Action<Bitmap?> onReady)
     {
-        if (string.IsNullOrWhiteSpace(processName) || !OperatingSystem.IsWindows())
+        if (string.IsNullOrWhiteSpace(processName) || !(OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()))
         {
             onReady(null);
             return;
@@ -81,8 +83,90 @@ public static class AppIconService
         ms.Position = 0;
         return new Bitmap(ms);
 #else
-        return null;
+        return OperatingSystem.IsMacOS() ? LoadMac(exePath) : null;
 #endif
+    }
+
+    // ------------------------------------------------------------------
+    // macOS
+    // ------------------------------------------------------------------
+
+    private static readonly object MacLock = new();
+
+    /// <summary>PNG of the bundle icon, rendered once into the temp folder and reused.</summary>
+    private static Bitmap? LoadMac(string? exePath)
+    {
+        var bundle = ProcessCatalog.MacBundlePath(exePath ?? "");
+        if (bundle.Length == 0 || !Directory.Exists(bundle)) return null;
+        var cacheDir = Path.Combine(Path.GetTempPath(), "proxybridge-icons");
+        var png = Path.Combine(cacheDir, Path.GetFileName(bundle) + ".png");
+        lock (MacLock)
+        {
+            try { Directory.CreateDirectory(cacheDir); } catch { return null; }
+            if (!File.Exists(png))
+            {
+                // qlmanage writes "<Name>.app.png" into the output folder and understands every icon format
+                RunTool("/usr/bin/qlmanage", new[] { "-t", "-s", "128", "-o", cacheDir, bundle }, 15000);
+            }
+            if (!File.Exists(png))
+            {
+                var icns = FindIcns(bundle);
+                if (icns != null)
+                    RunTool("/usr/bin/sips", new[] { "-s", "format", "png", "-Z", "128", icns, "--out", png }, 15000);
+            }
+        }
+        if (!File.Exists(png)) return null;
+        using var fs = File.OpenRead(png);
+        return new Bitmap(fs);
+    }
+
+    private static string? FindIcns(string bundle)
+    {
+        var resources = Path.Combine(bundle, "Contents", "Resources");
+        if (!Directory.Exists(resources)) return null;
+        var name = RunTool("/usr/bin/defaults", new[] { "read", Path.Combine(bundle, "Contents", "Info"), "CFBundleIconFile" }, 5000).Trim();
+        if (name.Length > 0)
+        {
+            foreach (var candidate in new[] { Path.Combine(resources, name), Path.Combine(resources, name + ".icns") })
+                if (File.Exists(candidate)) return candidate;
+        }
+        try
+        {
+            return Directory.EnumerateFiles(resources, "*.icns").FirstOrDefault();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string RunTool(string file, string[] args, int timeoutMs)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(file)
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            foreach (var a in args) psi.ArgumentList.Add(a);
+            using var p = Process.Start(psi);
+            if (p == null) return "";
+            var stdout = p.StandardOutput.ReadToEndAsync();
+            p.StandardError.ReadToEndAsync();
+            if (!p.WaitForExit(timeoutMs))
+            {
+                try { p.Kill(); } catch { }
+                return "";
+            }
+            return stdout.Result;
+        }
+        catch
+        {
+            return "";
+        }
     }
 
 #if WINDOWS

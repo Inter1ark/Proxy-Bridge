@@ -17,6 +17,8 @@ type Line struct {
 	Message string `json:"message,omitempty"`
 	Up      *int64 `json:"up,omitempty"`
 	Down    *int64 `json:"down,omitempty"`
+	Rules   *int   `json:"rules,omitempty"`
+	Procmap string `json:"procmap,omitempty"`
 }
 
 // Reporter writes every line to stdout and to every attached watcher.
@@ -55,6 +57,17 @@ func (r *Reporter) Emit(l Line) {
 // Up reports that the tunnel is ready.
 func (r *Reporter) Up(tun, proxy string) {
 	r.Emit(Line{Status: "up", Tun: tun, Proxy: proxy})
+}
+
+// UpWithRules reports readiness together with the rule count and the process
+// attribution method ("pcblist" or "lsof").
+func (r *Reporter) UpWithRules(tun, proxy string, rules int, procmap string) {
+	r.Emit(Line{Status: "up", Tun: tun, Proxy: proxy, Rules: &rules, Procmap: procmap})
+}
+
+// Rules reports that a new rule set is active.
+func (r *Reporter) Rules(count int) {
+	r.Emit(Line{Status: "rules", Rules: &count})
 }
 
 // Error reports an error.

@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -13,9 +16,14 @@ namespace ProxyBridge.GUI.Services;
 /// <summary>
 /// macOS engine: launches the bundled pbcore helper as root (one administrator
 /// password prompt per connect), then talks to it over a token-protected
-/// localhost control socket to receive status/stats lines and to stop it.
+/// localhost control socket to receive status/stats lines, to replace the
+/// per-program rules while running and to stop it.
+///
+/// Proxies and rules added through <see cref="IProxyEngine"/> are recorded here and
+/// handed to pbcore as one JSON rule set: in a private file at start, or over the
+/// control socket by <see cref="CommitRulesAsync"/> while running.
 /// </summary>
-public sealed class MacProxyEngine : IProxyEngine
+public sealed class MacProxyEngine : IProxyEngine, ILiveRules
 {
     private const int ControlPort = 34050;
     private const string DefaultDns = "1.1.1.1";
@@ -24,11 +32,12 @@ public sealed class MacProxyEngine : IProxyEngine
     private readonly string _tokenFile;
     private readonly string _logFile;
 
-    private string _proxyType = "SOCKS5";
-    private string _proxyIp = "";
-    private ushort _proxyPort;
-    private string _proxyUser = "";
-    private string _proxyPass = "";
+    // Recorded table (see docs/CORE_API.md for the semantics shared with the Windows core)
+    private readonly object _tableLock = new();
+    private readonly List<(uint Id, string Url)> _proxies = new();
+    private readonly List<(uint Id, string Process, string Action, uint ProxyId)> _rules = new();
+    private uint _nextProxyId = 1;
+    private uint _nextRuleId = 1;
 
     private string _token = "";
     private TcpClient? _watch;
@@ -36,7 +45,6 @@ public sealed class MacProxyEngine : IProxyEngine
     private Task? _watchTask;
     private volatile bool _isRunning;
     private volatile bool _stopRequested;
-    private uint _nextRuleId = 1;
     private long _up;
     private long _down;
     private string _lastError = "";
@@ -49,7 +57,7 @@ public sealed class MacProxyEngine : IProxyEngine
         try { Directory.CreateDirectory(_dataDir); } catch { }
     }
 
-    public bool SupportsSplitTunnel => false;
+    public bool SupportsSplitTunnel => true;
     public bool ProvidesTrafficStats => true;
     public string LastError => _lastError;
     public bool IsRunning => _isRunning;
@@ -59,14 +67,18 @@ public sealed class MacProxyEngine : IProxyEngine
 
     private void Log(string msg) => LogReceived?.Invoke(msg);
 
+    // ------------------------------------------------------------------
+    // Proxies and rules (recorded; applied at start or by CommitRulesAsync)
+    // ------------------------------------------------------------------
+
+    /// <summary>Legacy single-proxy setup: becomes proxy 1 with a catch-all rule.</summary>
     public bool SetProxyConfig(string type, string ip, ushort port, string username, string password)
     {
         if (string.IsNullOrWhiteSpace(ip) || port == 0) return false;
-        _proxyType = type.ToUpperInvariant() == "HTTP" ? "HTTP" : "SOCKS5";
-        _proxyIp = ip.Trim();
-        _proxyPort = port;
-        _proxyUser = username ?? "";
-        _proxyPass = password ?? "";
+        ClearProxies();
+        var id = AddProxy(type, ip, port, username, password);
+        if (id == 0) return false;
+        AddRuleEx("*", "*", "*", "TCP", "PROXY", id);
         return true;
     }
 
@@ -74,26 +86,96 @@ public sealed class MacProxyEngine : IProxyEngine
     public void SetDisableUdp(bool disable) { }
     public void SetDnsViaProxy(bool enable) { }
 
-    private string BuildProxyUrl()
+    public uint AddProxy(string type, string ip, ushort port, string username, string password)
     {
-        var scheme = _proxyType == "HTTP" ? "http" : "socks5";
+        if (string.IsNullOrWhiteSpace(ip) || port == 0) return 0;
+        var scheme = (type ?? "").ToUpperInvariant() == "HTTP" ? "http" : "socks5";
         var auth = "";
-        if (_proxyUser.Length > 0 || _proxyPass.Length > 0)
-            auth = Uri.EscapeDataString(_proxyUser) + ":" + Uri.EscapeDataString(_proxyPass) + "@";
-        return $"{scheme}://{auth}{_proxyIp}:{_proxyPort}";
+        if (!string.IsNullOrEmpty(username) || !string.IsNullOrEmpty(password))
+            auth = Uri.EscapeDataString(username ?? "") + ":" + Uri.EscapeDataString(password ?? "") + "@";
+        var url = $"{scheme}://{auth}{ip.Trim()}:{port}";
+        lock (_tableLock)
+        {
+            var id = _nextProxyId++;
+            _proxies.Add((id, url));
+            return id;
+        }
+    }
+
+    public void ClearProxies()
+    {
+        lock (_tableLock)
+        {
+            _proxies.Clear();
+            _rules.Clear();
+        }
+    }
+
+    public uint AddRuleEx(string processName, string targetHosts, string targetPorts, string protocol, string action, uint proxyId)
+    {
+        var process = (processName ?? "").Trim();
+        if (process.Length == 0) return 0;
+        var act = (action ?? "").ToUpperInvariant() switch
+        {
+            "PROXY" => "proxy",
+            "BLOCK" => "block",
+            _ => "direct"
+        };
+        lock (_tableLock)
+        {
+            if (act == "proxy" && !_proxies.Any(p => p.Id == proxyId)) return 0;
+            var id = _nextRuleId++;
+            _rules.Add((id, process, act, act == "proxy" ? proxyId : 0));
+            return id;
+        }
+    }
+
+    public uint AddRule(string processName, string targetHosts, string targetPorts, string protocol, string action)
+    {
+        uint first;
+        lock (_tableLock) first = _proxies.Count > 0 ? _proxies[0].Id : 0;
+        return AddRuleEx(processName, targetHosts, targetPorts, protocol, action, first);
+    }
+
+    public bool DeleteRule(uint ruleId)
+    {
+        lock (_tableLock) return _rules.RemoveAll(r => r.Id == ruleId) > 0;
+    }
+
+    /// <summary>The recorded table as the JSON pbcore reads (internal/rules).</summary>
+    private string BuildRulesJson()
+    {
+        lock (_tableLock)
+        {
+            var proxies = new JsonArray();
+            foreach (var p in _proxies)
+                proxies.Add(new JsonObject { ["id"] = p.Id, ["url"] = p.Url });
+            var rules = new JsonArray();
+            foreach (var r in _rules)
+            {
+                var o = new JsonObject { ["process"] = r.Process, ["action"] = r.Action };
+                if (r.Action == "proxy") o["proxy"] = r.ProxyId;
+                rules.Add(o);
+            }
+            return new JsonObject { ["proxies"] = proxies, ["rules"] = rules }.ToJsonString();
+        }
+    }
+
+    private int RuleCount()
+    {
+        lock (_tableLock) return _rules.Count;
     }
 
     private static string PbcorePath => Path.Combine(AppContext.BaseDirectory, "pbcore");
+
+    // ------------------------------------------------------------------
+    // Start / stop
+    // ------------------------------------------------------------------
 
     public async Task<bool> StartAsync()
     {
         _lastError = "";
         if (_isRunning) return true;
-        if (string.IsNullOrEmpty(_proxyIp))
-        {
-            _lastError = I18n.T("engine.not_configured");
-            return false;
-        }
         if (!File.Exists(PbcorePath))
         {
             _lastError = I18n.T("engine.mac.helper_missing", PbcorePath);
@@ -107,16 +189,16 @@ public sealed class MacProxyEngine : IProxyEngine
         _token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
         try { File.WriteAllText(_tokenFile, _token); SetPrivate(_tokenFile); } catch { }
 
-        var proxyFile = Path.Combine(_dataDir, "pbcore.proxy");
+        var rulesFile = Path.Combine(_dataDir, "pbcore.rules");
         var launcher = Path.Combine(_dataDir, "pbcore-launch.sh");
         try
         {
-            File.WriteAllText(proxyFile, BuildProxyUrl() + "\n");
-            SetPrivate(proxyFile);
+            File.WriteAllText(rulesFile, BuildRulesJson() + "\n");
+            SetPrivate(rulesFile);
 
             var args = string.Join(" ",
                 Q(PbcorePath),
-                "--proxy-file", Q(proxyFile),
+                "--rules-file", Q(rulesFile),
                 "--dns", DefaultDns,
                 "--control-port", ControlPort.ToString(),
                 "--control-token", _token,
@@ -145,7 +227,7 @@ public sealed class MacProxyEngine : IProxyEngine
         _stopRequested = false;
         _up = 0;
         _down = 0;
-        Log("Requesting administrator privileges to start pbcore...");
+        Log($"Requesting administrator privileges to start pbcore ({RuleCount()} rules)...");
         var (ok, output) = await RunOsascriptAsync(launcher);
         try { File.Delete(launcher); } catch { }
         if (!ok)
@@ -154,7 +236,7 @@ public sealed class MacProxyEngine : IProxyEngine
                 ? I18n.T("engine.mac.admin_cancelled")
                 : I18n.T("engine.mac.start_failed", output);
             Log(_lastError);
-            try { File.Delete(proxyFile); } catch { }
+            try { File.Delete(rulesFile); } catch { }
             return false;
         }
 
@@ -165,7 +247,7 @@ public sealed class MacProxyEngine : IProxyEngine
         {
             _lastError = I18n.T("engine.mac.no_control") + " " + TailLog();
             Log(_lastError);
-            try { File.Delete(proxyFile); } catch { }
+            try { File.Delete(rulesFile); } catch { }
             return false;
         }
 
@@ -179,7 +261,7 @@ public sealed class MacProxyEngine : IProxyEngine
         _watchTask = Task.Run(() => WatchLoop(reader, upTcs, _watchCts.Token));
 
         var first = await Task.WhenAny(upTcs.Task, Task.Delay(TimeSpan.FromSeconds(45)));
-        try { File.Delete(proxyFile); } catch { }
+        try { File.Delete(rulesFile); } catch { }
         if (first != upTcs.Task || !upTcs.Task.Result)
         {
             if (string.IsNullOrEmpty(_lastError)) _lastError = I18n.T("engine.mac.not_ready") + " " + TailLog();
@@ -189,6 +271,36 @@ public sealed class MacProxyEngine : IProxyEngine
         }
         _isRunning = true;
         return true;
+    }
+
+    /// <summary>Sends the recorded table to the running helper in one "rules" command.</summary>
+    public async Task<bool> CommitRulesAsync()
+    {
+        if (!_isRunning || string.IsNullOrEmpty(_token))
+        {
+            _lastError = I18n.T("engine.mac.stopped");
+            return false;
+        }
+        var json = BuildRulesJson();
+        var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+        string? reply;
+        try
+        {
+            reply = await Task.Run(() => SendCommand("rules", _token, TimeSpan.FromSeconds(10), payload));
+        }
+        catch (Exception ex)
+        {
+            reply = "error " + ex.Message;
+        }
+        if (reply == "ok")
+        {
+            Log($"[pbcore] rules replaced ({RuleCount()} rules)");
+            _lastError = "";
+            return true;
+        }
+        _lastError = I18n.T("engine.mac.rules_failed", (reply ?? "no reply").Replace("error ", ""));
+        Log(_lastError);
+        return false;
     }
 
     private void WatchLoop(StreamReader reader, TaskCompletionSource<bool> upTcs, CancellationToken ct)
@@ -216,8 +328,11 @@ public sealed class MacProxyEngine : IProxyEngine
                     switch (status)
                     {
                         case "up":
-                            Log($"[pbcore] up: tun={GetStr(root, "tun")} proxy={GetStr(root, "proxy")}");
+                            Log($"[pbcore] up: tun={GetStr(root, "tun")} all other programs -> {GetStr(root, "proxy")} rules={GetInt(root, "rules")} procmap={GetStr(root, "procmap")}");
                             upTcs.TrySetResult(true);
+                            break;
+                        case "rules":
+                            Log($"[pbcore] rules active: {GetInt(root, "rules")}");
                             break;
                         case "stats":
                             if (root.TryGetProperty("up", out var u) && u.TryGetInt64(out var upv)) Interlocked.Exchange(ref _up, upv);
@@ -260,6 +375,9 @@ public sealed class MacProxyEngine : IProxyEngine
 
     private static string GetStr(JsonElement root, string name)
         => root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static int GetInt(JsonElement root, string name)
+        => root.TryGetProperty(name, out var v) && v.TryGetInt32(out var i) ? i : 0;
 
     public bool Stop()
     {
@@ -308,7 +426,7 @@ public sealed class MacProxyEngine : IProxyEngine
         }
     }
 
-    private static string? SendCommand(string command, string token, TimeSpan timeout)
+    private static string? SendCommand(string command, string token, TimeSpan timeout, string? argument = null)
     {
         using var client = new TcpClient();
         var connect = client.ConnectAsync("127.0.0.1", ControlPort);
@@ -316,9 +434,10 @@ public sealed class MacProxyEngine : IProxyEngine
         using var stream = client.GetStream();
         stream.ReadTimeout = (int)timeout.TotalMilliseconds;
         stream.WriteTimeout = (int)timeout.TotalMilliseconds;
-        var data = Encoding.ASCII.GetBytes($"{command} {token}\n");
+        var line = argument == null ? $"{command} {token}\n" : $"{command} {token} {argument}\n";
+        var data = Encoding.ASCII.GetBytes(line);
         stream.Write(data, 0, data.Length);
-        var buf = new byte[256];
+        var buf = new byte[1024];
         var n = stream.Read(buf, 0, buf.Length);
         return n > 0 ? Encoding.ASCII.GetString(buf, 0, n).Trim() : "";
     }
@@ -403,19 +522,6 @@ public sealed class MacProxyEngine : IProxyEngine
     }
 
     private static string Q(string s) => "'" + s.Replace("'", "'\\''") + "'";
-
-    // Rules are not needed by pbcore (everything except local networks goes through the
-    // proxy by design); ids are returned so callers can keep their bookkeeping.
-    public uint AddRule(string processName, string targetHosts, string targetPorts, string protocol, string action)
-        => _nextRuleId++;
-
-    public bool DeleteRule(uint ruleId) => true;
-
-    public uint AddProxy(string type, string ip, ushort port, string username, string password) => 0;
-
-    public void ClearProxies() { }
-
-    public uint AddRuleEx(string processName, string targetHosts, string targetPorts, string protocol, string action, uint proxyId) => 0;
 
     public bool TryGetTrafficStats(out long upBytes, out long downBytes)
     {

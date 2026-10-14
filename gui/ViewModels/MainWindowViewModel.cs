@@ -36,7 +36,6 @@ public class MainWindowViewModel : ViewModelBase
     private bool _isBusy;
     private bool _autoConnectDone;
     private AppliedRules? _applied;
-    private uint _macRuleId;
     private bool _pendingApply;
     private Task<FirewallResult>? _firewallTask;
     private bool _hasFirewallWarning;
@@ -259,8 +258,8 @@ public class MainWindowViewModel : ViewModelBase
     // ====================================================================
     // Platform
     // ====================================================================
-    /// <summary>Per-app rules are available (Windows engine). On macOS only "all other apps" exists.</summary>
-    public bool SupportsSplitTunnel => _engine?.SupportsSplitTunnel ?? !OperatingSystem.IsMacOS();
+    /// <summary>Per-app rules are available (Windows core and macOS pbcore).</summary>
+    public bool SupportsSplitTunnel => _engine?.SupportsSplitTunnel ?? true;
     public bool IsWindows => OperatingSystem.IsWindows();
     public string AppVersion => LicenseService.AppVersion;
 
@@ -864,11 +863,21 @@ public class MainWindowViewModel : ViewModelBase
             {
                 Title = I18n.T("apps.browse_title"),
                 AllowMultiple = false,
-                FileTypeFilter = new[]
-                {
-                    new FilePickerFileType(I18n.T("file.programs")) { Patterns = new[] { "*.exe" } },
-                    new FilePickerFileType(I18n.T("file.all")) { Patterns = new[] { "*.*" } }
-                }
+                FileTypeFilter = OperatingSystem.IsMacOS()
+                    ? new[]
+                    {
+                        new FilePickerFileType(I18n.T("file.programs"))
+                        {
+                            Patterns = new[] { "*.app" },
+                            AppleUniformTypeIdentifiers = new[] { "com.apple.application-bundle", "public.unix-executable" }
+                        },
+                        new FilePickerFileType(I18n.T("file.all")) { Patterns = new[] { "*" } }
+                    }
+                    : new[]
+                    {
+                        new FilePickerFileType(I18n.T("file.programs")) { Patterns = new[] { "*.exe" } },
+                        new FilePickerFileType(I18n.T("file.all")) { Patterns = new[] { "*.*" } }
+                    }
             });
             if (files.Count == 0) return;
             var path = files[0].TryGetLocalPath() ?? "";
@@ -970,7 +979,7 @@ public class MainWindowViewModel : ViewModelBase
             return null;
         }
         var rows = SupportsSplitTunnel
-            ? Rules.Select(r => new RuleInput(r.ProcessName, r.Mapping.ProxyString, r.Enabled))
+            ? Rules.Select(r => new RuleInput(RuleProcess(r), r.Mapping.ProxyString, r.Enabled))
             : Enumerable.Empty<RuleInput>();
         var plan = RulePlanner.Build(rows, _defaultChoice.Raw);
         if (!plan.IsValid)
@@ -980,6 +989,10 @@ public class MainWindowViewModel : ViewModelBase
         }
         return plan;
     }
+
+    /// <summary>What the engine matches on: the exe name on Windows, the .app bundle or executable path on macOS.</summary>
+    private static string RuleProcess(RuleRow r)
+        => OperatingSystem.IsMacOS() && r.Mapping.ExePath.Length > 0 ? r.Mapping.ExePath : r.ProcessName;
 
     private async Task Connect()
     {
@@ -1028,9 +1041,6 @@ public class MainWindowViewModel : ViewModelBase
             foreach (var r in plan.Rules)
                 Log($"  rule {r.Process} -> {(r.IsDirect ? "DIRECT" : AppLog.Sanitize(r.Proxy))}");
 
-            if (!SupportsSplitTunnel)
-                return await StartMac(engine, plan);
-
             // Optional legacy switches: the core proxies TCP only and sends DNS direct (docs/CORE_API.md),
             // so a core without these exports is fine.
             Optional(() => engine.SetDisableUdp(true));
@@ -1044,6 +1054,21 @@ public class MainWindowViewModel : ViewModelBase
                 return false;
             }
 
+            // pbcore (macOS) takes the whole table at start, so the very first connections already
+            // follow the rules; the Windows core takes rules only after Start.
+            var rulesFirst = engine is ILiveRules;
+            if (rulesFirst)
+            {
+                RulePlanner.AddRules(engine, plan, applied);
+                if (!applied.Ok)
+                {
+                    AppLog.Error($"AddRuleEx failed for {applied.ErrorArg}");
+                    engine.ClearProxies();
+                    Status.Set(applied.ErrorKey, StatusKind.Error, applied.ErrorArg);
+                    return false;
+                }
+            }
+
             if (!await engine.StartAsync())
             {
                 AppLog.Error($"Start failed: {engine.LastError}");
@@ -1053,7 +1078,7 @@ public class MainWindowViewModel : ViewModelBase
                 return false;
             }
 
-            RulePlanner.AddRules(engine, plan, applied);
+            if (!rulesFirst) RulePlanner.AddRules(engine, plan, applied);
             _applied = applied;
             if (!applied.Ok)
             {
@@ -1080,27 +1105,6 @@ public class MainWindowViewModel : ViewModelBase
         catch (EntryPointNotFoundException ex) { AppLog.Info($"Optional core export missing: {ex.Message}"); }
     }
 
-    /// <summary>macOS: one proxy for the whole computer (pbcore).</summary>
-    private async Task<bool> StartMac(IProxyEngine engine, RulePlan plan)
-    {
-        ProxyParser.TryParse(plan.DefaultProxy, out var p);
-        if (!engine.SetProxyConfig(p.Type, p.Host, ushort.Parse(p.Port), p.User, p.Pass))
-        {
-            Status.Set("status.configure_failed", StatusKind.Error, $"{p.Type} {p.HostPort}");
-            return false;
-        }
-        engine.SetDisableUdp(true);
-        if (!await engine.StartAsync())
-        {
-            AppLog.Error($"Start failed: {engine.LastError}");
-            Status.Set(string.IsNullOrEmpty(engine.LastError) ? "status.start_failed_admin" : "status.error_detail",
-                StatusKind.Error, engine.LastError);
-            return false;
-        }
-        _macRuleId = engine.AddRule("*", "*", "*", "BOTH", "PROXY");
-        return true;
-    }
-
     /// <summary>Removes the rules and proxies and stops the engine. Safe to call twice.</summary>
     private void StopEngine()
     {
@@ -1111,11 +1115,6 @@ public class MainWindowViewModel : ViewModelBase
             if (_applied != null)
                 foreach (var id in _applied.RuleIds)
                     try { engine.DeleteRule(id); } catch { }
-            if (_macRuleId > 0)
-            {
-                try { engine.DeleteRule(_macRuleId); } catch { }
-                _macRuleId = 0;
-            }
             _applied = null;
             try { engine.ClearProxies(); } catch { }
             engine.Stop();
@@ -1144,7 +1143,7 @@ public class MainWindowViewModel : ViewModelBase
         return Task.CompletedTask;
     }
 
-    /// <summary>Connected and the table changed: restart the engine with the new rules.</summary>
+    /// <summary>Connected and the table changed: hand the new rules to the engine (macOS: live; Windows: restart).</summary>
     private async Task ApplyLive()
     {
         if (_demo || !IsConnected) return;
@@ -1153,8 +1152,26 @@ public class MainWindowViewModel : ViewModelBase
             _pendingApply = true;
             return;
         }
-        Log("Rules changed while connected: restarting the engine");
         var plan = BuildPlan(Status);
+        if (plan != null && _engine is ILiveRules live)
+        {
+            Log("Rules changed while connected: applying live");
+            SetBusy(true);
+            var ok = false;
+            try { ok = await ApplyRulesLive(live, plan); }
+            finally { SetBusy(false); }
+            if (ok)
+            {
+                Status.Set("status.applied", StatusKind.Success);
+                _ = MeasureLatencyAsync();
+                return;
+            }
+            Log("Live apply failed, restarting the engine");
+        }
+        else
+        {
+            Log("Rules changed while connected: restarting the engine");
+        }
         SetBusy(true);
         try
         {
@@ -1185,6 +1202,32 @@ public class MainWindowViewModel : ViewModelBase
         {
             SetBusy(false);
         }
+    }
+
+    /// <summary>Re-records proxies and rules in the running engine and commits them in one step.</summary>
+    private async Task<bool> ApplyRulesLive(ILiveRules live, RulePlan plan)
+    {
+        var engine = (IProxyEngine)live;
+        var applied = RulePlanner.RegisterProxies(engine, plan);
+        if (!applied.Ok)
+        {
+            Status.Set(applied.ErrorKey, StatusKind.Error, applied.ErrorArg);
+            return false;
+        }
+        RulePlanner.AddRules(engine, plan, applied);
+        if (!applied.Ok)
+        {
+            Status.Set(applied.ErrorKey, StatusKind.Error, applied.ErrorArg);
+            return false;
+        }
+        if (!await live.CommitRulesAsync())
+        {
+            AppLog.Error($"Live rules failed: {engine.LastError}");
+            return false;
+        }
+        _applied = applied;
+        Log($"Rules applied live: {plan.Proxies.Count} proxies, {plan.Rules.Count} rules");
+        return true;
     }
 
     public void Cleanup()

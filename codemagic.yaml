@@ -1,11 +1,11 @@
 workflows:
   mac-build:
-    name: macOS build, sign, package and launch test
+    name: macOS build, sign, package and test
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
       vars:
-        VERSION: "3.4.2"
+        VERSION: "3.5.0"
     scripts:
       - name: Install .NET 9 and Go
         script: |
@@ -20,33 +20,11 @@ workflows:
           "$HOME/go-sdk/go/bin/go" version
           "$HOME/.dotnet/dotnet" --version
 
-      - name: Diagnose the current release zip (built on Windows)
-        script: |
-          set +e
-          mkdir -p out diag && cd diag
-          curl -sSL -o old.zip "https://github.com/Inter1ark/Proxy-Bridge/releases/download/v${VERSION}/ProxyBridge-${VERSION}-macOS-arm64.zip"
-          ditto -x -k old.zip .
-          app="$(ls -d *.app | head -1)"
-          echo "== codesign"; codesign -dv --verbose=4 "$app" 2>&1 | head -20
-          codesign --verify --deep --strict --verbose=2 "$app" 2>&1 | tail -5
-          echo "== spctl"; spctl --assess --type execute --verbose=4 "$app" 2>&1
-          echo "== direct start"
-          PROXYBRIDGE_CONFIG_DIR="$(mktemp -d)" "$app/Contents/MacOS/ProxyBridge" > ../out/old-zip-start.log 2>&1 &
-          pid=$!; sleep 15
-          if kill -0 "$pid" 2>/dev/null; then echo "OLD ZIP: RUNNING"; kill "$pid"; else echo "OLD ZIP: EXITED"; fi
-          tail -n 40 ../out/old-zip-start.log
-          echo "== open via LaunchServices"
-          open "$app"; sleep 10
-          pgrep -fl ProxyBridge || echo "not running after open"
-          pkill -f ProxyBridge || true
-          log show --last 2m --style compact --predicate 'eventMessage CONTAINS[c] "ProxyBridge"' 2>/dev/null | tail -40 > ../out/old-zip-system.log
-          tail -n 25 ../out/old-zip-system.log
-          exit 0
-
       - name: Build pbcore
         script: |
           set -e
           cd core-go
+          go vet ./...
           go test ./...
           mkdir -p dist
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/pbcore-darwin-arm64 .
@@ -92,12 +70,11 @@ workflows:
           </plist>
           EOF
             chmod +x "$app/Contents/MacOS/ProxyBridge" "$app/Contents/MacOS/pbcore"
-            # Ad-hoc signature: every file in Contents/MacOS, then the bundle (no Apple account needed).
-            # nested files first (the .dll files get their signatures in extended attributes), the main
-            # executable last through the bundle itself
+            # Ad-hoc signature: nested files first (the .dll files get their signatures in extended
+            # attributes), the main executable last through the bundle itself. No Apple account needed.
             find "$app/Contents/MacOS" -type f ! -name ProxyBridge -print0 | xargs -0 -n 1 codesign --force --sign - --timestamp=none
             codesign --force --sign - --timestamp=none "$app"
-            codesign --verify --deep --strict --verbose=2 "$app"
+            codesign --verify --deep --strict "$app"
             # Installer package: an app installed by Installer is not quarantined.
             pkgbuild --analyze --root "$root" "work/comp-$suffix.plist"
             plutil -replace 0.BundleIsRelocatable -bool NO "work/comp-$suffix.plist"
@@ -115,45 +92,83 @@ workflows:
           sudo installer -pkg "out/ProxyBridge-${VERSION}-macOS-arm64.pkg" -target /
           app=/Applications/ProxyBridge.app
           echo "quarantine after install:"; xattr -p com.apple.quarantine "$app" 2>/dev/null || echo "none"
-          codesign --verify --deep --strict --verbose=2 "$app"
-          spctl --assess --type execute --verbose=4 "$app"
+          codesign --verify --deep --strict "$app" && echo "signature ok"
+          spctl --assess --type execute "$app" 2>&1
           "$app/Contents/MacOS/pbcore" --version
           PROXYBRIDGE_CONFIG_DIR="$(mktemp -d)" "$app/Contents/MacOS/ProxyBridge" > out/pkg-app-start.log 2>&1 &
-          pid=$!; sleep 25
-          if kill -0 "$pid" 2>/dev/null; then echo "PKG APP: RUNNING after 25 s"; else echo "PKG APP: EXITED"; fi
-          screencapture -x out/pkg-app-start.png
+          pid=$!; sleep 20
+          if kill -0 "$pid" 2>/dev/null; then echo "PKG APP: RUNNING after 20 s"; else echo "PKG APP: EXITED"; fi
           kill "$pid" 2>/dev/null
-          tail -n 40 out/pkg-app-start.log
+          grep -v -E "^\s|^$|^struct|^vertex|^fragment|^Error Domain|^#" out/pkg-app-start.log | tail -n 20
+          echo "== ps comm sample (full paths expected)"; ps -axo pid=,comm= | head -5
           exit 0
 
-      - name: Core end-to-end test (pbcore as root through a real proxy)
+      - name: Core end-to-end test (per-program rules through a real proxy)
         script: |
           set +e
-          app=/Applications/ProxyBridge.app
           if [ -z "${TEST_PROXY:-}" ]; then echo "TEST_PROXY not set, skipping"; exit 0; fi
-          printf '%s\n' "$TEST_PROXY" > /tmp/pb.proxy
-          echo "direct IP: $(curl -s -m 10 https://api.ipify.org)"
+          core=/Applications/ProxyBridge.app/Contents/MacOS/pbcore
+          python3 - "$TEST_PROXY" <<'PY' > /tmp/rules1.json
+          import json, sys
+          print(json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}],
+                            "rules": [{"process": "curl", "action": "direct"},
+                                      {"process": "*", "action": "proxy", "proxy": 1}]}))
+          PY
+          direct_ip=$(curl -4 -sS -m 15 https://api.ipify.org); echo "direct IP: $direct_ip"
           # the same launcher the app writes (no nohup), run as root without a console
           cat > /tmp/pb-launch.sh <<EOF
           #!/bin/sh
           trap '' HUP
-          "$app/Contents/MacOS/pbcore" --proxy-file /tmp/pb.proxy --dns 1.1.1.1 --control-port 34050 --control-token t0k --log-level info > /tmp/pbcore.log 2>&1 < /dev/null &
+          "$core" --rules-file /tmp/rules1.json --dns 1.1.1.1 --control-port 34050 --control-token t0k --log-level debug > /tmp/pbcore.log 2>&1 < /dev/null &
           exit 0
           EOF
           sudo /bin/sh /tmp/pb-launch.sh < /dev/null
-          sleep 8
+          for i in $(seq 1 30); do grep -q '"status":"up"' /tmp/pbcore.log && break; sleep 0.5; done
+          grep -E 'procmap|up:|rule |proxy 1' /tmp/pbcore.log
+          tun=$(sed -n 's/.*TUN \(utun[0-9]*\) created.*/\1/p' /tmp/pbcore.log | head -1)
+          echo "tun=$tun"; ifconfig "$tun" 2>&1 | head -3
+          echo "== routes"; netstat -rn -f inet | grep -E "^(default|0/1|128.0/1|10.255|1.1.1.1)"
+          sudo tcpdump -i "$tun" -n -c 60 > /tmp/tcpdump.log 2>&1 &
           echo "ping: $(printf 'ping t0k\n' | nc -w 3 127.0.0.1 34050)"
-          echo "IP through pbcore: $(curl -s -m 20 https://api.ipify.org)"
-          curl -s -m 20 "http://ip-api.com/json/?fields=country,city,isp,query"; echo
-          echo "== pbcore log"; tail -n 30 /tmp/pbcore.log
+
+          echo "== 1) curl (rule: direct) https"
+          curl -4 -sS -m 40 -w ' [%{http_code} %{time_total}s]\n' https://api.ipify.org; echo " exit=$?"
+          echo "== 2) python3 (catch-all: proxy) http"
+          python3 -c "import urllib.request; print(urllib.request.urlopen('http://ip-api.com/json/?fields=query,country,city', timeout=40).read().decode())"; echo " exit=$?"
+          echo "== 3) python3 (catch-all: proxy) https"
+          python3 -c "import urllib.request; print(urllib.request.urlopen('https://api.ipify.org', timeout=40).read().decode())"; echo " exit=$?"
+
+          echo "== 4) live rules: curl -> proxy"
+          rules2=$(python3 - "$TEST_PROXY" <<'PY'
+          import base64, json, sys
+          s = json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}], "rules": [{"process": "curl", "action": "proxy", "proxy": 1}]})
+          print(base64.b64encode(s.encode()).decode())
+          PY
+          )
+          echo "rules reply: $(printf 'rules t0k %s\n' "$rules2" | nc -w 5 127.0.0.1 34050)"
+          curl -4 -sS -m 40 -w ' [%{http_code} %{time_total}s]\n' https://api.ipify.org; echo " exit=$?"
+          echo "== 5) no rule for python3 now -> direct"
+          python3 -c "import urllib.request; print(urllib.request.urlopen('https://api.ipify.org', timeout=40).read().decode())"; echo " exit=$?"
+          echo "== 6) block rule for curl"
+          rules3=$(python3 - "$TEST_PROXY" <<'PY'
+          import base64, json, sys
+          s = json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}], "rules": [{"process": "/usr/bin/curl", "action": "block"}, {"process": "*", "action": "proxy", "proxy": 1}]})
+          print(base64.b64encode(s.encode()).decode())
+          PY
+          )
+          echo "rules reply: $(printf 'rules t0k %s\n' "$rules3" | nc -w 5 127.0.0.1 34050)"
+          curl -4 -sS -m 15 https://api.ipify.org; echo " curl exit=$? (expected: connection reset)"
+
+          echo "== pbcore log (last 60)"; tail -n 60 /tmp/pbcore.log
+          echo "== tcpdump"; sleep 2; sudo pkill tcpdump; head -70 /tmp/tcpdump.log
           printf 'stop t0k\n' | nc -w 3 127.0.0.1 34050
           sleep 3
-          echo "IP after stop: $(curl -s -m 10 https://api.ipify.org)"
+          echo "IP after stop: $(curl -4 -sS -m 15 https://api.ipify.org)"
+          cp /tmp/pbcore.log out/pbcore-e2e.log; cp /tmp/tcpdump.log out/tcpdump.log
           sudo pkill -f pbcore
           exit 0
 
     artifacts:
       - out/*.pkg
       - out/*.zip
-      - out/*.png
       - out/*.log

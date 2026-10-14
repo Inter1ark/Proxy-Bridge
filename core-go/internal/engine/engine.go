@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -44,6 +45,19 @@ const (
 // DialFunc opens a TCP connection to target (ip:port) through the proxy.
 type DialFunc func(ctx context.Context, target string) (net.Conn, error)
 
+// Decision tells the engine what to do with one new TCP flow.
+type Decision struct {
+	// Dial opens the upstream connection. Nil (with Block false) means Options.Dial.
+	Dial DialFunc
+	// Block rejects the flow: the application sees a reset.
+	Block bool
+	// Label names the decision in the log ("proxy 1", "direct", "block").
+	Label string
+}
+
+// RouteFunc picks a Decision for a flow from src (the application's socket) to dst.
+type RouteFunc func(src, dst netip.AddrPort) Decision
+
 // Counters holds traffic totals in bytes. Up is client to proxy, Down is proxy to client.
 type Counters struct {
 	Up   atomic.Int64
@@ -53,8 +67,10 @@ type Counters struct {
 // Options configures the engine.
 type Options struct {
 	MTU uint32
-	// Dial is used for every TCP flow.
+	// Dial is used for every TCP flow that Route does not redirect.
 	Dial DialFunc
+	// Route, when set, is asked about every new TCP flow before dialing.
+	Route RouteFunc
 	// DNS is the ip:port of the resolver that udp/53 flows are forwarded to.
 	// Empty disables DNS forwarding (DNS over UDP is then dropped).
 	DNS string
@@ -237,11 +253,27 @@ func (e *Engine) handleTCP(r *tcp.ForwarderRequest) {
 	id := r.ID()
 	target := net.JoinHostPort(id.LocalAddress.String(), strconv.Itoa(int(id.LocalPort)))
 	go func() {
-		dialCtx, cancel := context.WithTimeout(e.ctx, 20*time.Second)
-		upstream, err := e.opts.Dial(dialCtx, target)
+		dial := e.opts.Dial
+		label := ""
+		if e.opts.Route != nil {
+			src := netip.AddrPortFrom(toAddr(id.RemoteAddress.AsSlice()), id.RemotePort)
+			dst := netip.AddrPortFrom(toAddr(id.LocalAddress.AsSlice()), id.LocalPort)
+			d := e.opts.Route(src, dst)
+			if d.Block {
+				e.opts.Logf("tcp %s: blocked by rule", target)
+				r.Complete(true)
+				return
+			}
+			if d.Dial != nil {
+				dial = d.Dial
+			}
+			label = d.Label
+		}
+		dialCtx, cancel := context.WithTimeout(e.ctx, 30*time.Second)
+		upstream, err := dial(dialCtx, target)
 		cancel()
 		if err != nil {
-			e.opts.Logf("tcp %s: %v", target, err)
+			e.opts.Logf("tcp %s (%s): %v", target, label, err)
 			r.Complete(true)
 			return
 		}
@@ -372,4 +404,9 @@ func (e *Engine) forwardDNS(client *gonet.UDPConn) {
 		}
 		e.opts.Stats.Up.Add(int64(n))
 	}
+}
+
+func toAddr(b []byte) netip.Addr {
+	a, _ := netip.AddrFromSlice(b)
+	return a.Unmap()
 }

@@ -94,19 +94,33 @@ type Dialer struct {
 	// of cfg.Host so that no DNS lookup happens after routing is changed.
 	serverAddr string
 	timeout    time.Duration
+	base       *net.Dialer
 }
 
 // NewDialer creates a dialer. serverAddr must be the resolved ip:port of the proxy.
 func NewDialer(cfg Config, serverAddr string, timeout time.Duration) *Dialer {
+	return NewDialerWith(cfg, serverAddr, timeout, nil)
+}
+
+// NewDialerWith is NewDialer with a base net.Dialer for the connection to the
+// proxy server (for example one bound to the physical interface).
+func NewDialerWith(cfg Config, serverAddr string, timeout time.Duration, base *net.Dialer) *Dialer {
 	if timeout <= 0 {
 		timeout = 15 * time.Second
 	}
-	return &Dialer{cfg: cfg, serverAddr: serverAddr, timeout: timeout}
+	if base == nil {
+		base = &net.Dialer{}
+	}
+	return &Dialer{cfg: cfg, serverAddr: serverAddr, timeout: timeout, base: base}
 }
+
+// Config returns the proxy configuration.
+func (d *Dialer) Config() Config { return d.cfg }
 
 // Dial connects to target (ip:port or host:port) through the proxy.
 func (d *Dialer) Dial(ctx context.Context, target string) (net.Conn, error) {
-	nd := net.Dialer{Timeout: d.timeout}
+	nd := *d.base
+	nd.Timeout = d.timeout
 	conn, err := nd.DialContext(ctx, "tcp", d.serverAddr)
 	if err != nil {
 		return nil, fmt.Errorf("connect to proxy %s: %w", d.serverAddr, err)
