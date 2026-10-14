@@ -93,7 +93,9 @@ workflows:
           EOF
             chmod +x "$app/Contents/MacOS/ProxyBridge" "$app/Contents/MacOS/pbcore"
             # Ad-hoc signature: every file in Contents/MacOS, then the bundle (no Apple account needed).
-            find "$app/Contents/MacOS" -type f -print0 | xargs -0 -n 1 codesign --force --sign - --timestamp=none
+            # nested files first (the .dll files get their signatures in extended attributes), the main
+            # executable last through the bundle itself
+            find "$app/Contents/MacOS" -type f ! -name ProxyBridge -print0 | xargs -0 -n 1 codesign --force --sign - --timestamp=none
             codesign --force --sign - --timestamp=none "$app"
             codesign --verify --deep --strict --verbose=2 "$app"
             # Installer package: an app installed by Installer is not quarantined.
