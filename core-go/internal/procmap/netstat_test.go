@@ -32,3 +32,23 @@ func TestParseNetstat(t *testing.T) {
 		t.Fatal("expected header error")
 	}
 }
+
+func TestParseNetstatProcessPid(t *testing.T) {
+	out := "Active Internet connections (including servers)\n" +
+		"Proto Recv-Q Send-Q  Local Address                                 Foreign Address                               (state)          rxbytes      txbytes  rhiwat  shiwat          process:pid    state  options           gencnt    flags   flags1 usecnt rtncnt fltrs\n" +
+		"tcp4       0      0  192.168.64.4.49332     185.184.192.44.10772   SYN_SENT               0            0  131072  131072           pbcore:10632  00184 00000000 0000000000002315 00000080 04000900      2      0 000000\n" +
+		"tcp4       0      0  10.255.0.2.49331       17.57.144.137.5223     SYN_SENT               0            0  131072  131072             apsd:137    00184 00020000 0000000000002314 00100001 04080900      2      0 000000\n"
+	conns, err := ParseNetstat(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(conns) != 2 {
+		t.Fatalf("got %d: %+v", len(conns), conns)
+	}
+	if pid, ok := Find(conns, netip.MustParseAddrPort("10.255.0.2:49331"), netip.MustParseAddrPort("17.57.144.137:5223")); !ok || pid != 137 {
+		t.Fatalf("apsd: %d %v", pid, ok)
+	}
+	if pid, ok := Find(conns, netip.MustParseAddrPort("192.168.64.4:49332"), netip.MustParseAddrPort("185.184.192.44:10772")); !ok || pid != 10632 {
+		t.Fatalf("pbcore: %d %v", pid, ok)
+	}
+}

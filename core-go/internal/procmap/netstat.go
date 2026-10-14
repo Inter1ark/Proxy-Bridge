@@ -22,7 +22,7 @@ func ParseNetstat(out string) ([]Conn, error) {
 		if f[0] == "Proto" {
 			extra := 0
 			for i, w := range f {
-				if w == "pid" {
+				if w == "pid" || w == "process:pid" {
 					pidIdx = i - extra
 					break
 				}
@@ -40,7 +40,12 @@ func ParseNetstat(out string) ([]Conn, error) {
 		if !ok1 || !ok2 {
 			continue
 		}
-		pid, err := strconv.Atoi(f[pidIdx])
+		// newer macOS prints "name:pid" in one column
+		pidStr := f[pidIdx]
+		if i := strings.LastIndex(pidStr, ":"); i >= 0 {
+			pidStr = pidStr[i+1:]
+		}
+		pid, err := strconv.Atoi(pidStr)
 		if err != nil || pid <= 0 {
 			continue
 		}

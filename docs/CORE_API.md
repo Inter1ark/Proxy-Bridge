@@ -27,3 +27,15 @@ The GUI (`gui\Interop\ProxyBridgeNative.cs`, `gui\Services\ProxyBridgeService.cs
 - Loopback, LAN broadcast/multicast, DHCP and the proxy servers themselves always go direct.
 - UDP is not proxied (goes direct); DNS goes direct.
 - No known memory-safety issues (the upstream CVE-2026-24402 fixes must be present).
+
+## macOS core (pbcore)
+
+On macOS the GUI (`gui\Services\MacProxyEngine.cs`) drives the bundled `pbcore` helper (source in `core-go/`) instead of a DLL. The semantics above hold: proxies have ids, rules are evaluated in insertion order, the first match wins, no match means DIRECT, the GUI's own process is never intercepted. The differences:
+
+- pbcore runs as root (one administrator prompt per connect) and gets the whole table at start as JSON in `--rules-file` (the file is deleted after reading):
+  `{"proxies":[{"id":1,"url":"socks5://user:pass@host:port"}],"rules":[{"process":"/Applications/Telegram.app","action":"proxy","proxy":1},{"process":"curl","action":"direct"},{"process":"*","action":"proxy","proxy":1}]}`
+  `action` is `proxy`, `direct` or `block`.
+- `process` is an `.app` bundle path (matches every executable inside it, helpers included), an executable path, or a bare name that matches the executable's file name or the bundle name (case-insensitive, `.app`/`.exe` suffix optional). The GUI sends the bundle or executable path when it knows it, else the name.
+- The owner of a connection is found through the `net.inet.tcp.pcblist_n` sysctl (pid of the socket) and `kern.procargs2` (executable path); when that self-test fails at start, `lsof` is used. The method is reported in the `up` status line (`"procmap":"pcblist"` or `"lsof"`).
+- Rules can be replaced while running: control socket command `rules <token> <base64 json>` answers `ok` or `error <reason>`; open connections keep their decision, new ones follow the new table. `MacProxyEngine` implements `ILiveRules.CommitRulesAsync()` for this, so the GUI never restarts the helper (and never asks for the password again) when the table changes.
+- Direct connections and connections to proxies leave through the interface of the original default route (`IP_BOUND_IF`), so they never re-enter the tunnel. UDP is not proxied; DNS over UDP goes direct to `--dns`.
