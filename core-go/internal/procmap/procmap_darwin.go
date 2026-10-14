@@ -23,9 +23,10 @@ type Resolver struct {
 	logf func(format string, args ...any)
 
 	mu       sync.Mutex
+	layout   Layout
+	useNet   bool // netstat fallback instead of the sysctl parser
 	conns    []Conn
 	connsAt  time.Time
-	useLsof  bool
 	exeCache map[int]exeEntry
 }
 
@@ -35,63 +36,82 @@ type exeEntry struct {
 }
 
 const (
-	// A fresh pcblist is reused for this long: bursts of new connections
-	// (a browser opening a page) share one sysctl call.
+	// A fresh table is reused for this long: bursts of new connections
+	// (a browser opening a page) share one read.
 	listTTL = 150 * time.Millisecond
 	exeTTL  = 2 * time.Minute
 )
 
-// New creates a resolver and checks that the pcblist parser works on this
-// kernel by looking up a connection the process makes to itself. When the
-// check fails the resolver falls back to lsof, which is slower but always right.
+// New creates a resolver. It calibrates the pcblist parser against a
+// connection the process makes to itself; when that fails it falls back to
+// "netstat -anv", which prints the owning pid of every socket.
 func New(logf func(string, ...any)) *Resolver {
 	if logf == nil {
 		logf = func(string, ...any) {}
 	}
-	r := &Resolver{logf: logf, exeCache: make(map[int]exeEntry)}
+	r := &Resolver{logf: logf, exeCache: make(map[int]exeEntry), layout: DefaultLayout}
 	if err := r.selfTest(); err != nil {
-		r.logf("procmap: pcblist self-test failed (%v): using lsof", err)
-		r.useLsof = true
+		r.logf("procmap: pcblist self-test failed (%v): using netstat", err)
+		r.useNet = true
+		if err := r.netstatSelfTest(); err != nil {
+			r.logf("procmap: netstat self-test failed too (%v): programs cannot be told apart, only the catch-all rule applies", err)
+		}
 	} else {
-		r.logf("procmap: pcblist self-test ok")
+		r.logf("procmap: pcblist self-test ok (layout ports@%d addrs@%d/%d pid@%d kinds %#x/%#x)",
+			r.layout.Fport, r.layout.Faddr4, r.layout.Laddr4, r.layout.Pid, r.layout.InpKind, r.layout.SoKind)
 	}
 	return r
 }
 
-// UsesLsof reports whether the slow fallback is active.
-func (r *Resolver) UsesLsof() bool { return r.useLsof }
+// Method names the attribution method for the status line.
+func (r *Resolver) Method() string {
+	if r.useNet {
+		return "netstat"
+	}
+	return "pcblist"
+}
 
-func (r *Resolver) selfTest() error {
+// UsesLsof is kept for API compatibility: true when the slow fallback is active.
+func (r *Resolver) UsesLsof() bool { return r.useNet }
+
+func selfConnection() (local, remote netip.AddrPort, closeAll func(), err error) {
 	ln, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
-		return err
+		return local, remote, nil, err
 	}
-	defer ln.Close()
 	c, err := net.Dial("tcp4", ln.Addr().String())
 	if err != nil {
-		return err
+		ln.Close()
+		return local, remote, nil, err
 	}
-	defer c.Close()
 	srv, err := ln.Accept()
 	if err != nil {
-		return err
+		c.Close()
+		ln.Close()
+		return local, remote, nil, err
 	}
-	defer srv.Close()
+	local = c.LocalAddr().(*net.TCPAddr).AddrPort()
+	remote = c.RemoteAddr().(*net.TCPAddr).AddrPort()
+	return local, remote, func() { srv.Close(); c.Close(); ln.Close() }, nil
+}
 
-	local := c.LocalAddr().(*net.TCPAddr).AddrPort()
-	remote := c.RemoteAddr().(*net.TCPAddr).AddrPort()
-	conns, err := readPcblist()
+func (r *Resolver) selfTest() error {
+	local, remote, closeAll, err := selfConnection()
 	if err != nil {
 		return err
 	}
-	pid, ok := Find(conns, local, remote)
+	defer closeAll()
+
+	b, err := unix.SysctlRaw("net.inet.tcp.pcblist_n")
+	if err != nil {
+		return fmt.Errorf("sysctl net.inet.tcp.pcblist_n: %w", err)
+	}
+	lay, ok := Calibrate(b, local, remote, os.Getpid())
 	if !ok {
-		return fmt.Errorf("own connection %s -> %s not listed (%d entries)", local, remote, len(conns))
+		return fmt.Errorf("own connection %s -> %s not recognizable in %d bytes / %d records", local, remote, len(b), len(Records(b)))
 	}
-	if pid != os.Getpid() {
-		return fmt.Errorf("own connection attributed to pid %d, want %d", pid, os.Getpid())
-	}
-	path, err := r.exePath(pid)
+	r.layout = lay
+	path, err := r.exePath(os.Getpid())
 	if err != nil {
 		return fmt.Errorf("exe path: %w", err)
 	}
@@ -102,22 +122,130 @@ func (r *Resolver) selfTest() error {
 	return nil
 }
 
-func readPcblist() ([]Conn, error) {
+func (r *Resolver) netstatSelfTest() error {
+	local, remote, closeAll, err := selfConnection()
+	if err != nil {
+		return err
+	}
+	defer closeAll()
+	conns, err := readNetstat()
+	if err != nil {
+		return err
+	}
+	pid, ok := Find(conns, local, remote)
+	if !ok {
+		return fmt.Errorf("own connection not listed (%d entries)", len(conns))
+	}
+	if pid != os.Getpid() {
+		return fmt.Errorf("own connection attributed to pid %d", pid)
+	}
+	return nil
+}
+
+func (r *Resolver) readTable() ([]Conn, error) {
+	if r.useNet {
+		return readNetstat()
+	}
 	b, err := unix.SysctlRaw("net.inet.tcp.pcblist_n")
 	if err != nil {
 		return nil, fmt.Errorf("sysctl net.inet.tcp.pcblist_n: %w", err)
 	}
-	return ParsePcblist(b), nil
+	return ParsePcblistLayout(b, r.layout), nil
+}
+
+// readNetstat parses "netstat -anv -p tcp": local and foreign address as
+// ip.port, and the pid in the 9th column.
+func readNetstat() ([]Conn, error) {
+	out, err := exec.Command("netstat", "-anv", "-p", "tcp").Output()
+	if err != nil {
+		return nil, fmt.Errorf("netstat: %w", err)
+	}
+	var conns []Conn
+	for _, line := range strings.Split(string(out), "\n") {
+		f := strings.Fields(line)
+		if len(f) < 9 || !strings.HasPrefix(f[0], "tcp4") {
+			continue
+		}
+		local, ok1 := parseNetstatAddr(f[3])
+		remote, ok2 := parseNetstatAddr(f[4])
+		if !ok1 || !ok2 {
+			continue
+		}
+		// columns after the addresses: (state) is present only for connected sockets
+		pidIdx := 8
+		if len(f) > 5 && !isNumber(f[5]) {
+			pidIdx = 8
+		} else {
+			pidIdx = 7
+		}
+		if pidIdx >= len(f) {
+			continue
+		}
+		pid, err := strconv.Atoi(f[pidIdx])
+		if err != nil || pid <= 0 {
+			continue
+		}
+		conns = append(conns, Conn{Local: local, Remote: remote, PID: pid})
+	}
+	return conns, nil
+}
+
+func isNumber(s string) bool {
+	_, err := strconv.Atoi(s)
+	return err == nil
+}
+
+// parseNetstatAddr turns "10.255.0.2.49479" or "*.*" into an address.
+func parseNetstatAddr(s string) (netip.AddrPort, bool) {
+	i := strings.LastIndex(s, ".")
+	if i <= 0 {
+		return netip.AddrPort{}, false
+	}
+	host, portStr := s[:i], s[i+1:]
+	var addr netip.Addr
+	if host == "*" {
+		addr = netip.IPv4Unspecified()
+	} else {
+		a, err := netip.ParseAddr(host)
+		if err != nil || !a.Is4() {
+			return netip.AddrPort{}, false
+		}
+		addr = a
+	}
+	port := 0
+	if portStr != "*" {
+		p, err := strconv.Atoi(portStr)
+		if err != nil {
+			return netip.AddrPort{}, false
+		}
+		port = p
+	}
+	return netip.AddrPortFrom(addr, uint16(port)), true
 }
 
 // Lookup returns the pid and executable path of the process that owns the TCP
 // connection local -> remote. A connection that just started may not be listed
 // on the first read, so one immediate retry is made.
 func (r *Resolver) Lookup(local, remote netip.AddrPort) (pid int, exe string, ok bool) {
-	if r.useLsof {
-		pid, ok = r.lsofPid(local)
-	} else {
-		pid, ok = r.sysctlPid(local, remote)
+	for attempt := 0; attempt < 2; attempt++ {
+		r.mu.Lock()
+		if attempt > 0 || time.Since(r.connsAt) > listTTL {
+			conns, err := r.readTable()
+			if err != nil {
+				r.mu.Unlock()
+				r.logf("procmap: %v", err)
+				return 0, "", false
+			}
+			r.conns = conns
+			r.connsAt = time.Now()
+		}
+		conns := r.conns
+		r.mu.Unlock()
+		if p, found := Find(conns, local, remote); found {
+			pid = p
+			ok = true
+			break
+		}
 	}
 	if !ok {
 		return 0, "", false
@@ -128,45 +256,6 @@ func (r *Resolver) Lookup(local, remote netip.AddrPort) (pid int, exe string, ok
 		return pid, "", true
 	}
 	return pid, exe, true
-}
-
-func (r *Resolver) sysctlPid(local, remote netip.AddrPort) (int, bool) {
-	for attempt := 0; attempt < 2; attempt++ {
-		r.mu.Lock()
-		stale := attempt > 0 || time.Since(r.connsAt) > listTTL
-		if stale {
-			conns, err := readPcblist()
-			if err != nil {
-				r.mu.Unlock()
-				r.logf("procmap: %v", err)
-				return 0, false
-			}
-			r.conns = conns
-			r.connsAt = time.Now()
-		}
-		conns := r.conns
-		r.mu.Unlock()
-		if pid, ok := Find(conns, local, remote); ok {
-			return pid, true
-		}
-	}
-	return 0, false
-}
-
-func (r *Resolver) lsofPid(local netip.AddrPort) (int, bool) {
-	// lsof -nP -a -iTCP -iTCP@10.255.0.2:51000 -Fp
-	out, err := exec.Command("lsof", "-nP", "-a", "-iTCP", "-iTCP@"+local.String(), "-Fp").Output()
-	if err != nil {
-		return 0, false
-	}
-	for _, line := range strings.Split(string(out), "\n") {
-		if strings.HasPrefix(line, "p") {
-			if pid, err := strconv.Atoi(strings.TrimSpace(line[1:])); err == nil && pid > 0 {
-				return pid, true
-			}
-		}
-	}
-	return 0, false
 }
 
 // exePath returns the executable of a process from "kern.procargs2": the

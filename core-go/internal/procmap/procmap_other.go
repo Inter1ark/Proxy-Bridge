@@ -16,6 +16,9 @@ func New(logf func(string, ...any)) *Resolver {
 	return &Resolver{}
 }
 
+// Method names the attribution method.
+func (r *Resolver) Method() string { return "none" }
+
 // UsesLsof is always false here.
 func (r *Resolver) UsesLsof() bool { return false }
 

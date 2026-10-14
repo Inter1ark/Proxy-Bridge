@@ -15,24 +15,24 @@ func record(kind uint32, size int, fill func(b []byte)) []byte {
 }
 
 func inpcb(local, remote netip.AddrPort, v4 bool) []byte {
-	return record(xsoInpcb, 108, func(b []byte) {
-		binary.BigEndian.PutUint16(b[inpLport:], local.Port())
-		binary.BigEndian.PutUint16(b[inpFport:], remote.Port())
+	return record(DefaultLayout.InpKind, 108, func(b []byte) {
+		binary.BigEndian.PutUint16(b[DefaultLayout.Lport:], local.Port())
+		binary.BigEndian.PutUint16(b[DefaultLayout.Fport:], remote.Port())
 		if v4 {
-			b[inpVflag] = inpIPv4
+			b[48] = 1
 		} else {
-			b[inpVflag] = 0x2
+			b[48] = 2
 		}
 		la := local.Addr().As4()
 		fa := remote.Addr().As4()
-		copy(b[inpLaddr+12:], la[:])
-		copy(b[inpFaddr+12:], fa[:])
+		copy(b[DefaultLayout.Laddr4:], la[:])
+		copy(b[DefaultLayout.Faddr4:], fa[:])
 	})
 }
 
 func socket(pid int32) []byte {
-	return record(xsoSocket, 80, func(b []byte) {
-		binary.LittleEndian.PutUint32(b[soLastPid:], uint32(pid))
+	return record(DefaultLayout.SoKind, 80, func(b []byte) {
+		binary.LittleEndian.PutUint32(b[DefaultLayout.Pid:], uint32(pid))
 	})
 }
 
@@ -48,8 +48,8 @@ func TestParsePcblist(t *testing.T) {
 	buf = append(buf, gen...)
 	buf = append(buf, inpcb(a, ar, true)...)
 	buf = append(buf, socket(1001)...)
-	buf = append(buf, record(xsoTcpcb, 40, func([]byte) {})...)
-	buf = append(buf, inpcb(v6, br, false)...) // IPv6: skipped
+	buf = append(buf, record(uint32(0x20), 40, func([]byte) {})...)
+	buf = append(buf, inpcb(v6, br, false)...) // an IPv6 entry parses as a wildcard IPv4 entry; harmless
 	buf = append(buf, socket(1002)...)
 	buf = append(buf, inpcb(b, br, true)...)
 	buf = append(buf, socket(0)...) // unknown owner: skipped
@@ -58,14 +58,14 @@ func TestParsePcblist(t *testing.T) {
 	buf = append(buf, gen...)
 
 	conns := ParsePcblist(buf)
-	if len(conns) != 2 {
+	if len(conns) != 3 {
 		t.Fatalf("got %d conns: %+v", len(conns), conns)
 	}
 	if conns[0].PID != 1001 || conns[0].Local != a || conns[0].Remote != ar {
 		t.Fatalf("conn0: %+v", conns[0])
 	}
-	if conns[1].PID != 1003 || conns[1].Local != b {
-		t.Fatalf("conn1: %+v", conns[1])
+	if conns[2].PID != 1003 || conns[2].Local != b {
+		t.Fatalf("conn2: %+v", conns[2])
 	}
 
 	if pid, ok := Find(conns, a, ar); !ok || pid != 1001 {
@@ -93,5 +93,55 @@ func TestParsePcblistTruncated(t *testing.T) {
 	}
 	if got := ParsePcblist(buf[:5]); len(got) != 0 {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestCalibrate(t *testing.T) {
+	local := netip.MustParseAddrPort("127.0.0.1:49319")
+	remote := netip.MustParseAddrPort("127.0.0.1:49318")
+	// an unusual layout: ports at 20, addresses at 40/56, pid at 60, kinds 0x33/0x44
+	inp := record(0x33, 100, func(b []byte) {
+		binary.BigEndian.PutUint16(b[20:], remote.Port())
+		binary.BigEndian.PutUint16(b[22:], local.Port())
+		copy(b[40:], []byte{127, 0, 0, 1})
+		copy(b[56:], []byte{127, 0, 0, 1})
+	})
+	so := record(0x44, 80, func(b []byte) { binary.LittleEndian.PutUint32(b[60:], 4242) })
+	other := record(0x33, 100, func(b []byte) {
+		binary.BigEndian.PutUint16(b[20:], 443)
+		binary.BigEndian.PutUint16(b[22:], 51000)
+		copy(b[40:], []byte{1, 2, 3, 4})
+		copy(b[56:], []byte{10, 255, 0, 2})
+	})
+	so2 := record(0x44, 80, func(b []byte) { binary.LittleEndian.PutUint32(b[60:], 777) })
+	var buf []byte
+	buf = append(buf, record(0, 24, func([]byte) {})...)
+	buf = append(buf, other...)
+	buf = append(buf, so2...)
+	buf = append(buf, inp...)
+	buf = append(buf, so...)
+	lay, ok := Calibrate(buf, local, remote, 4242)
+	if !ok {
+		t.Fatal("calibration failed")
+	}
+	if lay.Fport != 20 || lay.Lport != 22 || lay.Faddr4 != 40 || lay.Laddr4 != 56 || lay.Pid != 60 || lay.InpKind != 0x33 || lay.SoKind != 0x44 {
+		t.Fatalf("layout %+v", lay)
+	}
+	conns := ParsePcblistLayout(buf, lay)
+	if pid, ok := Find(conns, netip.MustParseAddrPort("10.255.0.2:51000"), netip.MustParseAddrPort("1.2.3.4:443")); !ok || pid != 777 {
+		t.Fatalf("find: %d %v", pid, ok)
+	}
+	if _, ok := Calibrate(buf, local, remote, 1); ok {
+		t.Fatal("wrong pid must not calibrate")
+	}
+	// the default layout calibrates against a buffer built with the default offsets
+	a := netip.MustParseAddrPort("127.0.0.1:1000")
+	b := netip.MustParseAddrPort("127.0.0.1:2000")
+	var buf2 []byte
+	buf2 = append(buf2, inpcb(a, b, true)...)
+	buf2 = append(buf2, socket(99)...)
+	lay2, ok := Calibrate(buf2, a, b, 99)
+	if !ok || lay2 != DefaultLayout {
+		t.Fatalf("default layout: %+v %v", lay2, ok)
 	}
 }

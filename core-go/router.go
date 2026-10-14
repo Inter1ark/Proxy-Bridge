@@ -68,12 +68,7 @@ func newRouter(log logger, gw netcfg.Gateway, undo *netcfg.Undo, exempt []int) *
 }
 
 // Procmap names the process attribution method for the status line.
-func (r *router) Procmap() string {
-	if r.procs.UsesLsof() {
-		return "lsof"
-	}
-	return "pcblist"
-}
+func (r *router) Procmap() string { return r.procs.Method() }
 
 // Load resolves the proxies of a set, pins their IPs to the real gateway and
 // makes the set current. Flows already open are not affected.

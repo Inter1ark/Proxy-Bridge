@@ -113,3 +113,26 @@ func RouteAllViaTun(cfg Config, original Gateway, undo *Undo) error {
 		return nil
 	}
 }
+
+// AddScopedDefault installs a default route scoped to the original interface
+// ("route add default <gw> -ifscope en0"). Sockets bound to that interface with
+// IP_BOUND_IF use scoped routes first; without one, the lookup picks the 0/1
+// and 128/1 tunnel routes and then rejects them for the wrong interface
+// ("network is unreachable"). A route that already exists is left alone.
+func AddScopedDefault(gw Gateway, undo *Undo) error {
+	if !gw.IP.IsValid() || gw.Interface == "" {
+		return nil
+	}
+	_, err := run("route", "-n", "add", "-inet", "default", gw.IP.String(), "-ifscope", gw.Interface)
+	if err != nil {
+		if strings.Contains(err.Error(), "exists") {
+			return nil
+		}
+		return err
+	}
+	undo.Push(func() error {
+		_, err := run("route", "-n", "delete", "-inet", "default", "-ifscope", gw.Interface)
+		return err
+	})
+	return nil
+}

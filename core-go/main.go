@@ -253,6 +253,12 @@ func main() {
 		return
 	}
 
+	// Direct connections leave through the original interface (IP_BOUND_IF) and need a
+	// default route scoped to it, or the tunnel routes win the lookup.
+	if err := netcfg.AddScopedDefault(gw, &undo); err != nil {
+		log.Warnf("scoped default route via %s: %v", gw.Interface, err)
+	}
+
 	// The direct resolver must stay reachable outside the tunnel.
 	if dnsAddr.IsValid() {
 		if err := netcfg.AddHostRoute(dnsAddr, gw, &undo); err != nil {

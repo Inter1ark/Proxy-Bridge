@@ -111,3 +111,7 @@ func RouteAllViaTun(cfg Config, original Gateway, undo *Undo) error {
 		return nil
 	}
 }
+
+// AddScopedDefault is not needed on Linux: SO_BINDTODEVICE sockets route
+// through the bound interface already.
+func AddScopedDefault(gw Gateway, undo *Undo) error { return nil }
