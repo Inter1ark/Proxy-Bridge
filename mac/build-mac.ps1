@@ -21,6 +21,10 @@ if (-not (Test-Path $icns)) { throw "Icon not found: $icns" }
 $python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) { $python = Get-Command py -ErrorAction SilentlyContinue }
 if (-not $python) { throw "python is required to build the zips" }
+# rcodesign (https://github.com/indygreg/apple-platform-rs, apple-codesign 0.29.0): mac/tools/rcodesign.exe or PATH
+$rcodesign = Join-Path $macDir "tools/rcodesign.exe"
+if (-not (Test-Path $rcodesign)) { $rcodesign = (Get-Command rcodesign -ErrorAction SilentlyContinue).Source }
+if (-not $rcodesign) { throw "rcodesign is required: put rcodesign.exe into mac/tools (apple-codesign release, x86_64-pc-windows-msvc)" }
 
 if (-not $SkipGo) {
     Write-Host "== building pbcore"
@@ -101,6 +105,23 @@ foreach ($t in $targets) {
     # Windows-only payload must not ship in the bundle.
     foreach ($junk in @("ProxyBridgeCore.dll", "WinDivert.dll", "WinDivert64.sys")) {
         Remove-Item (Join-Path $macos $junk) -Force -ErrorAction SilentlyContinue
+    }
+
+    # Apple Silicon refuses to run an unsigned arm64 executable, and dotnet does not sign the apphost
+    # when it builds on Windows. Ad-hoc sign every Mach-O file one by one (no Apple account needed).
+    # The bundle itself is not sealed: .NET keeps its .dll files in Contents/MacOS, which a bundle seal
+    # cannot cover, and a partial seal makes macOS report the app as damaged.
+    Write-Host ("== ad-hoc sign Mach-O files in {0}" -f $app)
+    # first bytes of thin 64-bit (CF FA ED FE) and universal (CA FE BA BE) Mach-O files
+    $machoMagic = @("CF-FA-ED-FE", "CA-FE-BA-BE")
+    foreach ($f in Get-ChildItem $macos -File -Recurse) {
+        $head = New-Object byte[] 4
+        $fs = [System.IO.File]::OpenRead($f.FullName)
+        try { $null = $fs.Read($head, 0, 4) } finally { $fs.Dispose() }
+        if ($machoMagic -contains [System.BitConverter]::ToString($head)) {
+            & $rcodesign sign $f.FullName 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "rcodesign failed for $($f.Name)" }
+        }
     }
 
     $zip = Join-Path $dist ("ProxyBridge-{0}-macOS-{1}.zip" -f $Version, $t.suffix)
