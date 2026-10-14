@@ -56,7 +56,8 @@ func Records(b []byte) []Record {
 			break
 		}
 		out = append(out, Record{Kind: kind, Data: b[off : off+l]})
-		off += l
+		// records are 8-byte aligned in the stream (ROUNDUP64 in netstat's walker)
+		off += (l + 7) &^ 7
 	}
 	return out
 }

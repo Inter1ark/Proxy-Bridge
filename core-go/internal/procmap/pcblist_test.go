@@ -6,11 +6,13 @@ import (
 	"testing"
 )
 
+// record builds one stream entry: the length field holds the declared size,
+// the entry itself is padded to 8 bytes like the kernel does.
 func record(kind uint32, size int, fill func(b []byte)) []byte {
-	b := make([]byte, size)
+	b := make([]byte, (size+7)&^7)
 	binary.LittleEndian.PutUint32(b[0:], uint32(size))
 	binary.LittleEndian.PutUint32(b[4:], kind)
-	fill(b)
+	fill(b[:size])
 	return b
 }
 
@@ -143,5 +145,19 @@ func TestCalibrate(t *testing.T) {
 	lay2, ok := Calibrate(buf2, a, b, 99)
 	if !ok || lay2 != DefaultLayout {
 		t.Fatalf("default layout: %+v %v", lay2, ok)
+	}
+}
+
+func TestRecordsAligned(t *testing.T) {
+	// a 36-byte record is followed by 4 bytes of padding before the next one
+	a := record(0x10, 36, func([]byte) {})
+	if len(a) != 40 {
+		t.Fatalf("helper must pad: %d", len(a))
+	}
+	b := record(0x01, 80, func(b []byte) { binary.LittleEndian.PutUint32(b[8:], 7) })
+	buf := append(append([]byte{}, a...), b...)
+	recs := Records(buf)
+	if len(recs) != 2 || recs[1].Kind != 0x01 || len(recs[1].Data) != 80 || len(recs[0].Data) != 36 {
+		t.Fatalf("records: %+v", recs)
 	}
 }

@@ -130,6 +130,7 @@ workflows:
           echo "== routes"; netstat -rn -f inet | grep -E "^(default|0/1|128.0/1|10.255|1.1.1.1)"
           sudo tcpdump -i "$tun" -n -c 60 > /tmp/tcpdump.log 2>&1 &
           echo "ping: $(printf 'ping t0k\n' | nc -w 3 127.0.0.1 34050)"
+          echo "== netstat sample"; netstat -anv -p tcp | head -4
 
           echo "== 1) curl (rule: direct) https"
           curl -4 -sS -m 40 -w ' [%{http_code} %{time_total}s]\n' https://api.ipify.org; echo " exit=$?"

@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -153,74 +152,13 @@ func (r *Resolver) readTable() ([]Conn, error) {
 	return ParsePcblistLayout(b, r.layout), nil
 }
 
-// readNetstat parses "netstat -anv -p tcp": local and foreign address as
-// ip.port, and the pid in the 9th column.
+// readNetstat runs "netstat -anv -p tcp", which prints the owning pid of every socket.
 func readNetstat() ([]Conn, error) {
 	out, err := exec.Command("netstat", "-anv", "-p", "tcp").Output()
 	if err != nil {
 		return nil, fmt.Errorf("netstat: %w", err)
 	}
-	var conns []Conn
-	for _, line := range strings.Split(string(out), "\n") {
-		f := strings.Fields(line)
-		if len(f) < 9 || !strings.HasPrefix(f[0], "tcp4") {
-			continue
-		}
-		local, ok1 := parseNetstatAddr(f[3])
-		remote, ok2 := parseNetstatAddr(f[4])
-		if !ok1 || !ok2 {
-			continue
-		}
-		// columns after the addresses: (state) is present only for connected sockets
-		pidIdx := 8
-		if len(f) > 5 && !isNumber(f[5]) {
-			pidIdx = 8
-		} else {
-			pidIdx = 7
-		}
-		if pidIdx >= len(f) {
-			continue
-		}
-		pid, err := strconv.Atoi(f[pidIdx])
-		if err != nil || pid <= 0 {
-			continue
-		}
-		conns = append(conns, Conn{Local: local, Remote: remote, PID: pid})
-	}
-	return conns, nil
-}
-
-func isNumber(s string) bool {
-	_, err := strconv.Atoi(s)
-	return err == nil
-}
-
-// parseNetstatAddr turns "10.255.0.2.49479" or "*.*" into an address.
-func parseNetstatAddr(s string) (netip.AddrPort, bool) {
-	i := strings.LastIndex(s, ".")
-	if i <= 0 {
-		return netip.AddrPort{}, false
-	}
-	host, portStr := s[:i], s[i+1:]
-	var addr netip.Addr
-	if host == "*" {
-		addr = netip.IPv4Unspecified()
-	} else {
-		a, err := netip.ParseAddr(host)
-		if err != nil || !a.Is4() {
-			return netip.AddrPort{}, false
-		}
-		addr = a
-	}
-	port := 0
-	if portStr != "*" {
-		p, err := strconv.Atoi(portStr)
-		if err != nil {
-			return netip.AddrPort{}, false
-		}
-		port = p
-	}
-	return netip.AddrPortFrom(addr, uint16(port)), true
+	return ParseNetstat(string(out))
 }
 
 // Lookup returns the pid and executable path of the process that owns the TCP
