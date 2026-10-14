@@ -28,7 +28,8 @@ import (
 	"proxybridge/core/internal/status"
 )
 
-const version = "3.2.0"
+// version is set at build time: -ldflags "-X main.version=X.Y.Z"
+var version = "dev"
 
 type logger struct {
 	level int

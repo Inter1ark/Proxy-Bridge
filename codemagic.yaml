@@ -5,7 +5,7 @@ workflows:
     max_build_duration: 60
     environment:
       vars:
-        VERSION: "3.4.1"
+        VERSION: "3.4.2"
     scripts:
       - name: Install .NET 9 and Go
         script: |
@@ -49,8 +49,8 @@ workflows:
           cd core-go
           go test ./...
           mkdir -p dist
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o dist/pbcore-darwin-arm64 .
-          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/pbcore-darwin-amd64 .
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/pbcore-darwin-arm64 .
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/pbcore-darwin-amd64 .
 
       - name: Build, sign and package
         script: |
@@ -124,6 +124,32 @@ workflows:
           screencapture -x out/pkg-app-start.png
           kill "$pid" 2>/dev/null
           tail -n 40 out/pkg-app-start.log
+          exit 0
+
+      - name: Core end-to-end test (pbcore as root through a real proxy)
+        script: |
+          set +e
+          app=/Applications/ProxyBridge.app
+          if [ -z "${TEST_PROXY:-}" ]; then echo "TEST_PROXY not set, skipping"; exit 0; fi
+          printf '%s\n' "$TEST_PROXY" > /tmp/pb.proxy
+          echo "direct IP: $(curl -s -m 10 https://api.ipify.org)"
+          # the same launcher the app writes (no nohup), run as root without a console
+          cat > /tmp/pb-launch.sh <<EOF
+          #!/bin/sh
+          trap '' HUP
+          "$app/Contents/MacOS/pbcore" --proxy-file /tmp/pb.proxy --dns 1.1.1.1 --control-port 34050 --control-token t0k --log-level info > /tmp/pbcore.log 2>&1 < /dev/null &
+          exit 0
+          EOF
+          sudo /bin/sh /tmp/pb-launch.sh < /dev/null
+          sleep 8
+          echo "ping: $(printf 'ping t0k\n' | nc -w 3 127.0.0.1 34050)"
+          echo "IP through pbcore: $(curl -s -m 20 https://api.ipify.org)"
+          curl -s -m 20 "http://ip-api.com/json/?fields=country,city,isp,query"; echo
+          echo "== pbcore log"; tail -n 30 /tmp/pbcore.log
+          printf 'stop t0k\n' | nc -w 3 127.0.0.1 34050
+          sleep 3
+          echo "IP after stop: $(curl -s -m 10 https://api.ipify.org)"
+          sudo pkill -f pbcore
           exit 0
 
     artifacts:

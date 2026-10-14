@@ -127,7 +127,10 @@ public sealed class MacProxyEngine : IProxyEngine
             script.Append("#!/bin/sh\n");
             script.Append("chmod 755 ").Append(Q(PbcorePath)).Append(" 2>/dev/null\n");
             script.Append("xattr -d com.apple.quarantine ").Append(Q(PbcorePath)).Append(" 2>/dev/null\n");
-            script.Append("nohup ").Append(args).Append(" > ").Append(Q(_logFile)).Append(" 2>&1 < /dev/null &\n");
+            // No nohup: under osascript there is no console, and macOS nohup then refuses to start the
+            // command ("can't detach from console"). Ignoring SIGHUP here is inherited by pbcore instead.
+            script.Append("trap '' HUP\n");
+            script.Append(args).Append(" > ").Append(Q(_logFile)).Append(" 2>&1 < /dev/null &\n");
             script.Append("exit 0\n");
             File.WriteAllText(launcher, script.ToString());
             SetPrivate(launcher);
