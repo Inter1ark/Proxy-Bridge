@@ -1,7 +1,9 @@
 // Package control implements the localhost control socket. A client sends one
-// text line: "stop <token>" asks the core to shut down, "watch <token>" keeps
-// the connection open and streams status lines to it, "ping <token>" answers ok,
-// "rules <token> <base64 json>" replaces the routing rules while running.
+// text line: "stop <token>" asks the core to shut down (or, in daemon mode, to
+// bring the tunnel down), "watch <token>" keeps the connection open and streams
+// status lines to it, "ping <token>" answers "ok <version>", "rules <token>
+// <base64 json>" replaces the routing rules while running and "start <token>
+// <base64 json>" brings the tunnel up (daemon mode only).
 package control
 
 import (
@@ -18,30 +20,37 @@ import (
 	"proxybridge/core/internal/status"
 )
 
+// Options configures the listener. OnRules and OnStart may be nil when the
+// command is not supported.
+type Options struct {
+	Token    string
+	Version  string
+	Reporter *status.Reporter
+	OnStop   func()
+	OnRules  func(payload []byte) error
+	OnStart  func(payload []byte) error
+}
+
 // Server is the control listener.
 type Server struct {
 	ln       net.Listener
-	token    string
-	reporter *status.Reporter
-	onStop   func()
-	onRules  func(payload []byte) error
+	opts     Options
 	stopOnce sync.Once
 	wg       sync.WaitGroup
 	mu       sync.Mutex
 	conns    map[net.Conn]struct{}
 }
 
-// Listen binds the control socket on 127.0.0.1:port. onRules may be nil when
-// live rule updates are not supported.
-func Listen(port int, token string, reporter *status.Reporter, onStop func(), onRules func([]byte) error) (*Server, error) {
-	if token == "" {
+// Listen binds the control socket on 127.0.0.1:port.
+func Listen(port int, opts Options) (*Server, error) {
+	if opts.Token == "" {
 		return nil, fmt.Errorf("control token must not be empty")
 	}
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		return nil, fmt.Errorf("control socket: %w", err)
 	}
-	s := &Server{ln: ln, token: token, reporter: reporter, onStop: onStop, onRules: onRules, conns: make(map[net.Conn]struct{})}
+	s := &Server{ln: ln, opts: opts, conns: make(map[net.Conn]struct{})}
 	s.wg.Add(1)
 	go s.acceptLoop()
 	return s, nil
@@ -49,6 +58,14 @@ func Listen(port int, token string, reporter *status.Reporter, onStop func(), on
 
 // Addr returns the bound address.
 func (s *Server) Addr() string { return s.ln.Addr().String() }
+
+// ResetStop lets a later "stop" run OnStop again (daemon mode stops the
+// session, not the process, so the command must stay usable).
+func (s *Server) ResetStop() {
+	s.mu.Lock()
+	s.stopOnce = sync.Once{}
+	s.mu.Unlock()
+}
 
 func (s *Server) acceptLoop() {
 	defer s.wg.Done()
@@ -77,18 +94,22 @@ func (s *Server) handle(c net.Conn) {
 		return
 	}
 	fields := strings.Fields(line)
-	if len(fields) < 2 || subtle.ConstantTimeCompare([]byte(fields[1]), []byte(s.token)) != 1 {
+	if len(fields) < 2 || subtle.ConstantTimeCompare([]byte(fields[1]), []byte(s.opts.Token)) != 1 {
 		io.WriteString(c, "error unauthorized\n")
 		return
 	}
 	switch fields[0] {
-	case "rules":
-		if s.onRules == nil {
-			io.WriteString(c, "error rules not supported\n")
+	case "rules", "start":
+		handler := s.opts.OnRules
+		if fields[0] == "start" {
+			handler = s.opts.OnStart
+		}
+		if handler == nil {
+			fmt.Fprintf(c, "error %s not supported\n", fields[0])
 			return
 		}
 		if len(fields) != 3 {
-			io.WriteString(c, "error usage: rules <token> <base64 json>\n")
+			fmt.Fprintf(c, "error usage: %s <token> <base64 json>\n", fields[0])
 			return
 		}
 		payload, err := base64.StdEncoding.DecodeString(fields[2])
@@ -96,22 +117,31 @@ func (s *Server) handle(c net.Conn) {
 			io.WriteString(c, "error bad base64\n")
 			return
 		}
-		if err := s.onRules(payload); err != nil {
+		// Bringing a tunnel up can take a while: the client waits for the reply.
+		_ = c.SetReadDeadline(time.Time{})
+		if err := handler(payload); err != nil {
 			fmt.Fprintf(c, "error %s\n", strings.ReplaceAll(err.Error(), "\n", " "))
 			return
 		}
 		io.WriteString(c, "ok\n")
 	case "ping":
-		io.WriteString(c, "ok\n")
+		if s.opts.Version != "" {
+			fmt.Fprintf(c, "ok %s\n", s.opts.Version)
+		} else {
+			io.WriteString(c, "ok\n")
+		}
 	case "stop":
 		io.WriteString(c, "ok\n")
-		s.stopOnce.Do(func() { go s.onStop() })
+		s.mu.Lock()
+		once := &s.stopOnce
+		s.mu.Unlock()
+		once.Do(func() { go s.opts.OnStop() })
 	case "watch":
 		_ = c.SetReadDeadline(time.Time{})
-		s.reporter.Attach(c)
+		s.opts.Reporter.Attach(c)
 		// Block until the peer closes the connection.
 		io.Copy(io.Discard, c)
-		s.reporter.Detach(c)
+		s.opts.Reporter.Detach(c)
 	default:
 		io.WriteString(c, "error unknown command\n")
 	}

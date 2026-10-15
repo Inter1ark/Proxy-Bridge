@@ -514,5 +514,12 @@
   "store.err.pick_country": "Выбери страну.",
   "help.notices": "Лицензии открытого ПО",
   "plan.trial": "Пробный день",
-  "engine.mac.rules_failed": "Не удалось применить правила: {0}"
+  "engine.mac.rules_failed": "Не удалось применить правила: {0}",
+  "settings.helper": "Системный помощник",
+  "settings.helper_hint": "Ставится один раз с паролем администратора, после этого подключение без пароля. Убери его, если больше не пользуешься ProxyBridge.",
+  "settings.helper_remove": "Удалить помощник",
+  "settings.helper_removing": "Удаляем помощник...",
+  "settings.helper_removed": "Помощник удалён. При следующем подключении ProxyBridge попросит пароль и поставит его снова.",
+  "settings.helper_remove_failed": "Не удалось удалить помощник: {0}",
+  "settings.helper_disconnect_first": "Сначала отключись, потом удаляй помощник."
 }

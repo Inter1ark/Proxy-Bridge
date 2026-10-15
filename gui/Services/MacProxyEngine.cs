@@ -14,10 +14,12 @@ using System.Threading.Tasks;
 namespace ProxyBridge.GUI.Services;
 
 /// <summary>
-/// macOS engine: launches the bundled pbcore helper as root (one administrator
-/// password prompt per connect), then talks to it over a token-protected
-/// localhost control socket to receive status/stats lines, to replace the
-/// per-program rules while running and to stop it.
+/// macOS engine. Preferred path: the pbcore daemon installed once as a launchd
+/// job (<see cref="MacHelper"/>) takes "start"/"stop" over the control socket,
+/// so connecting needs no password. Fallback: pbcore is launched as root for
+/// one session (an administrator prompt per connect). Either way the engine
+/// talks to pbcore over the token-protected localhost control socket to
+/// receive status/stats lines and to replace the per-program rules while running.
 ///
 /// Proxies and rules added through <see cref="IProxyEngine"/> are recorded here and
 /// handed to pbcore as one JSON rule set: in a private file at start, or over the
@@ -40,6 +42,7 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
     private uint _nextRuleId = 1;
 
     private string _token = "";
+    private bool _viaDaemon;
     private TcpClient? _watch;
     private CancellationTokenSource? _watchCts;
     private Task? _watchTask;
@@ -183,8 +186,126 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
             return false;
         }
 
-        // A helper left over from a previous session (for example after a crash) would hold the port.
+        // A per-session pbcore left over from a previous run (for example after a crash) would hold the port.
         await StopStaleInstanceAsync();
+
+        var daemon = await StartViaDaemonAsync();
+        if (daemon != DaemonOutcome.Unavailable) return daemon == DaemonOutcome.Started;
+        return await StartLegacyAsync();
+    }
+
+    private enum DaemonOutcome { Started, Failed, Unavailable }
+
+    /// <summary>True when the last start went through the installed daemon.</summary>
+    public bool ViaDaemon => _viaDaemon;
+
+    /// <summary>
+    /// Connects through the installed daemon, installing or upgrading it first (one
+    /// administrator prompt). Unavailable means the legacy per-session launch should be used.
+    /// </summary>
+    private async Task<DaemonOutcome> StartViaDaemonAsync()
+    {
+        var wanted = MacHelper.BundledVersion(PbcorePath);
+        var token = MacHelper.ReadToken();
+        var running = token != null ? MacHelper.Ping(token, TimeSpan.FromSeconds(1)) : null;
+        if (running == null || (wanted.Length > 0 && running != wanted))
+        {
+            Log(running == null
+                ? "Installing the system helper (one administrator prompt)..."
+                : $"Upgrading the system helper {running} -> {wanted} (one administrator prompt)...");
+            var res = await MacHelper.InstallAsync(PbcorePath);
+            if (!res.Ok)
+            {
+                if (res.Cancelled)
+                {
+                    _lastError = I18n.T("engine.mac.admin_cancelled");
+                    Log(_lastError);
+                    return DaemonOutcome.Failed;
+                }
+                Log($"[helper] install failed: {res.Output}. Falling back to a per-session start.");
+                return DaemonOutcome.Unavailable;
+            }
+            token = MacHelper.ReadToken();
+            if (token == null)
+            {
+                Log("[helper] token not readable after install. Falling back to a per-session start.");
+                return DaemonOutcome.Unavailable;
+            }
+            running = await MacHelper.WaitForDaemonAsync(token, TimeSpan.FromSeconds(10));
+            if (running == null)
+            {
+                Log("[helper] daemon did not come up: " + MacHelper.TailLog() + ". Falling back to a per-session start.");
+                return DaemonOutcome.Unavailable;
+            }
+            Log($"[helper] daemon {running} ready");
+        }
+
+        _token = token!;
+        _viaDaemon = true;
+        _stopRequested = false;
+        _up = 0;
+        _down = 0;
+
+        var request = BuildStartJson();
+        var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(request));
+        Log($"Starting the tunnel through the system helper ({RuleCount()} rules)...");
+        string? reply;
+        try
+        {
+            reply = await Task.Run(() => MacHelper.SendCommand("start", _token, TimeSpan.FromSeconds(60), payload));
+        }
+        catch (Exception ex)
+        {
+            reply = "error " + ex.Message;
+        }
+        if (reply != "ok")
+        {
+            _lastError = I18n.T("engine.mac.start_failed", (reply ?? "no reply").Replace("error ", ""));
+            Log(_lastError);
+            return DaemonOutcome.Failed;
+        }
+
+        // The daemon replays its last status line ("up") to a new watcher.
+        var client = await ConnectControlAsync(TimeSpan.FromSeconds(5));
+        if (client == null)
+        {
+            _lastError = I18n.T("engine.mac.no_control");
+            Log(_lastError);
+            try { MacHelper.SendCommand("stop", _token, TimeSpan.FromSeconds(2)); } catch { }
+            return DaemonOutcome.Failed;
+        }
+        var stream = client.GetStream();
+        await stream.WriteAsync(Encoding.ASCII.GetBytes($"watch {_token}\n"));
+        var reader = new StreamReader(stream, Encoding.UTF8);
+        var upTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _watch = client;
+        _watchCts = new CancellationTokenSource();
+        _watchTask = Task.Run(() => WatchLoop(reader, upTcs, _watchCts.Token));
+        var first = await Task.WhenAny(upTcs.Task, Task.Delay(TimeSpan.FromSeconds(15)));
+        if (first != upTcs.Task || !upTcs.Task.Result)
+        {
+            if (string.IsNullOrEmpty(_lastError)) _lastError = I18n.T("engine.mac.not_ready") + " " + MacHelper.TailLog();
+            Log(_lastError);
+            Stop();
+            return DaemonOutcome.Failed;
+        }
+        _isRunning = true;
+        return DaemonOutcome.Started;
+    }
+
+    /// <summary>The "start" request: the rule set plus per-session options (see core-go/session.go).</summary>
+    private string BuildStartJson()
+    {
+        var node = JsonNode.Parse(BuildRulesJson())!.AsObject();
+        node["dns"] = DefaultDns;
+        node["parent_pid"] = Environment.ProcessId;
+        return node.ToJsonString();
+    }
+
+    /// <summary>Legacy path: pbcore launched as root for this session only (password prompt each time).</summary>
+    private async Task<bool> StartLegacyAsync()
+    {
+        _viaDaemon = false;
 
         _token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
         try { File.WriteAllText(_tokenFile, _token); SetPrivate(_tokenFile); } catch { }
@@ -286,7 +407,7 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
         string? reply;
         try
         {
-            reply = await Task.Run(() => SendCommand("rules", _token, TimeSpan.FromSeconds(10), payload));
+            reply = await Task.Run(() => MacHelper.SendCommand("rules", _token, TimeSpan.FromSeconds(10), payload));
         }
         catch (Exception ex)
         {
@@ -349,6 +470,9 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
                             Log("[pbcore] down");
                             exitMessage ??= I18n.T("engine.mac.stopped");
                             upTcs.TrySetResult(false);
+                            if (_viaDaemon) return;
+                            break;
+                        case "idle":
                             break;
                         default:
                             Log($"[pbcore] {line}");
@@ -387,7 +511,7 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
         {
             if (!string.IsNullOrEmpty(_token))
             {
-                var reply = SendCommand("stop", _token, TimeSpan.FromSeconds(2));
+                var reply = MacHelper.SendCommand("stop", _token, TimeSpan.FromSeconds(2));
                 if (reply != null) Log($"[pbcore] stop -> {reply}");
             }
         }
@@ -418,28 +542,12 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
         try { if (File.Exists(_tokenFile)) oldToken = File.ReadAllText(_tokenFile).Trim(); } catch { }
         if (string.IsNullOrEmpty(oldToken)) return;
         string? reply = null;
-        try { reply = SendCommand("stop", oldToken, TimeSpan.FromSeconds(1)); } catch { }
+        try { reply = MacHelper.SendCommand("stop", oldToken, TimeSpan.FromSeconds(1)); } catch { }
         if (reply != null)
         {
             Log("[pbcore] stopped a previous instance");
             await Task.Delay(1500);
         }
-    }
-
-    private static string? SendCommand(string command, string token, TimeSpan timeout, string? argument = null)
-    {
-        using var client = new TcpClient();
-        var connect = client.ConnectAsync("127.0.0.1", ControlPort);
-        if (!connect.Wait(timeout)) return null;
-        using var stream = client.GetStream();
-        stream.ReadTimeout = (int)timeout.TotalMilliseconds;
-        stream.WriteTimeout = (int)timeout.TotalMilliseconds;
-        var line = argument == null ? $"{command} {token}\n" : $"{command} {token} {argument}\n";
-        var data = Encoding.ASCII.GetBytes(line);
-        stream.Write(data, 0, data.Length);
-        var buf = new byte[1024];
-        var n = stream.Read(buf, 0, buf.Length);
-        return n > 0 ? Encoding.ASCII.GetString(buf, 0, n).Trim() : "";
     }
 
     private static async Task<TcpClient?> ConnectControlAsync(TimeSpan timeout)

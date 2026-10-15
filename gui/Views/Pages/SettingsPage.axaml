@@ -115,6 +115,24 @@
                             </Button>
                         </Grid>
                     </Border>
+                    <Border Classes="srow" IsVisible="{Binding IsMacOS}">
+                        <StackPanel Spacing="8">
+                            <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                                <StackPanel>
+                                    <TextBlock Classes="slabel" Text="{i:Tr settings.helper}"/>
+                                    <TextBlock Classes="shint" Text="{i:Tr settings.helper_hint}"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Classes="pb outline sm" VerticalAlignment="Center"
+                                        Command="{Binding RemoveHelperCommand}"
+                                        AutomationProperties.AutomationId="RemoveHelper">
+                                    <StackPanel>
+                                        <TextBlock Text="{i:Tr settings.helper_remove}"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                            <TextBlock Classes="shint" Text="{Binding HelperStatus.Text}" IsVisible="{Binding HelperStatus.HasText}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </StackPanel>
 

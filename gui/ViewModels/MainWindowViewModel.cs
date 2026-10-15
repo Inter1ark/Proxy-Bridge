@@ -114,6 +114,7 @@ public class MainWindowViewModel : ViewModelBase
         OpenLogsCommand = new RelayCommand(OpenLogsFolder);
         OpenNoticesCommand = new RelayCommand(OpenNotices);
         UnlinkDeviceCommand = new RelayCommand(async () => await UnlinkDevice());
+        RemoveHelperCommand = new RelayCommand(async () => await RemoveMacHelper());
         AskUnlinkCommand = new RelayCommand(() => IsUnlinkConfirmVisible = true);
         CancelUnlinkCommand = new RelayCommand(() => IsUnlinkConfirmVisible = false);
 
@@ -181,6 +182,8 @@ public class MainWindowViewModel : ViewModelBase
     public ICommand OpenLogsCommand { get; }
     public ICommand OpenNoticesCommand { get; }
     public ICommand UnlinkDeviceCommand { get; }
+    public ICommand RemoveHelperCommand { get; }
+    public LocStatus HelperStatus { get; } = new();
     public ICommand AskUnlinkCommand { get; }
     public ICommand CancelUnlinkCommand { get; }
 
@@ -261,6 +264,7 @@ public class MainWindowViewModel : ViewModelBase
     /// <summary>Per-app rules are available (Windows core and macOS pbcore).</summary>
     public bool SupportsSplitTunnel => _engine?.SupportsSplitTunnel ?? true;
     public bool IsWindows => OperatingSystem.IsWindows();
+    public bool IsMacOS => OperatingSystem.IsMacOS();
     public string AppVersion => LicenseService.AppVersion;
 
     // ====================================================================
@@ -1420,6 +1424,33 @@ public class MainWindowViewModel : ViewModelBase
     }
 
     public string LogsFolder => AppLog.Directory;
+
+    /// <summary>macOS: removes the launchd daemon that lets the app connect without a password.</summary>
+    private async Task RemoveMacHelper()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        if (IsConnected)
+        {
+            HelperStatus.Set("settings.helper_disconnect_first", StatusKind.Warning);
+            return;
+        }
+        HelperStatus.Set("settings.helper_removing", StatusKind.Neutral);
+        var res = await MacHelper.UninstallAsync();
+        if (res.Ok)
+        {
+            AppLog.Info("macOS helper removed");
+            HelperStatus.Set("settings.helper_removed", StatusKind.Success);
+        }
+        else if (res.Cancelled)
+        {
+            HelperStatus.Set("engine.mac.admin_cancelled", StatusKind.Warning);
+        }
+        else
+        {
+            AppLog.Error("macOS helper removal failed: " + res.Output);
+            HelperStatus.Set("settings.helper_remove_failed", StatusKind.Error, res.Output);
+        }
+    }
 
     private void OpenLogsFolder()
     {

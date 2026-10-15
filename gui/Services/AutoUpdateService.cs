@@ -43,6 +43,8 @@ public class UpdateWindowsAsset
 
 public class UpdateMacAssets
 {
+    /// <summary>macOS-only releases carry their own version here; the top-level one is Windows.</summary>
+    [JsonPropertyName("version")] public string? Version { get; set; }
     [JsonPropertyName("arm64")] public string? Arm64 { get; set; }
     [JsonPropertyName("x64")] public string? X64 { get; set; }
     [JsonPropertyName("page")] public string? Page { get; set; }
@@ -159,9 +161,14 @@ public class AutoUpdateService
 
     /// <summary>Pure comparison logic (unit tested).</summary>
     public static UpdateCheckResult Evaluate(UpdateManifest manifest, Version current)
+        => Evaluate(manifest, current, OperatingSystem.IsMacOS());
+
+    public static UpdateCheckResult Evaluate(UpdateManifest manifest, Version current, bool macOS)
     {
         if (!TryParseVersion(manifest.Version, out var latest))
             throw new UpdateException("server", "Manifest has no valid version");
+        if (macOS && TryParseVersion(manifest.MacOs?.Version, out var macLatest))
+            latest = macLatest;
         current = Normalize(current);
         var mandatory = latest > current
                         && TryParseVersion(manifest.MinSupported, out var min)

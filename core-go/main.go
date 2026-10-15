@@ -3,6 +3,12 @@
 // pbcore routes the TCP traffic of the machine through SOCKS5 or HTTP proxies
 // using a TUN interface and a userspace network stack. Which program's
 // connections go where is decided by per-program rules (see internal/rules).
+//
+// It runs in two ways: started by the app for one session (rules from a file,
+// exits when the session ends), or as a daemon under launchd (--daemon) that
+// stays up and brings the tunnel up and down on "start" and "stop" commands
+// over the control socket, so the app needs no administrator password after
+// the daemon has been installed once.
 package main
 
 import (
@@ -11,19 +17,16 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"net"
 	"net/netip"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
-	"golang.zx2c4.com/wireguard/tun"
-
 	"proxybridge/core/internal/control"
-	"proxybridge/core/internal/engine"
 	"proxybridge/core/internal/netcfg"
 	"proxybridge/core/internal/rules"
 	"proxybridge/core/internal/status"
@@ -83,6 +86,8 @@ func main() {
 		routeMode    = flag.String("route-mode", string(netcfg.RouteSplit), "split (0/1 + 128/1 routes, default route untouched) or replace (default route swapped and restored on exit)")
 		controlPort  = flag.Int("control-port", 34050, "localhost control socket port (0 disables)")
 		controlToken = flag.String("control-token", "", "token required by the control socket (random if empty)")
+		tokenFile    = flag.String("token-file", "", "read the control token from this file (daemon mode; created with a random token when missing)")
+		daemon       = flag.Bool("daemon", false, "stay up without a tunnel and bring it up/down on \"start\"/\"stop\" control commands")
 		parentPID    = flag.Int("parent-pid", 0, "exit when this process disappears (0 disables)")
 		statsEvery   = flag.Duration("stats-interval", 2*time.Second, "how often stats lines are printed")
 		logLevel     = flag.String("log-level", "info", "debug, info, warn or error (stderr)")
@@ -109,12 +114,6 @@ func main() {
 
 	if os.Geteuid() != 0 {
 		fail("pbcore must run as root (use sudo)")
-		os.Exit(1)
-	}
-
-	set, err := loadRules(*rulesFile, *proxyFile, *proxyURL)
-	if err != nil {
-		fail("%v", err)
 		os.Exit(1)
 	}
 
@@ -145,182 +144,233 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	mode := netcfg.RouteMode(*routeMode)
+	if mode != netcfg.RouteSplit && mode != netcfg.RouteReplace {
+		fail("invalid --route-mode %q", *routeMode)
+		os.Exit(1)
+	}
 
-	token := *controlToken
-	if token == "" {
-		b := make([]byte, 16)
-		if _, err := rand.Read(b); err != nil {
-			fail("random token: %v", err)
-			os.Exit(1)
-		}
-		token = hex.EncodeToString(b)
+	defaults := sessionConfig{
+		TunName:    *tunName,
+		TunAddr:    localPrefix,
+		Peer:       peer,
+		MTU:        *mtu,
+		DNS:        dnsAddr,
+		RouteMode:  mode,
+		StatsEvery: *statsEvery,
+	}
+
+	token, err := resolveToken(*controlToken, *tokenFile, *daemon)
+	if err != nil {
+		fail("%v", err)
+		os.Exit(1)
+	}
+	if *controlToken == "" && *tokenFile == "" {
 		log.Infof("control token: %s", token)
 	}
 
-	exempt := []int{os.Getpid(), *parentPID}
-	for _, part := range strings.Split(*exemptPIDs, ",") {
-		if pid, err := strconv.Atoi(strings.TrimSpace(part)); err == nil && pid > 0 {
-			exempt = append(exempt, pid)
+	netcfg.Logf = log.Debugf
+
+	if *daemon {
+		if *controlPort <= 0 {
+			fail("--daemon needs a control port")
+			os.Exit(1)
 		}
+		os.Exit(runDaemon(log, rep, *controlPort, token, defaults))
 	}
 
+	set, err := loadRules(*rulesFile, *proxyFile, *proxyURL)
+	if err != nil {
+		fail("%v", err)
+		os.Exit(1)
+	}
+	cfg := defaults
+	cfg.Set = set
+	cfg.ParentPID = *parentPID
+	cfg.Exempt = []int{os.Getpid(), *parentPID}
+	for _, part := range strings.Split(*exemptPIDs, ",") {
+		if pid, err := strconv.Atoi(strings.TrimSpace(part)); err == nil && pid > 0 {
+			cfg.Exempt = append(cfg.Exempt, pid)
+		}
+	}
+	os.Exit(runOnce(log, rep, *controlPort, token, cfg))
+}
+
+// runOnce brings one session up and exits when it ends.
+func runOnce(log logger, rep *status.Reporter, port int, token string, cfg sessionConfig) int {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	netcfg.Logf = log.Debugf
-	var undo netcfg.Undo
-	exitCode := 0
-	defer func() {
-		if err := undo.Run(); err != nil {
-			log.Warnf("cleanup finished with errors: %v", err)
-		}
-		rep.Emit(status.Line{Status: "down"})
-		os.Exit(exitCode)
-	}()
-
-	gw, err := netcfg.DefaultGateway()
-	if err != nil {
-		fail("%v", err)
-		exitCode = 1
-		return
-	}
-	log.Infof("original default route: gateway=%s interface=%s", gw.IP, gw.Interface)
-
-	// The router resolves and pins the proxies now, before routing changes.
-	rt := newRouter(log, gw, &undo, exempt)
-	if err := rt.Load(set); err != nil {
-		fail("%v", err)
-		exitCode = 1
-		return
-	}
-
+	var (
+		mu  sync.Mutex
+		cur *session
+	)
 	// The control socket comes up first so a supervisor can watch every event.
-	if *controlPort > 0 {
-		srv, err := control.Listen(*controlPort, token, rep, func() {
-			log.Infof("stop requested over control socket")
-			cancel()
-		}, func(payload []byte) error {
-			newSet, err := rules.Parse(payload)
-			if err != nil {
-				return err
-			}
-			if err := rt.Load(newSet); err != nil {
-				return err
-			}
-			log.Infof("rules replaced: %d rules, %d proxies", len(newSet.Rules), len(newSet.Proxies))
-			rep.Rules(len(newSet.Rules))
-			return nil
+	if port > 0 {
+		srv, err := control.Listen(port, control.Options{
+			Token: token, Version: version, Reporter: rep,
+			OnStop: func() {
+				log.Infof("stop requested over control socket")
+				cancel()
+			},
+			OnRules: func(payload []byte) error {
+				newSet, err := rules.Parse(payload)
+				if err != nil {
+					return err
+				}
+				mu.Lock()
+				s := cur
+				mu.Unlock()
+				if s == nil {
+					return fmt.Errorf("tunnel is not up")
+				}
+				return s.Reload(newSet)
+			},
 		})
 		if err != nil {
-			fail("%v", err)
-			exitCode = 1
-			return
+			log.Errorf("%v", err)
+			rep.Error(err.Error())
+			return 1
 		}
 		defer srv.Close()
 		log.Infof("control socket on %s", srv.Addr())
 	}
 
-	dev, err := tun.CreateTUN(*tunName, *mtu)
+	s, err := bringUp(log, rep, cfg)
 	if err != nil {
-		fail("create TUN %q: %v", *tunName, err)
-		exitCode = 1
-		return
+		return 1
 	}
-	undo.Push(func() error { return dev.Close() })
-	ifName, err := dev.Name()
-	if err != nil {
-		fail("TUN name: %v", err)
-		exitCode = 1
-		return
-	}
-	log.Infof("TUN %s created", ifName)
-
-	ncfg := netcfg.Config{
-		Interface: ifName,
-		Addr:      localPrefix,
-		Peer:      peer,
-		MTU:       *mtu,
-		Mode:      netcfg.RouteMode(*routeMode),
-	}
-	if ncfg.Mode != netcfg.RouteSplit && ncfg.Mode != netcfg.RouteReplace {
-		fail("invalid --route-mode %q", *routeMode)
-		exitCode = 1
-		return
-	}
-	if err := netcfg.ConfigureInterface(ncfg); err != nil {
-		fail("configure %s: %v", ifName, err)
-		exitCode = 1
-		return
-	}
-
-	// Direct connections leave through the original interface (IP_BOUND_IF) and need a
-	// default route scoped to it, or the tunnel routes win the lookup.
-	if err := netcfg.AddScopedDefault(gw, &undo); err != nil {
-		log.Warnf("scoped default route via %s: %v", gw.Interface, err)
-	}
-
-	// The direct resolver must stay reachable outside the tunnel.
-	if dnsAddr.IsValid() {
-		if err := netcfg.AddHostRoute(dnsAddr, gw, &undo); err != nil {
-			// Not fatal: the resolver may be on the local link already, or be a proxy IP.
-			log.Warnf("host route for dns %s: %v", dnsAddr, err)
-		}
-	}
-
-	stats := &engine.Counters{}
-	eng, err := engine.New(dev, engine.Options{
-		MTU:   uint32(*mtu),
-		Dial:  rt.directDial,
-		Route: rt.Decide,
-		DNS:   dnsHostPort(dnsAddr),
-		Logf:  log.Debugf,
-		Stats: stats,
-	})
-	if err != nil {
-		fail("%v", err)
-		exitCode = 1
-		return
-	}
-	eng.Start()
-	undo.Push(func() error { eng.Close(); return nil })
-
-	if err := netcfg.RouteAllViaTun(ncfg, gw, &undo); err != nil {
-		fail("route traffic via %s: %v", ifName, err)
-		exitCode = 1
-		return
-	}
-
-	rep.UpWithRules(ifName, rt.Summary(), len(set.Rules), rt.Procmap())
-	log.Infof("up: %d rules, all other programs -> %s (process attribution: %s)", len(set.Rules), rt.Summary(), rt.Procmap())
+	mu.Lock()
+	cur = s
+	mu.Unlock()
 
 	sigs := make(chan os.Signal, 2)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	select {
+	case sig := <-sigs:
+		log.Infof("signal %v: shutting down", sig)
+		s.Stop()
+	case <-ctx.Done():
+		s.Stop()
+	case <-s.Done():
+	}
+	if s.Err() != nil {
+		return 1
+	}
+	return 0
+}
 
-	ticker := time.NewTicker(*statsEvery)
-	defer ticker.Stop()
-	parentTicker := time.NewTicker(2 * time.Second)
-	defer parentTicker.Stop()
-
-	for {
-		select {
-		case s := <-sigs:
-			log.Infof("signal %v: shutting down", s)
-			return
-		case <-ctx.Done():
-			return
-		case <-eng.Done():
-			fail("engine stopped unexpectedly")
-			exitCode = 1
-			return
-		case <-ticker.C:
-			rep.Stats(stats.Up.Load(), stats.Down.Load())
-		case <-parentTicker.C:
-			if *parentPID > 0 && !processAlive(*parentPID) {
-				log.Infof("parent process %d is gone: shutting down", *parentPID)
-				return
-			}
+// runDaemon keeps the process alive without a tunnel; "start" and "stop" over
+// the control socket bring sessions up and down. launchd keeps it running.
+func runDaemon(log logger, rep *status.Reporter, port int, token string, defaults sessionConfig) int {
+	var (
+		mu  sync.Mutex
+		cur *session
+	)
+	stopCurrent := func() {
+		mu.Lock()
+		s := cur
+		cur = nil
+		mu.Unlock()
+		if s != nil {
+			s.Stop()
 		}
 	}
+	var srv *control.Server
+	srv, err := control.Listen(port, control.Options{
+		Token: token, Version: version, Reporter: rep,
+		OnStop: func() {
+			log.Infof("stop requested over control socket")
+			stopCurrent()
+			srv.ResetStop()
+		},
+		OnRules: func(payload []byte) error {
+			newSet, err := rules.Parse(payload)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			s := cur
+			mu.Unlock()
+			if s == nil {
+				return fmt.Errorf("tunnel is not up")
+			}
+			return s.Reload(newSet)
+		},
+		OnStart: func(payload []byte) error {
+			cfg, err := parseStartRequest(payload, defaults)
+			if err != nil {
+				return err
+			}
+			stopCurrent()
+			log.Infof("start requested: %d rules, %d proxies, parent pid %d", len(cfg.Set.Rules), len(cfg.Set.Proxies), cfg.ParentPID)
+			s, err := bringUp(log, rep, cfg)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			cur = s
+			mu.Unlock()
+			go func() {
+				<-s.Done()
+				mu.Lock()
+				if cur == s {
+					cur = nil
+				}
+				mu.Unlock()
+			}()
+			return nil
+		},
+	})
+	if err != nil {
+		log.Errorf("%v", err)
+		rep.Error(err.Error())
+		return 1
+	}
+	defer srv.Close()
+	log.Infof("pbcore %s daemon: control socket on %s, waiting for start", version, srv.Addr())
+	rep.Emit(status.Line{Status: "idle"})
+
+	sigs := make(chan os.Signal, 2)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-sigs
+	log.Infof("signal %v: shutting down", sig)
+	stopCurrent()
+	return 0
+}
+
+// resolveToken picks the control token: the flag, the token file (created
+// with a random token in daemon mode when missing) or a fresh random one.
+func resolveToken(flagToken, tokenFile string, daemon bool) (string, error) {
+	if flagToken != "" {
+		return flagToken, nil
+	}
+	if tokenFile != "" {
+		b, err := os.ReadFile(tokenFile)
+		if err == nil && strings.TrimSpace(string(b)) != "" {
+			return strings.TrimSpace(string(b)), nil
+		}
+		if !daemon {
+			return "", fmt.Errorf("read --token-file: %v", err)
+		}
+		t, err := randomToken()
+		if err != nil {
+			return "", err
+		}
+		if err := writeTokenFile(tokenFile, t); err != nil {
+			return "", err
+		}
+		return t, nil
+	}
+	return randomToken()
+}
+
+func randomToken() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("random token: %v", err)
+	}
+	return hex.EncodeToString(b), nil
 }
 
 // loadRules builds the initial rule set: from --rules-file, or from a single
@@ -350,13 +400,6 @@ func loadRules(rulesFile, proxyFile, proxyURL string) (*rules.Set, error) {
 		Rules:   []rules.Rule{{Process: "*", Action: rules.ActionProxy, Proxy: 1}},
 	}
 	return set, set.Validate()
-}
-
-func dnsHostPort(a netip.Addr) string {
-	if !a.IsValid() {
-		return ""
-	}
-	return net.JoinHostPort(a.String(), "53")
 }
 
 func processAlive(pid int) bool {

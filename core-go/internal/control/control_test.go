@@ -28,7 +28,7 @@ func send(t *testing.T, addr, line string) string {
 func TestControlCommands(t *testing.T) {
 	stopped := make(chan struct{}, 1)
 	rep := status.New()
-	srv, err := Listen(0, "tok123", rep, func() { stopped <- struct{}{} }, nil)
+	srv, err := Listen(0, Options{Token: "tok123", Reporter: rep, OnStop: func() { stopped <- struct{}{} }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestControlCommands(t *testing.T) {
 
 func TestWatchStreamsStatus(t *testing.T) {
 	rep := status.New()
-	srv, err := Listen(0, "tok", rep, func() {}, nil)
+	srv, err := Listen(0, Options{Token: "tok", Reporter: rep, OnStop: func() {}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,13 +103,13 @@ func TestWatchStreamsStatus(t *testing.T) {
 func TestRulesCommand(t *testing.T) {
 	rep := status.New()
 	var got []byte
-	srv, err := Listen(0, "tok", rep, func() {}, func(b []byte) error {
+	srv, err := Listen(0, Options{Token: "tok", Reporter: rep, OnStop: func() {}, OnRules: func(b []byte) error {
 		got = b
 		if string(b) == "bad" {
 			return errorf("rejected")
 		}
 		return nil
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,3 +136,34 @@ type simpleError string
 func (e simpleError) Error() string { return string(e) }
 
 func errorf(s string) error { return simpleError(s) }
+
+func TestStartCommandAndVersion(t *testing.T) {
+	rep := status.New()
+	stops := 0
+	var started []byte
+	srv, err := Listen(0, Options{Token: "tok", Version: "9.9.9", Reporter: rep,
+		OnStop:  func() { stops++ },
+		OnStart: func(b []byte) error { started = b; return nil }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	if r := send(t, srv.Addr(), "ping tok"); r != "ok 9.9.9" {
+		t.Fatalf("ping: %q", r)
+	}
+	if r := send(t, srv.Addr(), "start tok eyJhIjoxfQ=="); r != "ok" || string(started) != `{"a":1}` {
+		t.Fatalf("start: %q %q", r, started)
+	}
+	if r := send(t, srv.Addr(), "rules tok eyJhIjoxfQ=="); r != "error rules not supported" {
+		t.Fatalf("rules: %q", r)
+	}
+	// stop is usable again after ResetStop (daemon mode)
+	send(t, srv.Addr(), "stop tok")
+	send(t, srv.Addr(), "stop tok")
+	srv.ResetStop()
+	send(t, srv.Addr(), "stop tok")
+	time.Sleep(100 * time.Millisecond)
+	if stops != 2 {
+		t.Fatalf("stops = %d, want 2", stops)
+	}
+}

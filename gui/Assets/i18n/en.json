@@ -514,5 +514,12 @@
   "store.err.pick_country": "Pick a country.",
   "help.notices": "Open source licenses",
   "plan.trial": "Trial day",
-  "engine.mac.rules_failed": "Could not apply the rules: {0}"
+  "engine.mac.rules_failed": "Could not apply the rules: {0}",
+  "settings.helper": "System helper",
+  "settings.helper_hint": "Installed once with the administrator password; after that connecting needs no password. Remove it if you no longer use ProxyBridge.",
+  "settings.helper_remove": "Remove helper",
+  "settings.helper_removing": "Removing the helper...",
+  "settings.helper_removed": "Helper removed. On the next connect ProxyBridge asks for the password and installs it again.",
+  "settings.helper_remove_failed": "Could not remove the helper: {0}",
+  "settings.helper_disconnect_first": "Disconnect first, then remove the helper."
 }

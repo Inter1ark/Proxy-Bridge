@@ -5,7 +5,7 @@ workflows:
     max_build_duration: 60
     environment:
       vars:
-        VERSION: "3.5.0"
+        VERSION: "3.5.1"
     scripts:
       - name: Install .NET 9 and Go
         script: |
@@ -45,6 +45,7 @@ workflows:
             cp -R "$pub"/. "$app/Contents/MacOS/"
             rm -f "$app/Contents/MacOS/ProxyBridgeCore.dll" "$app/Contents/MacOS/WinDivert.dll" "$app/Contents/MacOS/WinDivert64.sys"
             cp "core-go/dist/$core" "$app/Contents/MacOS/pbcore"
+            cp mac/install-helper.sh mac/uninstall-helper.sh "$app/Contents/MacOS/"
             cp branding/logo.icns "$app/Contents/Resources/logo.icns"
             cp LICENSE "$app/Contents/Resources/LICENSE.txt"
             cp THIRD_PARTY_NOTICES.txt "$app/Contents/Resources/THIRD_PARTY_NOTICES.txt"
@@ -69,7 +70,7 @@ workflows:
           </dict>
           </plist>
           EOF
-            chmod +x "$app/Contents/MacOS/ProxyBridge" "$app/Contents/MacOS/pbcore"
+            chmod +x "$app/Contents/MacOS/ProxyBridge" "$app/Contents/MacOS/pbcore" "$app/Contents/MacOS/"*.sh
             # Ad-hoc signature: nested files first (the .dll files get their signatures in extended
             # attributes), the main executable last through the bundle itself. No Apple account needed.
             find "$app/Contents/MacOS" -type f ! -name ProxyBridge -print0 | xargs -0 -n 1 codesign --force --sign - --timestamp=none
@@ -167,6 +168,47 @@ workflows:
           echo "IP after stop: $(curl -4 -sS -m 15 https://api.ipify.org)"
           cp /tmp/pbcore.log out/pbcore-e2e.log; cp /tmp/tcpdump.log out/tcpdump.log
           sudo pkill -f pbcore
+          exit 0
+
+      - name: Daemon end-to-end test (launchd helper, start/stop without a new process)
+        script: |
+          set +e
+          if [ -z "${TEST_PROXY:-}" ]; then echo "TEST_PROXY not set, skipping"; exit 0; fi
+          app=/Applications/ProxyBridge.app/Contents/MacOS
+          sudo /bin/sh "$app/install-helper.sh" "$app/pbcore"; echo "install exit=$?"
+          ls -la /Library/PrivilegedHelperTools/org.proxybridge.pbcore /Library/LaunchDaemons/org.proxybridge.pbcore.plist "/Library/Application Support/ProxyBridge/control.token"
+          sudo launchctl print system/org.proxybridge.pbcore | grep -E "state|pid" | head -3
+          tok=$(sudo cat "/Library/Application Support/ProxyBridge/control.token")
+          echo "token readable by builder (admin)? $(cat "/Library/Application Support/ProxyBridge/control.token" > /dev/null 2>&1 && echo yes || echo no)"
+          for i in $(seq 1 20); do r=$(printf 'ping %s\n' "$tok" | nc -w 2 127.0.0.1 34050); [ -n "$r" ] && break; sleep 0.5; done
+          echo "ping: $r (expected: ok ${VERSION})"
+          req=$(python3 - "$TEST_PROXY" <<'PY'
+          import base64, json, os, sys
+          s = json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}],
+                          "rules": [{"process": "curl", "action": "direct"}, {"process": "*", "action": "proxy", "proxy": 1}],
+                          "dns": "1.1.1.1", "parent_pid": os.getppid()})
+          print(base64.b64encode(s.encode()).decode())
+          PY
+          )
+          direct_ip=$(curl -4 -sS -m 15 https://api.ipify.org); echo "direct IP: $direct_ip"
+          echo "start: $(printf 'start %s %s\n' "$tok" "$req" | nc -w 60 127.0.0.1 34050)"
+          echo "watch replay: $(printf 'watch %s\n' "$tok" | nc -w 2 127.0.0.1 34050 | head -1)"
+          echo "== 1) curl (direct)"; curl -4 -sS -m 30 https://api.ipify.org; echo " exit=$?"
+          echo "== 2) python3 (proxy)"; python3 -c "import urllib.request; print(urllib.request.urlopen('https://api.ipify.org', timeout=40).read().decode())"; echo " exit=$?"
+          echo "stop: $(printf 'stop %s\n' "$tok" | nc -w 3 127.0.0.1 34050)"
+          sleep 2
+          echo "after stop, daemon alive: $(printf 'ping %s\n' "$tok" | nc -w 2 127.0.0.1 34050)"
+          echo "after stop, python3 direct: $(python3 -c "import urllib.request; print(urllib.request.urlopen('https://api.ipify.org', timeout=30).read().decode())")"
+          echo "== second start on the same daemon"
+          echo "start: $(printf 'start %s %s\n' "$tok" "$req" | nc -w 60 127.0.0.1 34050)"
+          echo "python3 (proxy again): $(python3 -c "import urllib.request; print(urllib.request.urlopen('https://api.ipify.org', timeout=40).read().decode())")"
+          echo "stop: $(printf 'stop %s\n' "$tok" | nc -w 3 127.0.0.1 34050)"
+          sleep 1
+          echo "== daemon log (last 40)"; sudo tail -n 40 /Library/Logs/ProxyBridge/pbcore.log
+          sudo /bin/sh "$app/uninstall-helper.sh"; echo "uninstall exit=$?"
+          sleep 1
+          echo "after uninstall, ping: '$(printf 'ping %s\n' "$tok" | nc -w 2 127.0.0.1 34050)' (expected empty)"
+          ls /Library/LaunchDaemons/org.proxybridge.pbcore.plist 2>&1 | head -1
           exit 0
 
     artifacts:

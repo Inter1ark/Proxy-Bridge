@@ -36,6 +36,17 @@ On macOS the GUI (`gui\Services\MacProxyEngine.cs`) drives the bundled `pbcore` 
   `{"proxies":[{"id":1,"url":"socks5://user:pass@host:port"}],"rules":[{"process":"/Applications/Telegram.app","action":"proxy","proxy":1},{"process":"curl","action":"direct"},{"process":"*","action":"proxy","proxy":1}]}`
   `action` is `proxy`, `direct` or `block`.
 - `process` is an `.app` bundle path (matches every executable inside it, helpers included), an executable path, or a bare name that matches the executable's file name or the bundle name (case-insensitive, `.app`/`.exe` suffix optional). The GUI sends the bundle or executable path when it knows it, else the name.
-- The owner of a connection is found through the `net.inet.tcp.pcblist_n` sysctl (pid of the socket) and `kern.procargs2` (executable path); when that self-test fails at start, `lsof` is used. The method is reported in the `up` status line (`"procmap":"pcblist"` or `"lsof"`).
+- The owner of a connection is found through the `net.inet.tcp.pcblist_n` sysctl (pid of the socket) and `kern.procargs2` (executable path); when that self-test fails at start, `netstat -anv` is parsed instead. The method is reported in the `up` status line (`"procmap":"pcblist"` or `"netstat"`).
 - Rules can be replaced while running: control socket command `rules <token> <base64 json>` answers `ok` or `error <reason>`; open connections keep their decision, new ones follow the new table. `MacProxyEngine` implements `ILiveRules.CommitRulesAsync()` for this, so the GUI never restarts the helper (and never asks for the password again) when the table changes.
 - Direct connections and connections to proxies leave through the interface of the original default route (`IP_BOUND_IF`), so they never re-enter the tunnel. UDP is not proxied; DNS over UDP goes direct to `--dns`.
+
+### Daemon mode (no password per connect)
+
+Since 3.5.1 the GUI installs pbcore once as a launchd daemon (`mac/install-helper.sh`, one administrator prompt): a root-owned copy at `/Library/PrivilegedHelperTools/org.proxybridge.pbcore`, the job `/Library/LaunchDaemons/org.proxybridge.pbcore.plist` running `pbcore --daemon --control-port 34050 --token-file "/Library/Application Support/ProxyBridge/control.token"`, and the token file readable by root and the `admin` group only (that is what restricts the control socket to administrators). The daemon keeps no tunnel until asked:
+
+- `ping <token>` answers `ok <version>`; the GUI reinstalls the daemon (one prompt) when the version differs from the bundled pbcore.
+- `start <token> <base64 json>` brings the tunnel up and answers `ok` after the `up` status line, or `error <reason>`. The JSON is the rule set plus `"dns"` (direct resolver, `""` drops DNS over UDP), `"parent_pid"` (the tunnel goes down when that process disappears) and `"exempt_pids"`. A running tunnel is replaced.
+- `stop <token>` tears the tunnel down (status `down`), the daemon stays. `rules` and `watch` work as before; a new watcher first receives the last status line (`idle`, `up`, `down` or `error`).
+- `mac/uninstall-helper.sh` (Settings, "Remove helper") removes the job, the binary and the token.
+
+Without the daemon (install refused or failed) the GUI falls back to launching pbcore for one session with `--rules-file`, as in 3.5.0. The Codemagic workflow exercises both paths against a real proxy.
