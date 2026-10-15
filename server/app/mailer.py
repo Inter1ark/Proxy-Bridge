@@ -4,7 +4,7 @@ import html
 import logging
 import smtplib
 from email.message import EmailMessage
-from email.utils import formataddr, make_msgid
+from email.utils import formataddr, formatdate, make_msgid
 
 from .config import settings
 from .plans import get_plan
@@ -107,6 +107,7 @@ def build_message(to_email: str, key: str, plan_id: str) -> EmailMessage:
     msg["From"] = formataddr((SENDER_NAME, sender))
     msg["To"] = to_email
     msg["Reply-To"] = sender
+    msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=sender.split("@")[-1] if "@" in sender else "proxybridge.org")
     msg.set_content(_text_body(key, plan_id))
     msg.add_alternative(_html_body(key, plan_id), subtype="html")

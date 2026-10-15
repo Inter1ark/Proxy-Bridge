@@ -12,6 +12,7 @@ def test_key_email_has_key_links_and_both_formats():
     assert msg["To"] == "buyer@example.com"
     assert msg["Subject"] == "Ваш ключ ProxyBridge"
     assert "ProxyBridge" in msg["From"]
+    assert msg["Date"] and msg["Message-ID"]
     text, html = _parts(msg)
     for body in (text, html):
         assert "PB-AAAA-BBBB-CCCC-DDDD" in body
