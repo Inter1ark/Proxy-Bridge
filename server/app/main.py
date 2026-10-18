@@ -77,6 +77,9 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # httpx logs every request URL at INFO, and some vendor APIs take the key in the query string.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     app = FastAPI(title="ProxyBridge API", docs_url=None, redoc_url=None, lifespan=lifespan)
 
     app.add_middleware(

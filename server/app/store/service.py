@@ -16,6 +16,7 @@ import logging
 import re
 import secrets
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -290,20 +291,35 @@ def pick_traffic_account(db: Session, ptype: str, gb: int, prefer_fp: str | None
     accs = [a for a in traffic.accounts() if a.cost(ptype) is not None and a.cost(ptype) <= ceiling + 1e-9]
     if prefer_fp:
         accs = [a for a in accs if a.fp == prefer_fp]
+    balances = _balances_parallel(accs)
     best, best_key = None, None
     for acc in accs:
         need = acc.cost(ptype) * gb
-        try:
-            free = traffic.balance(acc) - _traffic_committed_usd(db, acc)
-        except traffic.TrafficError as exc:
-            logger.warning("traffic balance %s failed: %s", acc.fp, exc)
+        bal = balances.get(acc.fp)
+        if bal is None:
             continue
+        free = bal - _traffic_committed_usd(db, acc)
         if free < need:
             continue
         key = (acc.cost(ptype), -free)
         if best_key is None or key < best_key:
             best, best_key = acc, key
     return best
+
+
+def _balances_parallel(accs: list) -> dict[str, float]:
+    """Vendor balances by account fingerprint, fetched concurrently (each one is a network call
+    unless cached). Accounts whose balance cannot be read are left out."""
+    def one(acc):
+        try:
+            return acc.fp, traffic.balance(acc)
+        except traffic.TrafficError as exc:
+            logger.warning("traffic balance %s failed: %s", acc.fp, exc)
+            return acc.fp, None
+    if not accs:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(16, len(accs))) as pool:
+        return {fp: bal for fp, bal in pool.map(one, accs) if bal is not None}
 
 
 def pick_dedicated_account(cost_usd: float, prefer_fp: str | None = None) -> dedicated.Account | None:
