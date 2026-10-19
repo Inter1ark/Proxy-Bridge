@@ -30,6 +30,7 @@ type router struct {
 	gateway netcfg.Gateway
 	undo    *netcfg.Undo
 	exempt  map[int]bool
+	udp     udpOptions
 
 	mu      sync.Mutex
 	routed  map[netip.Addr]bool // proxy IPs that already have a host route
@@ -43,11 +44,12 @@ type router struct {
 type ruleTable struct {
 	set     *rules.Set
 	dialers map[int]*proxy.Dialer
+	udp     map[int]*udpPool // SOCKS5 UDP associations per proxy id
 	// summary is shown in the "up" status line: the catch-all proxy or "direct".
 	summary string
 }
 
-func newRouter(log logger, gw netcfg.Gateway, undo *netcfg.Undo, exempt []int) *router {
+func newRouter(log logger, gw netcfg.Gateway, undo *netcfg.Undo, exempt []int, udp udpOptions) *router {
 	base := boundDialer(gw.Interface)
 	r := &router{
 		log:     log,
@@ -57,6 +59,7 @@ func newRouter(log logger, gw netcfg.Gateway, undo *netcfg.Undo, exempt []int) *
 		undo:    undo,
 		exempt:  make(map[int]bool, len(exempt)),
 		routed:  make(map[netip.Addr]bool),
+		udp:     udp,
 	}
 	for _, pid := range exempt {
 		if pid > 0 {
@@ -76,7 +79,7 @@ func (r *router) Load(set *rules.Set) error {
 	if err := set.Validate(); err != nil {
 		return err
 	}
-	t := &ruleTable{set: set, dialers: make(map[int]*proxy.Dialer, len(set.Proxies)), summary: "direct"}
+	t := &ruleTable{set: set, dialers: make(map[int]*proxy.Dialer, len(set.Proxies)), udp: make(map[int]*udpPool), summary: "direct"}
 	for _, p := range set.Proxies {
 		cfg, err := proxy.Parse(p.URL)
 		if err != nil {
@@ -91,6 +94,7 @@ func (r *router) Load(set *rules.Set) error {
 		}
 		serverAddr := net.JoinHostPort(ip.String(), strconv.Itoa(cfg.Port))
 		t.dialers[p.ID] = proxy.NewDialerWith(cfg, serverAddr, 15*time.Second, r.base)
+		t.udp[p.ID] = newUDPPool(p.ID, t.dialers[p.ID], r.log)
 		r.log.Infof("proxy %d: %s -> %s", p.ID, cfg.Redacted(), serverAddr)
 	}
 	for _, rule := range set.Rules {
@@ -103,7 +107,11 @@ func (r *router) Load(set *rules.Set) error {
 			break
 		}
 	}
-	r.current.Store(t)
+	if old := r.current.Swap(t); old != nil {
+		for _, pool := range old.udp {
+			pool.closeAll()
+		}
+	}
 	for i, rule := range set.Rules {
 		target := string(rule.Action)
 		if rule.Action == rules.ActionProxy {
@@ -116,6 +124,15 @@ func (r *router) Load(set *rules.Set) error {
 
 // Table returns the current rule set (never nil after Load).
 func (r *router) Table() *ruleTable { return r.current.Load() }
+
+// Close drops the UDP associations of the current table.
+func (r *router) Close() {
+	if t := r.current.Load(); t != nil {
+		for _, pool := range t.udp {
+			pool.closeAll()
+		}
+	}
+}
 
 // Summary describes where "all other programs" go.
 func (r *router) Summary() string {

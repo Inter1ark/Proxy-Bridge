@@ -13,6 +13,7 @@ import (
 // "Foreign Address" are two words each in the header but one field each in the rows.
 func ParseNetstat(out string) ([]Conn, error) {
 	pidIdx := -1
+	hasState := false
 	var conns []Conn
 	for _, line := range strings.Split(out, "\n") {
 		f := strings.Fields(line)
@@ -21,7 +22,11 @@ func ParseNetstat(out string) ([]Conn, error) {
 		}
 		if f[0] == "Proto" {
 			extra := 0
+			hasState = false
 			for i, w := range f {
+				if w == "(state)" {
+					hasState = true
+				}
 				if w == "pid" || w == "process:pid" {
 					pidIdx = i - extra
 					break
@@ -32,7 +37,16 @@ func ParseNetstat(out string) ([]Conn, error) {
 			}
 			continue
 		}
-		if pidIdx < 0 || (f[0] != "tcp4" && f[0] != "tcp46") || len(f) <= pidIdx {
+		isUDP := strings.HasPrefix(f[0], "udp")
+		if pidIdx < 0 || (f[0] != "tcp4" && f[0] != "tcp46" && f[0] != "udp4" && f[0] != "udp46") {
+			continue
+		}
+		// UDP rows have no "(state)" column, so everything after the addresses shifts left.
+		idx := pidIdx
+		if isUDP && hasState {
+			idx--
+		}
+		if len(f) <= idx {
 			continue
 		}
 		local, ok1 := parseNetstatAddr(f[3])
@@ -41,7 +55,7 @@ func ParseNetstat(out string) ([]Conn, error) {
 			continue
 		}
 		// newer macOS prints "name:pid" in one column
-		pidStr := f[pidIdx]
+		pidStr := f[idx]
 		if i := strings.LastIndex(pidStr, ":"); i >= 0 {
 			pidStr = pidStr[i+1:]
 		}

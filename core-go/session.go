@@ -32,6 +32,7 @@ type sessionConfig struct {
 	Exempt     []int
 	ParentPID  int
 	StatsEvery time.Duration
+	UDP        udpOptions
 }
 
 // session is one running tunnel: TUN, routes, engine. It ends when Stop is
@@ -80,10 +81,15 @@ func (s *session) setup() error {
 	s.log.Infof("original default route: gateway=%s interface=%s", gw.IP, gw.Interface)
 
 	// The router resolves and pins the proxies now, before routing changes.
-	s.rt = newRouter(s.log, gw, &s.undo, cfg.Exempt)
+	udp := cfg.UDP
+	if cfg.DNS.IsValid() {
+		udp.DNSServer = netip.AddrPortFrom(cfg.DNS, 53)
+	}
+	s.rt = newRouter(s.log, gw, &s.undo, cfg.Exempt, udp)
 	if err := s.rt.Load(cfg.Set); err != nil {
 		return err
 	}
+	s.undo.Push(func() error { s.rt.Close(); return nil })
 
 	dev, err := tun.CreateTUN(cfg.TunName, cfg.MTU)
 	if err != nil {
@@ -117,12 +123,13 @@ func (s *session) setup() error {
 	}
 
 	eng, err := engine.New(dev, engine.Options{
-		MTU:   uint32(cfg.MTU),
-		Dial:  s.rt.directDial,
-		Route: s.rt.Decide,
-		DNS:   dnsHostPort(cfg.DNS),
-		Logf:  s.log.Debugf,
-		Stats: s.stats,
+		MTU:      uint32(cfg.MTU),
+		Dial:     s.rt.directDial,
+		Route:    s.rt.Decide,
+		RouteUDP: s.rt.DecideUDP,
+		DNS:      dnsHostPort(cfg.DNS),
+		Logf:     s.log.Debugf,
+		Stats:    s.stats,
 	})
 	if err != nil {
 		return err
@@ -136,7 +143,8 @@ func (s *session) setup() error {
 	}
 
 	s.rep.UpWithRules(ifName, s.rt.Summary(), len(cfg.Set.Rules), s.rt.Procmap())
-	s.log.Infof("up: %d rules, all other programs -> %s (process attribution: %s)", len(cfg.Set.Rules), s.rt.Summary(), s.rt.Procmap())
+	s.log.Infof("up: %d rules, all other programs -> %s (process attribution: %s, udp: %s, dns via proxy: %v)",
+		len(cfg.Set.Rules), s.rt.Summary(), s.rt.Procmap(), udp.Mode, udp.DNSViaProxy)
 	return nil
 }
 
@@ -209,9 +217,12 @@ func (s *session) Reload(set *rules.Set) error {
 // mode: the rule set plus per-session options.
 type startRequest struct {
 	rules.Set
-	DNS        *string `json:"dns,omitempty"`
-	ParentPID  int     `json:"parent_pid,omitempty"`
-	ExemptPIDs []int   `json:"exempt_pids,omitempty"`
+	DNS         *string `json:"dns,omitempty"`
+	ParentPID   int     `json:"parent_pid,omitempty"`
+	ExemptPIDs  []int   `json:"exempt_pids,omitempty"`
+	UDP         string  `json:"udp,omitempty"`           // direct (default), proxy or block
+	DNSViaProxy bool    `json:"dns_via_proxy,omitempty"` // answer udp/53 through the proxy (DNS over TCP)
+	DNSProxy    int     `json:"dns_proxy,omitempty"`     // proxy id for DNS queries (0: automatic)
 }
 
 // parseStartRequest applies a request on top of the daemon defaults.
@@ -226,6 +237,21 @@ func parseStartRequest(payload []byte, defaults sessionConfig) (sessionConfig, e
 	}
 	cfg := defaults
 	cfg.Set = &set
+	cfg.UDP = udpOptions{Mode: req.UDP, DNSViaProxy: req.DNSViaProxy, DNSProxy: req.DNSProxy}
+	if err := cfg.UDP.normalize(); err != nil {
+		return defaults, fmt.Errorf("start: %w", err)
+	}
+	if req.DNSProxy != 0 {
+		found := false
+		for _, p := range set.Proxies {
+			if p.ID == req.DNSProxy {
+				found = true
+			}
+		}
+		if !found {
+			cfg.UDP.DNSProxy = 0 // unknown id: automatic choice
+		}
+	}
 	cfg.ParentPID = req.ParentPID
 	cfg.Exempt = append([]int{os.Getpid()}, req.ExemptPIDs...)
 	if req.ParentPID > 0 {

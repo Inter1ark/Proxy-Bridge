@@ -52,3 +52,31 @@ func TestParseNetstatProcessPid(t *testing.T) {
 		t.Fatalf("pbcore: %d %v", pid, ok)
 	}
 }
+
+func TestParseNetstatUDP(t *testing.T) {
+	out := "Active Internet connections (including servers)\n" +
+		"Proto Recv-Q Send-Q  Local Address          Foreign Address        rhiwat  shiwat    pid   epid  state    options           gencnt    flags   flags1 usscnt rtncnt fltrs\n" +
+		"udp4       0      0  *.5353                 *.*                    786896    9216    207      0 0x0000 0x00000000 0x0000000000000abc 00000000 00000000      1      0 000001\n" +
+		"udp4       0      0  10.255.0.2.61234       *.*                    786896    9216   4242      0 0x0000 0x00000000 0x0000000000000abd 00000000 00000000      1      0 000001\n" +
+		"udp46      0      0  *.49152                *.*                    786896    9216    999      0 0x0000 0x00000000 0x0000000000000abe 00000000 00000000      1      0 000001\n"
+	conns, err := ParseNetstat(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(conns) != 3 {
+		t.Fatalf("got %d: %+v", len(conns), conns)
+	}
+	if pid, ok := Find(conns, netip.MustParseAddrPort("10.255.0.2:61234"), netip.MustParseAddrPort("8.8.8.8:443")); !ok || pid != 4242 {
+		t.Fatalf("bound socket: %d %v", pid, ok)
+	}
+	if pid, ok := Find(conns, netip.MustParseAddrPort("10.255.0.2:5353"), netip.MustParseAddrPort("224.0.0.251:5353")); !ok || pid != 207 {
+		t.Fatalf("wildcard socket: %d %v", pid, ok)
+	}
+	// a TCP table with the state column still parses the pid from the right column
+	tcp := "Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)     rhiwat  shiwat    pid   epid\n" +
+		"tcp4       0      0  10.255.0.2.49479       104.26.12.205.443      SYN_SENT    131072  131072    777      0\n"
+	conns, err = ParseNetstat(tcp)
+	if err != nil || len(conns) != 1 || conns[0].PID != 777 {
+		t.Fatalf("tcp: %v %+v", err, conns)
+	}
+}

@@ -58,3 +58,7 @@ Since 3.5.1 the GUI installs pbcore once as a launchd daemon (`mac/install-helpe
 - `mac/uninstall-helper.sh` (Settings, "Remove helper") removes the job, the binary and the token.
 
 Without the daemon (install refused or failed) the GUI falls back to launching pbcore for one session with `--rules-file`, as in 3.5.0. The Codemagic workflow exercises both paths against a real proxy.
+
+### UDP and DNS on macOS (3.6.0)
+
+pbcore takes the same options as the Windows core in the rule JSON / start request: `"udp": "direct" | "proxy" | "block"`, `"dns_via_proxy": true`, `"dns_proxy": <id>`. UDP flows are attributed through `net.inet.udp.pcblist_n` (or `netstat -anv -p udp`). `proxy` opens one SOCKS5 UDP association per client socket (`internal/proxy/udp.go`, `router_udp.go`) and demultiplexes replies by source; a proxy that answers UDP ASSOCIATE with "command not supported" has its UDP blocked for 60 s, so nothing leaks. `block` and a rule's BLOCK answer with ICMP port unreachable, so applications fall back to TCP at once. DNS via proxy sends udp/53 (from mDNSResponder, like the Windows DNS Client) as DNS over TCP through the DNS proxy; private resolvers are replaced by the `--dns` server. The Codemagic step "UDP end-to-end test" needs `TEST_PROXY_UDP` (a SOCKS5 proxy with UDP) next to `TEST_PROXY` (one without).

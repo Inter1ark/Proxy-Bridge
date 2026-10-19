@@ -26,3 +26,6 @@ func (r *Resolver) UsesLsof() bool { return false }
 func (r *Resolver) Lookup(local, remote netip.AddrPort) (int, string, bool) {
 	return 0, "", false
 }
+
+// LookupUDP is not available on this platform.
+func (r *Resolver) LookupUDP(local, remote netip.AddrPort) (int, string, bool) { return 0, "", false }

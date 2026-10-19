@@ -179,13 +179,11 @@ func main() {
 		os.Exit(runDaemon(log, rep, *controlPort, token, defaults))
 	}
 
-	set, err := loadRules(*rulesFile, *proxyFile, *proxyURL)
+	cfg, err := loadRules(*rulesFile, *proxyFile, *proxyURL, defaults)
 	if err != nil {
 		fail("%v", err)
 		os.Exit(1)
 	}
-	cfg := defaults
-	cfg.Set = set
 	cfg.ParentPID = *parentPID
 	cfg.Exempt = []int{os.Getpid(), *parentPID}
 	for _, part := range strings.Split(*exemptPIDs, ",") {
@@ -373,33 +371,44 @@ func randomToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// loadRules builds the initial rule set: from --rules-file, or from a single
-// proxy (--proxy / --proxy-file) as "everything through this proxy".
-func loadRules(rulesFile, proxyFile, proxyURL string) (*rules.Set, error) {
+// loadRules builds the initial session: from --rules-file (the same JSON as the
+// daemon's "start" request: rules plus udp/dns options), or from a single proxy
+// (--proxy / --proxy-file) as "everything through this proxy".
+func loadRules(rulesFile, proxyFile, proxyURL string, defaults sessionConfig) (sessionConfig, error) {
 	if rulesFile != "" {
 		b, err := os.ReadFile(rulesFile)
 		if err != nil {
-			return nil, fmt.Errorf("read --rules-file: %w", err)
+			return defaults, fmt.Errorf("read --rules-file: %w", err)
 		}
 		_ = os.Remove(rulesFile)
-		return rules.Parse(b)
+		cfg, err := parseStartRequest(b, defaults)
+		if err != nil {
+			return defaults, err
+		}
+		if cfg.UDP.DNSServer.IsValid() {
+			// parseStartRequest does not know the resolver flag; bringUp fills it from cfg.DNS
+			cfg.UDP.DNSServer = netip.AddrPort{}
+		}
+		return cfg, nil
 	}
 	if proxyFile != "" {
 		b, err := os.ReadFile(proxyFile)
 		if err != nil {
-			return nil, fmt.Errorf("read --proxy-file: %w", err)
+			return defaults, fmt.Errorf("read --proxy-file: %w", err)
 		}
 		_ = os.Remove(proxyFile)
 		proxyURL = strings.TrimSpace(string(b))
 	}
 	if strings.TrimSpace(proxyURL) == "" {
-		return nil, fmt.Errorf("no --rules-file and no --proxy given")
+		return defaults, fmt.Errorf("no --rules-file and no --proxy given")
 	}
 	set := &rules.Set{
 		Proxies: []rules.Proxy{{ID: 1, URL: proxyURL}},
 		Rules:   []rules.Rule{{Process: "*", Action: rules.ActionProxy, Proxy: 1}},
 	}
-	return set, set.Validate()
+	cfg := defaults
+	cfg.Set = set
+	return cfg, set.Validate()
 }
 
 func processAlive(pid int) bool {

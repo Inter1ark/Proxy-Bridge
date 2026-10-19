@@ -5,7 +5,7 @@ workflows:
     max_build_duration: 60
     environment:
       vars:
-        VERSION: "3.5.1"
+        VERSION: "3.6.0"
     scripts:
       - name: Install .NET 9 and Go
         script: |
@@ -209,6 +209,85 @@ workflows:
           sleep 1
           echo "after uninstall, ping: '$(printf 'ping %s\n' "$tok" | nc -w 2 127.0.0.1 34050)' (expected empty)"
           ls /Library/LaunchDaemons/org.proxybridge.pbcore.plist 2>&1 | head -1
+          exit 0
+
+      - name: UDP end-to-end test (SOCKS5 UDP, block mode, DNS via proxy)
+        script: |
+          set +e
+          if [ -z "${TEST_PROXY:-}" ] || [ -z "${TEST_PROXY_UDP:-}" ]; then echo "TEST_PROXY / TEST_PROXY_UDP not set, skipping"; exit 0; fi
+          app=/Applications/ProxyBridge.app/Contents/MacOS
+          sudo /bin/sh "$app/install-helper.sh" "$app/pbcore" >/dev/null; tok=$(sudo cat "/Library/Application Support/ProxyBridge/control.token")
+          for i in $(seq 1 20); do r=$(printf 'ping %s\n' "$tok" | nc -w 2 127.0.0.1 34050); [ -n "$r" ] && break; sleep 0.5; done; echo "ping: $r"
+          udp_host=$(python3 -c "import sys,urllib.parse; print(urllib.parse.urlparse(sys.argv[1]).hostname)" "$TEST_PROXY_UDP")
+          direct_ip=$(curl -4 -sS -m 15 https://api.ipify.org); echo "direct IP: $direct_ip, UDP proxy host: $udp_host"
+          cat > /tmp/stun.py <<'PY'
+          import os, socket, struct, sys
+          # STUN Binding Request straight from this process (the tunnel decides where it goes)
+          s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.settimeout(float(sys.argv[1]) if len(sys.argv) > 1 else 4)
+          tid = os.urandom(12); req = struct.pack("!HHI", 1, 0, 0x2112A442) + tid
+          try:
+              s.sendto(req, (socket.gethostbyname("stun.l.google.com"), 19302))
+              d, _ = s.recvfrom(2048)
+          except Exception as e:
+              print("STUN failed:", type(e).__name__, e); sys.exit(2)
+          off = 20
+          while off + 4 <= len(d):
+              at, al = struct.unpack("!HH", d[off:off+4]); v = d[off+4:off+4+al]
+              if at == 0x20 and al >= 8:
+                  print("STUN mapped IP:", ".".join(str(b ^ m) for b, m in zip(v[4:8], b"\x21\x12\xa4\x42"))); sys.exit(0)
+              off += 4 + ((al + 3) & ~3)
+          print("STUN: no mapped address"); sys.exit(3)
+          PY
+          cat > /tmp/dnsq.py <<'PY'
+          import os, socket, struct, sys
+          # raw DNS query for example.com to the resolver given on the command line (udp/53)
+          server = sys.argv[1]
+          tid = os.urandom(2); q = tid + b"\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00" + b"\x07example\x03com\x00\x00\x01\x00\x01"
+          s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.settimeout(5)
+          try:
+              s.sendto(q, (server, 53)); d, _ = s.recvfrom(1024)
+          except Exception as e:
+              print("DNS failed:", type(e).__name__, e); sys.exit(2)
+          ok = d[:2] == tid and d[2] & 0x80 and (d[3] & 0x0F) == 0 and struct.unpack("!H", d[6:8])[0] > 0
+          print("DNS answer via", server, ":", "ok" if ok else "bad", len(d), "bytes"); sys.exit(0 if ok else 3)
+          PY
+          start() {  # $1 udp mode, $2 dns via proxy, $3 proxy url for python3
+            req=$(python3 - "$3" "$1" "$2" <<'PY'
+          import base64, json, os, sys
+          s = json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}],
+                          "rules": [{"process": "curl", "action": "direct"}, {"process": "python3", "action": "proxy", "proxy": 1}],
+                          "udp": sys.argv[2], "dns_via_proxy": sys.argv[3] == "1", "dns": "1.1.1.1", "parent_pid": os.getppid()})
+          print(base64.b64encode(s.encode()).decode())
+          PY
+          )
+            echo "start udp=$1 dns_via_proxy=$2: $(printf 'start %s %s\n' "$tok" "$req" | nc -w 60 127.0.0.1 34050)"
+          }
+          stop() { printf 'stop %s\n' "$tok" | nc -w 3 127.0.0.1 34050 >/dev/null; sleep 1; }
+          resolver=$(scutil --dns | awk '/nameserver\[0\]/{print $3; exit}'); echo "system resolver: $resolver"
+
+          echo "== A) udp=proxy with a UDP-capable proxy: python3 STUN must show $udp_host"
+          start proxy 1 "$TEST_PROXY_UDP"
+          python3 /tmp/stun.py 6; echo " exit=$? (expected 0, IP $udp_host)"
+          echo "== B) DNS via proxy: query to the private resolver $resolver is answered through the proxy"
+          python3 /tmp/dnsq.py "$resolver"; echo " exit=$? (expected 0)"
+          python3 /tmp/dnsq.py 1.1.1.1; echo " exit=$? (expected 0)"
+          echo "== C) curl (direct rule): STUN-like UDP of a direct program is untouched: dig +notcp"
+          dig +short +notcp +time=3 example.com @1.1.1.1 | head -1
+          stop
+          echo "== D) udp=block: python3 STUN must fail fast"
+          start block 0 "$TEST_PROXY_UDP"
+          t0=$(date +%s); python3 /tmp/stun.py 4; echo " exit=$? (expected 2, failed) after $(( $(date +%s) - t0 )) s"
+          stop
+          echo "== E) udp=proxy with a proxy WITHOUT UDP (TEST_PROXY): blocked, no leak"
+          start proxy 0 "$TEST_PROXY"
+          python3 /tmp/stun.py 4; echo " exit=$? (expected 2, failed)"
+          stop
+          echo "== F) udp=direct: python3 STUN shows the machine's own IP $direct_ip"
+          start direct 0 "$TEST_PROXY_UDP"
+          python3 /tmp/stun.py 6; echo " exit=$? (expected 0, IP $direct_ip)"
+          stop
+          echo "== daemon log (udp/dns lines)"; sudo grep -E "udp |dns|refuses|up:" /Library/Logs/ProxyBridge/pbcore.log | tail -n 40
+          sudo /bin/sh "$app/uninstall-helper.sh" >/dev/null
           exit 0
 
     artifacts:

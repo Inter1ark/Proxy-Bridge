@@ -164,7 +164,14 @@ func socks5Handshake(conn net.Conn, cfg Config, target string) error {
 	if err != nil || port < 0 || port > 65535 {
 		return fmt.Errorf("bad target port %q", portStr)
 	}
+	if err := socks5Auth(conn, cfg); err != nil {
+		return err
+	}
+	return socks5Connect(conn, host, port)
+}
 
+// socks5Auth does the greeting and, when needed, username/password authentication.
+func socks5Auth(conn net.Conn, cfg Config) error {
 	useAuth := cfg.Username != "" || cfg.Password != ""
 	greeting := []byte{socksVersion, 1, socksNoAuth}
 	if useAuth {
@@ -209,7 +216,11 @@ func socks5Handshake(conn net.Conn, cfg Config, target string) error {
 	default:
 		return fmt.Errorf("socks5: unsupported auth method %d", resp[1])
 	}
+	return nil
+}
 
+// socks5Connect sends CONNECT for host:port and checks the reply.
+func socks5Connect(conn net.Conn, host string, port int) error {
 	req := []byte{socksVersion, socksCmdConnect, 0x00}
 	if ip := net.ParseIP(host); ip != nil {
 		if ip4 := ip.To4(); ip4 != nil {

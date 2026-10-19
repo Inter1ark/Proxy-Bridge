@@ -26,6 +26,8 @@ type Resolver struct {
 	useNet   bool // netstat fallback instead of the sysctl parser
 	conns    []Conn
 	connsAt  time.Time
+	udpConns []Conn
+	udpAt    time.Time
 	exeCache map[int]exeEntry
 }
 
@@ -127,7 +129,7 @@ func (r *Resolver) netstatSelfTest() error {
 		return err
 	}
 	defer closeAll()
-	conns, err := readNetstat()
+	conns, err := readNetstat("tcp")
 	if err != nil {
 		return err
 	}
@@ -143,7 +145,7 @@ func (r *Resolver) netstatSelfTest() error {
 
 func (r *Resolver) readTable() ([]Conn, error) {
 	if r.useNet {
-		return readNetstat()
+		return readNetstat("tcp")
 	}
 	b, err := unix.SysctlRaw("net.inet.tcp.pcblist_n")
 	if err != nil {
@@ -152,13 +154,60 @@ func (r *Resolver) readTable() ([]Conn, error) {
 	return ParsePcblistLayout(b, r.layout), nil
 }
 
-// readNetstat runs "netstat -anv -p tcp", which prints the owning pid of every socket.
-func readNetstat() ([]Conn, error) {
-	out, err := exec.Command("netstat", "-anv", "-p", "tcp").Output()
+// readUDPTable lists UDP sockets. The records have the same layout as the TCP
+// ones (xinpcb_n / xsocket_n), so the calibrated layout applies.
+func (r *Resolver) readUDPTable() ([]Conn, error) {
+	if r.useNet {
+		return readNetstat("udp")
+	}
+	b, err := unix.SysctlRaw("net.inet.udp.pcblist_n")
+	if err != nil {
+		return nil, fmt.Errorf("sysctl net.inet.udp.pcblist_n: %w", err)
+	}
+	return ParsePcblistLayout(b, r.layout), nil
+}
+
+// readNetstat runs "netstat -anv -p tcp|udp", which prints the owning pid of every socket.
+func readNetstat(proto string) ([]Conn, error) {
+	out, err := exec.Command("netstat", "-anv", "-p", proto).Output()
 	if err != nil {
 		return nil, fmt.Errorf("netstat: %w", err)
 	}
 	return ParseNetstat(string(out))
+}
+
+// LookupUDP returns the owner of the UDP socket bound to local (the remote
+// side is usually unknown for UDP sockets and only used as a tie breaker).
+func (r *Resolver) LookupUDP(local, remote netip.AddrPort) (pid int, exe string, ok bool) {
+	for attempt := 0; attempt < 2; attempt++ {
+		r.mu.Lock()
+		if attempt > 0 || time.Since(r.udpAt) > listTTL {
+			conns, err := r.readUDPTable()
+			if err != nil {
+				r.mu.Unlock()
+				r.logf("procmap: %v", err)
+				return 0, "", false
+			}
+			r.udpConns = conns
+			r.udpAt = time.Now()
+		}
+		conns := r.udpConns
+		r.mu.Unlock()
+		if p, found := Find(conns, local, remote); found {
+			pid = p
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		return 0, "", false
+	}
+	exe, err := r.exePath(pid)
+	if err != nil {
+		r.logf("procmap: exe of pid %d: %v", pid, err)
+		return pid, "", true
+	}
+	return pid, exe, true
 }
 
 // Lookup returns the pid and executable path of the process that owns the TCP

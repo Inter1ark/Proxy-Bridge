@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	nicID = tcpip.NICID(1)
+	udpIdle = 60 * time.Second
+	nicID   = tcpip.NICID(1)
 	// tunOffset is the headroom kept in front of every packet buffer. The
 	// darwin utun driver needs 4 bytes for its address family header.
 	tunOffset = 16
@@ -71,9 +72,12 @@ type Options struct {
 	Dial DialFunc
 	// Route, when set, is asked about every new TCP flow before dialing.
 	Route RouteFunc
-	// DNS is the ip:port of the resolver that udp/53 flows are forwarded to.
-	// Empty disables DNS forwarding (DNS over UDP is then dropped).
+	// DNS is the ip:port of the resolver that udp/53 flows are forwarded to
+	// when RouteUDP is nil. Empty disables DNS forwarding (DNS over UDP is then dropped).
 	DNS string
+	// RouteUDP, when set, decides every new UDP flow: block it, or open a
+	// session that relays it (direct, through a proxy, or a DNS exchange).
+	RouteUDP UDPRouteFunc
 	// Logf receives diagnostic messages.
 	Logf func(format string, args ...any)
 	// Stats receives byte counters.
@@ -347,40 +351,99 @@ func closeWrite(c net.Conn) {
 	c.Close()
 }
 
-// handleUDP implements TCP-only mode: every UDP flow is rejected except DNS,
-// which is forwarded directly to the configured resolver so name resolution
-// keeps working. Returning false lets the stack answer with ICMP port
-// unreachable, so applications fall back to TCP quickly instead of timing out.
+// UDPSession relays the datagrams of one client flow (one source, one destination).
+type UDPSession interface {
+	// Write sends one datagram from the client towards the destination.
+	Write(payload []byte) error
+	// Read waits for one datagram for the client; it returns an error when the
+	// session is closed or idle for too long.
+	Read(buf []byte) (int, error)
+	Close() error
+}
+
+// UDPDecision is the answer of UDPRouteFunc for a new UDP flow. Block (or a
+// nil Open) rejects the flow with ICMP port unreachable, so applications fall
+// back to TCP quickly instead of timing out.
+type UDPDecision struct {
+	Block bool
+	Open  func(ctx context.Context) (UDPSession, error)
+	Label string
+}
+
+// UDPRouteFunc decides what to do with a new UDP flow src -> dst.
+type UDPRouteFunc func(src, dst netip.AddrPort) UDPDecision
+
+// NewConnSession wraps a connected datagram socket as a session; reads give
+// up after idle without traffic.
+func NewConnSession(c net.Conn, idle time.Duration) UDPSession {
+	return &connSession{c: c, idle: idle}
+}
+
+type connSession struct {
+	c    net.Conn
+	idle time.Duration
+}
+
+func (s *connSession) Write(p []byte) error { _, err := s.c.Write(p); return err }
+func (s *connSession) Read(buf []byte) (int, error) {
+	_ = s.c.SetReadDeadline(time.Now().Add(s.idle))
+	return s.c.Read(buf)
+}
+func (s *connSession) Close() error { return s.c.Close() }
+
+// handleUDP asks RouteUDP (or, without one, forwards DNS directly to the
+// configured resolver and rejects everything else) and relays accepted flows.
 func (e *Engine) handleUDP(r *udp.ForwarderRequest) bool {
 	id := r.ID()
-	if id.LocalPort != 53 || e.opts.DNS == "" {
+	src := netip.AddrPortFrom(toAddr(id.RemoteAddress.AsSlice()), id.RemotePort)
+	dst := netip.AddrPortFrom(toAddr(id.LocalAddress.AsSlice()), id.LocalPort)
+	var dec UDPDecision
+	if e.opts.RouteUDP != nil {
+		dec = e.opts.RouteUDP(src, dst)
+	} else if id.LocalPort == 53 && e.opts.DNS != "" {
+		resolver := e.opts.DNS
+		dec = UDPDecision{Label: "dns direct", Open: func(ctx context.Context) (UDPSession, error) {
+			var d net.Dialer
+			c, err := d.DialContext(ctx, "udp", resolver)
+			if err != nil {
+				return nil, err
+			}
+			return NewConnSession(c, dnsIdle), nil
+		}}
+	}
+	if dec.Block || dec.Open == nil {
 		return false
 	}
 	var wq waiter.Queue
 	ep, err := r.CreateEndpoint(&wq)
 	if err != nil {
-		e.opts.Logf("udp dns: create endpoint: %v", err)
+		e.opts.Logf("udp %s: create endpoint: %v", dst, err)
 		return true
 	}
 	conn := gonet.NewUDPConn(&wq, ep)
-	go e.forwardDNS(conn)
+	go e.forwardUDP(conn, dec, dst)
 	return true
 }
 
-func (e *Engine) forwardDNS(client *gonet.UDPConn) {
+func (e *Engine) forwardUDP(client *gonet.UDPConn, dec UDPDecision, dst netip.AddrPort) {
 	defer client.Close()
-	up, err := net.Dial("udp", e.opts.DNS)
+	ctx, cancel := context.WithTimeout(e.ctx, 15*time.Second)
+	sess, err := dec.Open(ctx)
+	cancel()
 	if err != nil {
-		e.opts.Logf("udp dns: dial %s: %v", e.opts.DNS, err)
+		e.opts.Logf("udp %s (%s): %v", dst, dec.Label, err)
 		return
 	}
-	defer up.Close()
+	defer sess.Close()
+	idle := udpIdle
+	if dst.Port() == 53 {
+		idle = dnsIdle
+	}
 
 	go func() {
 		buf := make([]byte, 65535)
 		for {
-			_ = up.SetReadDeadline(time.Now().Add(dnsIdle))
-			n, err := up.Read(buf)
+			n, err := sess.Read(buf)
 			if err != nil {
 				client.Close()
 				return
@@ -394,12 +457,12 @@ func (e *Engine) forwardDNS(client *gonet.UDPConn) {
 
 	buf := make([]byte, 65535)
 	for {
-		_ = client.SetReadDeadline(time.Now().Add(dnsIdle))
+		_ = client.SetReadDeadline(time.Now().Add(idle))
 		n, err := client.Read(buf)
 		if err != nil {
 			return
 		}
-		if _, err := up.Write(buf[:n]); err != nil {
+		if err := sess.Write(buf[:n]); err != nil {
 			return
 		}
 		e.opts.Stats.Up.Add(int64(n))
