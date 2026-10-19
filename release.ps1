@@ -132,8 +132,7 @@ if ($DryRun -or $SkipBuild) {
     } finally { Pop-Location }
 
     $coreRepo = Join-Path $Root "ProxyBridgeCore.dll"
-    $corePub  = Join-Path $Root "guiin\Release
-et9.0-windows\win-x64\publish\ProxyBridgeCore.dll"
+    $corePub  = Join-Path $Root "gui\bin\Release\net9.0-windows\win-x64\publish\ProxyBridgeCore.dll"
     if ((Get-FileHash $coreRepo).Hash -ne (Get-FileHash $corePub).Hash) {
         throw "publish folder has a stale ProxyBridgeCore.dll (differs from the one just built)"
     }
