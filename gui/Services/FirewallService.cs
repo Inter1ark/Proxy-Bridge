@@ -29,7 +29,8 @@ public sealed class FirewallPlan
     public List<FwRule> Remove { get; } = new();
     /// <summary>True when no enabled inbound Allow rule covers TCP on all profiles for this exe.</summary>
     public bool AddAllow { get; set; }
-    public bool IsEmpty => Remove.Count == 0 && !AddAllow;
+    public bool AddAllowUdp { get; set; }
+    public bool IsEmpty => Remove.Count == 0 && !AddAllow && !AddAllowUdp;
 }
 
 /// <summary>Access to the firewall rules (COM in the app, a fake in tests).</summary>
@@ -38,6 +39,7 @@ public interface IFirewallStore
     IReadOnlyList<FwRule> GetRules();
     void Remove(FwRule rule);
     void AddAllow(string name, string exePath);
+    void AddAllowUdp(string name, string exePath);
 }
 
 public enum FirewallOutcome { Skipped, AlreadyOk, Fixed, Failed }
@@ -54,6 +56,7 @@ public static class FirewallService
 {
     public const string RuleName = "ProxyBridge";
     public const int ProtoTcp = 6;
+    public const int ProtoUdp = 17;
     public const int ProtoAny = 256;
     public const int ProfileDomain = 1, ProfilePrivate = 2, ProfilePublic = 4;
     public const int ProfilesAll = 0x7FFFFFFF;
@@ -62,7 +65,8 @@ public static class FirewallService
     public static FirewallPlan Plan(IEnumerable<FwRule> rules, string exePath)
     {
         var plan = new FirewallPlan();
-        var hasAllow = false;
+        var hasTcp = false;
+        var hasUdp = false;
         foreach (var r in rules)
         {
             if (!r.Enabled || !SamePath(r.ApplicationName, exePath)) continue;
@@ -72,11 +76,15 @@ public static class FirewallService
                 continue;
             }
             if (!r.Inbound) continue;
-            var tcp = r.Protocol == ProtoTcp || r.Protocol == ProtoAny;
             var allProfiles = (r.Profiles & (ProfileDomain | ProfilePrivate | ProfilePublic)) == (ProfileDomain | ProfilePrivate | ProfilePublic);
-            if (tcp && allProfiles) hasAllow = true;
+            if (!allProfiles) continue;
+            if (r.Protocol == ProtoTcp || r.Protocol == ProtoAny) hasTcp = true;
+            if (r.Protocol == ProtoUdp || r.Protocol == ProtoAny) hasUdp = true;
         }
-        plan.AddAllow = !hasAllow;
+        // The TCP relay (redirected connections) and, since 3.6.0, the UDP relay (redirected
+        // datagrams and DNS) both receive inbound traffic on the exe.
+        plan.AddAllow = !hasTcp;
+        plan.AddAllowUdp = !hasUdp;
         return plan;
     }
 
@@ -115,6 +123,11 @@ public static class FirewallService
         {
             store.AddAllow(RuleName, exePath);
             done.Add($"added inbound allow rule '{RuleName}' (TCP, all profiles)");
+        }
+        if (plan.AddAllowUdp)
+        {
+            store.AddAllowUdp(RuleName + " (UDP)", exePath);
+            done.Add($"added inbound allow rule '{RuleName} (UDP)' (UDP, all profiles)");
         }
 
         // verify
@@ -206,14 +219,17 @@ public sealed class ComFirewallStore : IFirewallStore
         _policy.Rules.Remove(unique);
     }
 
-    public void AddAllow(string name, string exePath)
+    public void AddAllow(string name, string exePath) => AddAllowProto(name, exePath, FirewallService.ProtoTcp);
+    public void AddAllowUdp(string name, string exePath) => AddAllowProto(name, exePath, FirewallService.ProtoUdp);
+
+    private void AddAllowProto(string name, string exePath, int protocol)
     {
         var type = Type.GetTypeFromProgID("HNetCfg.FWRule", throwOnError: true)!;
         dynamic rule = Activator.CreateInstance(type)!;
         rule.Name = name;
-        rule.Description = "Lets ProxyBridge receive the connections it redirects through the proxy.";
+        rule.Description = "Lets ProxyBridge receive the connections and datagrams it redirects through the proxy.";
         rule.ApplicationName = exePath;
-        rule.Protocol = FirewallService.ProtoTcp;
+        rule.Protocol = protocol;
         rule.Direction = DirIn;
         rule.Action = ActionAllow;
         rule.Profiles = FirewallService.ProfilesAll;
