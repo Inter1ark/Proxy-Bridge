@@ -125,6 +125,17 @@ public static class ProxyBridgeNative
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     public static extern void ProxyBridge_SetDisableUdp([MarshalAs(UnmanagedType.Bool)] bool disable);
 
+    /// <summary>0 direct, 1 via SOCKS5 UDP (blocked when the proxy cannot), 2 blocked.</summary>
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void ProxyBridge_SetUdpMode(int mode);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void ProxyBridge_SetDnsProxy(uint proxyId);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ProxyBridge_SetDnsServer(string ipv4);
+
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool ProxyBridge_Start();

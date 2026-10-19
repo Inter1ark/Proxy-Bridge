@@ -38,6 +38,8 @@ public class AppConfig
     public bool AutoConnectLastProxy { get; set; } = false;
     public bool ShowNotifications { get; set; } = true;
     public bool DisableUdp { get; set; } = true;
+    /// <summary>UDP of proxied programs: "auto" (via SOCKS5 UDP, blocked when the proxy cannot), "block", "direct".</summary>
+    public string UdpMode { get; set; } = "auto";
     public string LastProxyInput { get; set; } = "";
     public List<string> ProxyHistory { get; set; } = new();
     public List<string> LoadedProxyList { get; set; } = new();
@@ -108,6 +110,10 @@ public class ProxyCheckInfo
     public string Country { get; set; } = "";
     public string City { get; set; } = "";
     public int LatencyMs { get; set; }
+    /// <summary>SOCKS5 UDP ASSOCIATE worked (true), was refused or is an HTTP proxy (false), not probed (null).</summary>
+    public bool? UdpSupported { get; set; }
+    /// <summary>The IP seen through the proxy's UDP relay (what WebRTC would show), when probed.</summary>
+    public string UdpIp { get; set; } = "";
     /// <summary>ISO 8601 UTC.</summary>
     public string CheckedAt { get; set; } = "";
 }

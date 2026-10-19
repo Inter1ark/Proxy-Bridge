@@ -457,7 +457,7 @@ static void test_check_process_rule(void)
         check_process_rule(src, sport, ip4("93.184.216.35"), 443, FALSE, &pid, &pcid);
     CHECK(log_count("93.184.216.35:443") == 1, "repeated decision logged once (rate limited)");
 
-    // UDP is never proxied, even with a BOTH rule
+    // UDP mode direct (the default): UDP goes direct even with a BOTH rule
     SOCKET u = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     struct sockaddr_in ua;
     memset(&ua, 0, sizeof(ua));
@@ -469,7 +469,7 @@ static void test_check_process_rule(void)
     act = check_process_rule(ip4("192.168.1.50"), ntohs(ua.sin_port), ip4("8.8.8.8"), 443, TRUE, &pid, &pcid);
     CHECK(act == RULE_ACTION_DIRECT && pcid == 0, "UDP with a PROXY rule goes DIRECT");
     CHECK(pid == GetCurrentProcessId(), "UDP owner resolved");
-    CHECK(log_has("UDP is not proxied"), "UDP override logged");
+    CHECK(log_has("UDP goes direct"), "UDP override logged");
     closesocket(u);
 
     // a rule pointing at an unknown proxy id goes direct instead of using another proxy
@@ -795,7 +795,7 @@ static void test_filter(void)
     ProxyBridge_AddProxy(PROXY_TYPE_SOCKS5, "127.0.0.1", 1080, NULL, NULL);   // loopback: not excluded
 
     char f[FILTER_BUFFER_SIZE];
-    int ex = pb_build_filter(f, sizeof(f), FALSE, TRUE);
+    int ex = pb_build_filter(f, sizeof(f), FALSE, FALSE, TRUE);
     printf("  filter: %s\n", f);
     CHECK(ex == 2, "two unique non-loopback proxy IPs excluded");
     const char *err = NULL;
@@ -813,13 +813,26 @@ static void test_filter(void)
     CHECK(!eval(f, FALSE, FALSE, "10.8.0.2", "1.2.3.4", 50006, 443, TRUE, TRUE, FALSE), "impostor (re-injected) packets not captured");
     CHECK(eval(f, FALSE, FALSE, "1.2.3.4", "10.8.0.2", 50000, LOCAL_PROXY_PORT, FALSE, FALSE, FALSE), "reflected packet to the relay port matches");
 
-    ex = pb_build_filter(f, sizeof(f), TRUE, TRUE);
+    ex = pb_build_filter(f, sizeof(f), TRUE, FALSE, TRUE);
     CHECK(WinDivertHelperCompileFilter(f, WINDIVERT_LAYER_NETWORK, NULL, 0, &err, &pos), err ? err : "TCP+UDP-block filter compiles");
     CHECK(eval(f, FALSE, TRUE, "10.8.0.2", "8.8.8.8", 50007, 443, TRUE, FALSE, FALSE), "UDP captured when a UDP BLOCK rule exists");
     CHECK(!eval(f, FALSE, TRUE, "10.8.0.2", "8.8.8.8", 50008, 53, TRUE, FALSE, FALSE), "DNS still not captured");
     CHECK(!eval(f, FALSE, TRUE, "0.0.0.0", "255.255.255.255", 68, 67, TRUE, FALSE, FALSE), "DHCP not captured");
 
-    pb_build_filter(f, sizeof(f), FALSE, FALSE);
+    // DNS via proxy: only udp/53 enters the filter when UDP itself stays direct
+    ex = pb_build_filter(f, sizeof(f), FALSE, TRUE, TRUE);
+    CHECK(WinDivertHelperCompileFilter(f, WINDIVERT_LAYER_NETWORK, NULL, 0, &err, &pos), err ? err : "DNS-only UDP filter compiles");
+    CHECK(eval(f, FALSE, TRUE, "10.8.0.2", "192.168.1.1", 50009, 53, TRUE, FALSE, FALSE), "DNS captured when DNS goes via proxy");
+    CHECK(!eval(f, FALSE, TRUE, "10.8.0.2", "8.8.8.8", 50010, 443, TRUE, FALSE, FALSE), "other UDP still not captured");
+    CHECK(!eval(f, FALSE, TRUE, "10.8.0.2", "1.2.3.4", 53, 50011, TRUE, FALSE, FALSE), "replies of a local DNS server not captured");
+    // UDP and DNS both captured
+    ex = pb_build_filter(f, sizeof(f), TRUE, TRUE, TRUE);
+    CHECK(WinDivertHelperCompileFilter(f, WINDIVERT_LAYER_NETWORK, NULL, 0, &err, &pos), err ? err : "UDP+DNS filter compiles");
+    CHECK(eval(f, FALSE, TRUE, "10.8.0.2", "192.168.1.1", 50012, 53, TRUE, FALSE, FALSE), "DNS captured");
+    CHECK(eval(f, FALSE, TRUE, "10.8.0.2", "8.8.8.8", 50013, 443, TRUE, FALSE, FALSE), "UDP captured");
+    CHECK(!eval(f, FALSE, TRUE, "0.0.0.0", "255.255.255.255", 68, 67, TRUE, FALSE, FALSE), "DHCP never captured");
+
+    pb_build_filter(f, sizeof(f), FALSE, FALSE, FALSE);
     CHECK(WinDivertHelperCompileFilter(f, WINDIVERT_LAYER_NETWORK, NULL, 0, &err, &pos), "basic filter compiles");
 
     // many proxies: filter must stay valid (capped at 32 exclusions)
@@ -830,7 +843,7 @@ static void test_filter(void)
         snprintf(host, sizeof(host), "198.18.%d.%d", i / 100, i % 100 + 1);
         ProxyBridge_AddProxy(PROXY_TYPE_SOCKS5, host, 1080, NULL, NULL);
     }
-    ex = pb_build_filter(f, sizeof(f), TRUE, TRUE);
+    ex = pb_build_filter(f, sizeof(f), TRUE, TRUE, TRUE);
     BOOL ok = WinDivertHelperCompileFilter(f, WINDIVERT_LAYER_NETWORK, NULL, 0, &err, &pos);
     printf("  64 proxies: %d excluded, %zu chars, compile %s%s%s\n", ex, strlen(f), ok ? "ok" : "FAILED: ", ok ? "" : (err ? err : "?"), "");
     CHECK(ex == 32, "exclusions capped at 32");
@@ -871,18 +884,114 @@ static void test_testconnection(void)
     clear_all_proxies();
 }
 
-static void test_noop_exports(void)
+static void test_udp_dns_exports(void)
 {
-    printf("[export] no-op and lifecycle-safe exports\n");
+    printf("[export] UDP mode, DNS via proxy and lifecycle-safe exports\n");
     log_clear();
-    ProxyBridge_SetDnsViaProxy(TRUE);
-    ProxyBridge_SetDnsViaProxy(FALSE);
-    ProxyBridge_SetDisableUdp(FALSE);
+    ProxyBridge_SetUdpMode(PB_UDP_PROXY);
+    CHECK(g_udp_mode == PB_UDP_PROXY, "SetUdpMode(PROXY)");
+    ProxyBridge_SetUdpMode(99);
+    CHECK(g_udp_mode == PB_UDP_DIRECT, "invalid mode falls back to direct");
     ProxyBridge_SetDisableUdp(TRUE);
-    CHECK(log_has("DNS goes direct") && log_has("UDP goes direct"), "DNS/UDP no-ops explain themselves");
+    CHECK(g_udp_mode == PB_UDP_BLOCK, "SetDisableUdp(TRUE) blocks UDP");
+    ProxyBridge_SetDisableUdp(FALSE);
+    CHECK(g_udp_mode == PB_UDP_DIRECT, "SetDisableUdp(FALSE) leaves UDP direct");
+    ProxyBridge_SetDnsViaProxy(TRUE);
+    CHECK(g_dns_via_proxy == TRUE, "SetDnsViaProxy(TRUE)");
+    ProxyBridge_SetDnsViaProxy(FALSE);
+    CHECK(g_dns_via_proxy == FALSE, "SetDnsViaProxy(FALSE)");
+    CHECK(ProxyBridge_SetDnsServer("9.9.9.9") && g_dns_server_ip == inet_addr("9.9.9.9"), "SetDnsServer accepts an IPv4");
+    CHECK(!ProxyBridge_SetDnsServer("dns.example") && g_dns_server_ip == inet_addr("9.9.9.9"), "SetDnsServer rejects a hostname and keeps the old value");
+    ProxyBridge_SetDnsServer("1.1.1.1");
     CHECK(ProxyBridge_Stop() == TRUE, "Stop without Start is a harmless no-op (returns TRUE)");
     CHECK(ProxyBridge_Stop() == TRUE, "Stop twice is still harmless");
     flush_to_all_log();
+}
+
+static void test_udp_policy(void)
+{
+    printf("[policy] UDP of proxied programs and DNS via proxy\n");
+    const char *note = "";
+    clear_all_rules();
+    clear_all_proxies();
+    UINT32 socks = ProxyBridge_AddProxy(PROXY_TYPE_SOCKS5, "10.9.8.7", 1080, "u", "p");
+    UINT32 http = ProxyBridge_AddProxy(PROXY_TYPE_HTTP, "203.0.113.5", 3128, NULL, NULL);
+
+    ProxyBridge_SetUdpMode(PB_UDP_DIRECT);
+    ProxyBridge_SetDnsViaProxy(FALSE);
+    CHECK(pb_udp_policy(443, PROXY_TYPE_SOCKS5, &note) == RULE_ACTION_DIRECT, "direct mode: UDP goes direct");
+    CHECK(pb_udp_policy(53, PROXY_TYPE_SOCKS5, &note) == RULE_ACTION_DIRECT, "DNS direct when DNS via proxy is off");
+
+    ProxyBridge_SetUdpMode(PB_UDP_PROXY);
+    CHECK(pb_udp_policy(443, PROXY_TYPE_SOCKS5, &note) == RULE_ACTION_PROXY, "proxy mode: UDP via SOCKS5");
+    CHECK(pb_udp_policy(443, PROXY_TYPE_HTTP, &note) == RULE_ACTION_BLOCK, "proxy mode: UDP blocked for HTTP proxies (no leak)");
+    CHECK(pb_udp_policy(53, PROXY_TYPE_HTTP, &note) == RULE_ACTION_DIRECT, "DNS still direct while DNS via proxy is off");
+
+    ProxyBridge_SetUdpMode(PB_UDP_BLOCK);
+    CHECK(pb_udp_policy(443, PROXY_TYPE_SOCKS5, &note) == RULE_ACTION_BLOCK, "block mode: UDP blocked");
+    CHECK(pb_udp_policy(3478, PROXY_TYPE_HTTP, &note) == RULE_ACTION_BLOCK, "block mode: STUN blocked");
+
+    ProxyBridge_SetDnsViaProxy(TRUE);
+    CHECK(pb_udp_policy(53, PROXY_TYPE_HTTP, &note) == RULE_ACTION_PROXY, "DNS via proxy works with HTTP proxies (DNS over TCP)");
+    CHECK(pb_udp_policy(53, PROXY_TYPE_SOCKS5, &note) == RULE_ACTION_PROXY, "DNS via proxy with SOCKS5");
+
+    // the DNS proxy choice: explicit id, else the first PROXY rule, else the first proxy
+    ProxyBridge_SetDnsProxy(0);
+    CHECK(pb_dns_proxy_choice() == socks, "automatic DNS proxy: first registered proxy when there are no rules");
+    UINT32 r = ProxyBridge_AddRuleEx("chrome.exe", "*", "*", RULE_PROTOCOL_BOTH, RULE_ACTION_PROXY, http);
+    CHECK(pb_dns_proxy_choice() == http, "automatic DNS proxy: the first PROXY rule's proxy");
+    ProxyBridge_SetDnsProxy(socks);
+    CHECK(pb_dns_proxy_choice() == socks, "explicit DNS proxy wins");
+    ProxyBridge_SetDnsProxy(12345);
+    CHECK(pb_dns_proxy_choice() == http, "unknown explicit id falls back to automatic");
+    ProxyBridge_SetDnsProxy(0);
+
+    // check_process_rule: DNS from a process without rules (the DNS Client service) goes via proxy
+    DWORD pid = 0; UINT32 pcid = 0;
+    ProxyBridge_SetUdpMode(PB_UDP_DIRECT);
+    // the test process has no rule: UDP 443 is direct, DNS via proxy is routed to the DNS proxy
+    RuleAction a = check_process_rule(inet_addr("10.8.0.2"), 50001, inet_addr("192.168.1.1"), 53, TRUE, &pid, &pcid);
+    CHECK(a == RULE_ACTION_PROXY && pcid == http, "DNS of an unmatched process goes to the DNS proxy");
+    a = check_process_rule(inet_addr("10.8.0.2"), 50002, inet_addr("8.8.8.8"), 443, TRUE, &pid, &pcid);
+    CHECK(a == RULE_ACTION_DIRECT, "other UDP of an unmatched process stays direct");
+    ProxyBridge_SetDnsViaProxy(FALSE);
+    a = check_process_rule(inet_addr("10.8.0.2"), 50003, inet_addr("192.168.1.1"), 53, TRUE, &pid, &pcid);
+    CHECK(a == RULE_ACTION_DIRECT, "DNS direct again when DNS via proxy is off");
+
+    CHECK(pb_is_private_ipv4(inet_addr("192.168.1.1")) && pb_is_private_ipv4(inet_addr("10.0.0.1")) && pb_is_private_ipv4(inet_addr("172.20.0.1"))
+          && pb_is_private_ipv4(inet_addr("100.64.0.1")) && !pb_is_private_ipv4(inet_addr("8.8.8.8")) && !pb_is_private_ipv4(inet_addr("172.32.0.1")),
+          "private IPv4 detection");
+
+    ProxyBridge_DeleteRule(r);
+    clear_all_rules();
+    clear_all_proxies();
+    ProxyBridge_SetUdpMode(PB_UDP_DIRECT);
+}
+
+static DWORD WINAPI fake_dns_proxy_server(LPVOID arg);
+
+static void test_dns_over_tcp(void)
+{
+    printf("[dns] DNS over TCP exchange through a local fake HTTP proxy\n");
+    // A local TCP server that accepts an HTTP CONNECT and then answers one TCP DNS frame.
+    SOCKET ls = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in a; memset(&a, 0, sizeof(a));
+    a.sin_family = AF_INET; a.sin_addr.s_addr = htonl(INADDR_LOOPBACK); a.sin_port = 0;
+    CHECK(bind(ls, (struct sockaddr *)&a, sizeof(a)) == 0 && listen(ls, 1) == 0, "fake proxy listens");
+    int alen = sizeof(a);
+    getsockname(ls, (struct sockaddr *)&a, &alen);
+    PROXY_CONFIG cfg; memset(&cfg, 0, sizeof(cfg));
+    cfg.type = PROXY_TYPE_HTTP; snprintf(cfg.host, sizeof(cfg.host), "127.0.0.1"); cfg.port = ntohs(a.sin_port);
+    cfg.resolved_ip = htonl(INADDR_LOOPBACK); cfg.config_id = 7;
+
+    HANDLE srv = CreateThread(NULL, 0, fake_dns_proxy_server, (LPVOID)ls, 0, NULL);
+    unsigned char query[] = { 0x12, 0x34, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 7, 'e','x','a','m','p','l','e', 3, 'c','o','m', 0, 0, 1, 0, 1 };
+    unsigned char answer[512]; int n = 0;
+    BOOL ok = pb_dns_tcp_exchange(&cfg, inet_addr("1.1.1.1"), query, sizeof(query), answer, sizeof(answer), &n);
+    CHECK(ok && n == (int)sizeof(query) + 4, "answer received through the proxy");
+    CHECK(ok && answer[0] == 0x12 && answer[1] == 0x34 && answer[2] == 0x81, "answer carries the query id and the response flag");
+    WaitForSingleObject(srv, 3000); CloseHandle(srv);
+    closesocket(ls);
 }
 
 static void test_diagnostics(void)
@@ -910,6 +1019,39 @@ static void test_diagnostics(void)
     clear_all_proxies();
 }
 
+static DWORD WINAPI fake_dns_proxy_server(LPVOID arg)
+{
+    SOCKET ls = (SOCKET)arg;
+    SOCKET c = accept(ls, NULL, NULL);
+    if (c == INVALID_SOCKET) return 1;
+    char buf[1024]; int got = 0;
+    // read the CONNECT request up to the blank line
+    while (got < (int)sizeof(buf) - 1)
+    {
+        int r = recv(c, buf + got, 1, 0);
+        if (r <= 0) break;
+        got += r; buf[got] = 0;
+        if (strstr(buf, "\r\n\r\n")) break;
+    }
+    if (strstr(buf, "CONNECT 1.1.1.1:53") == NULL) { closesocket(c); return 2; }
+    const char *okresp = "HTTP/1.1 200 Connection established\r\n\r\n";
+    send(c, okresp, (int)strlen(okresp), 0);
+    unsigned char len2[2];
+    if (recv_n(c, (char *)len2, 2) != 2) { closesocket(c); return 3; }
+    int qn = (len2[0] << 8) | len2[1];
+    unsigned char q[1024];
+    if (qn <= 0 || qn > (int)sizeof(q) || recv_n(c, (char *)q, qn) != qn) { closesocket(c); return 4; }
+    // echo the query as a response: id, flags 0x8180, plus 4 bytes of fake answer
+    unsigned char resp[1030];
+    memcpy(resp, q, qn); resp[2] = 0x81; resp[3] = 0x80;
+    memset(resp + qn, 0xAB, 4);
+    unsigned char rl[2] = { (unsigned char)((qn + 4) >> 8), (unsigned char)(qn + 4) };
+    send(c, (const char *)rl, 2, 0); send(c, (const char *)resp, qn + 4, 0);
+    Sleep(50);
+    closesocket(c);
+    return 0;
+}
+
 int main(void)
 {
     WSADATA wsa;
@@ -925,7 +1067,9 @@ int main(void)
     test_counters();
     test_filter();
     test_testconnection();
-    test_noop_exports();
+    test_udp_dns_exports();
+    test_udp_policy();
+    test_dns_over_tcp();
     test_diagnostics();
     flush_to_all_log();
 

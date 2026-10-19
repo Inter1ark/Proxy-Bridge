@@ -114,9 +114,17 @@
                                                  KeyDown="OnRenameKeyDown" LostFocus="OnRenameLostFocus"
                                                  PropertyChanged="OnRenamePropertyChanged"/>
                                         <Grid ColumnDefinitions="Auto,Auto,*">
-                                            <Border Grid.Column="0" Classes="chip" Padding="6,0,6,1">
-                                                <TextBlock FontSize="11" Text="{Binding Type}"/>
-                                            </Border>
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                                                <Border Classes="chip" Padding="6,0,6,1">
+                                                    <TextBlock FontSize="11" Text="{Binding Type}"/>
+                                                </Border>
+                                                <Border Classes="chip udp" Padding="6,0,6,1" IsVisible="{Binding HasUdp}" ToolTip.Tip="{Binding UdpTip}">
+                                                    <TextBlock FontSize="11" Text="UDP"/>
+                                                </Border>
+                                                <Border Classes="chip noudp" Padding="6,0,6,1" IsVisible="{Binding NoUdp}" ToolTip.Tip="{Binding UdpTip}">
+                                                    <TextBlock FontSize="11" Text="{i:Tr proxies.no_udp}"/>
+                                                </Border>
+                                            </StackPanel>
                                             <TextBlock Grid.Column="1" Classes="mono" FontSize="12.5" Margin="10,0,0,0" VerticalAlignment="Center"
                                                        Foreground="{StaticResource PbTextBrush}" TextTrimming="CharacterEllipsis" MaxWidth="230"
                                                        Text="{Binding HostPort}"/>

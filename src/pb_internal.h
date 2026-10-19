@@ -220,6 +220,10 @@ extern SRWLOCK             g_dns_cache_lock;
 extern volatile LONG port_decided_bitmap[2048];  // 8 KB
 extern volatile LONG port_direct_bitmap[2048];  // 8 KB
 extern UINT16 g_local_relay_port;
+extern volatile LONG g_udp_mode;        // UdpMode
+extern volatile BOOL g_dns_via_proxy;
+extern volatile LONG g_dns_proxy_id;    // proxy used for DNS queries (0 = automatic)
+extern UINT32 g_dns_server_ip;          // network byte order, replaces private resolvers
 extern BOOL g_localhost_via_proxy;  // default disabled for security - most proxy server block localhost for ssrf and also many app might not work if localhost trafic goes to remote server if proxy server is on diffrent machine
 extern LogCallback g_log_callback;
 extern ConnectionCallback g_connection_callback;
@@ -400,7 +404,7 @@ void pb_relay_register(RELAY_PAIR *pair);
 void pb_relay_unregister(RELAY_PAIR *pair);
 void pb_relay_shutdown_all(void);
 void pb_log_start_diagnostics(void);
-int  pb_build_filter(char *buf, size_t size, BOOL capture_udp, BOOL exclude_proxies);
+int  pb_build_filter(char *buf, size_t size, BOOL capture_udp, BOOL capture_dns, BOOL exclude_proxies);
 const char *pb_action_name(RuleAction action);
 
 // ---- ProxyBridge.c ----
@@ -412,3 +416,13 @@ DWORD WINAPI cleanup_worker(LPVOID arg);
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved);
 
 #endif // PB_INTERNAL_H
+
+// ---- UDP / DNS policy (pb_rules.c) ----
+// What happens to a UDP flow that a rule would send through proxy_type: PROXY, DIRECT or BLOCK.
+RuleAction pb_udp_policy(UINT16 dest_port, ProxyType proxy_type, const char **note);
+// Proxy id used for DNS queries when DNS goes via proxy (0 when nothing is registered).
+UINT32 pb_dns_proxy_choice(void);
+BOOL pb_is_private_ipv4(UINT32 ip_net);
+// ---- DNS over TCP through the proxy (pb_relay.c) ----
+BOOL pb_dns_tcp_exchange(const PROXY_CONFIG *cfg, UINT32 resolver_ip, const unsigned char *query, int query_len,
+                         unsigned char *answer, int answer_cap, int *answer_len);

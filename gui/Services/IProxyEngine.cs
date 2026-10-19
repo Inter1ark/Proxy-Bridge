@@ -28,6 +28,10 @@ public interface IProxyEngine : IDisposable
     bool SetProxyConfig(string type, string ip, ushort port, string username, string password);
     void SetDisableUdp(bool disable);
     void SetDnsViaProxy(bool enable);
+    /// <summary>"direct", "proxy" (via SOCKS5 UDP, blocked when the proxy cannot) or "block".</summary>
+    void SetUdpMode(string mode);
+    /// <summary>Proxy that answers DNS when DNS goes via proxy (0 = automatic).</summary>
+    void SetDnsProxy(uint proxyId);
 
     Task<bool> StartAsync();
     bool Stop();

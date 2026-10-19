@@ -85,9 +85,15 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
         return true;
     }
 
-    // pbcore is TCP-only and always forwards DNS directly; these are accepted for API parity.
-    public void SetDisableUdp(bool disable) { }
-    public void SetDnsViaProxy(bool enable) { }
+    private string _udpMode = "direct";
+    private bool _dnsViaProxy;
+    private uint _dnsProxy;
+
+    // Recorded and sent to pbcore with the rule set ("udp", "dns_via_proxy", "dns_proxy").
+    public void SetDisableUdp(bool disable) => _udpMode = disable ? "block" : "direct";
+    public void SetDnsViaProxy(bool enable) => _dnsViaProxy = enable;
+    public void SetUdpMode(string mode) => _udpMode = mode;
+    public void SetDnsProxy(uint proxyId) => _dnsProxy = proxyId;
 
     public uint AddProxy(string type, string ip, ushort port, string username, string password)
     {
@@ -160,7 +166,11 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
                 if (r.Action == "proxy") o["proxy"] = r.ProxyId;
                 rules.Add(o);
             }
-            return new JsonObject { ["proxies"] = proxies, ["rules"] = rules }.ToJsonString();
+            return new JsonObject
+            {
+                ["proxies"] = proxies, ["rules"] = rules,
+                ["udp"] = _udpMode, ["dns_via_proxy"] = _dnsViaProxy, ["dns_proxy"] = _dnsProxy
+            }.ToJsonString();
         }
     }
 

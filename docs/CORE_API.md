@@ -21,6 +21,14 @@ The GUI (`gui\Interop\ProxyBridgeNative.cs`, `gui\Services\ProxyBridgeService.cs
   - The GUI builds: one rule per enabled app row (PROXY with its proxy id, or DIRECT), then one catch-all rule `*` for "all other programs" (PROXY with a proxy id, or nothing when they go direct).
 - `UINT32 ProxyBridge_AddRule(...)`, `ProxyBridge_DeleteRule`, `EnableRule`, `DisableRule`, `EditRule` keep their current signatures.
 
+## UDP and DNS (3.6.0)
+
+- `ProxyBridge_SetUdpMode(int)`: what happens to UDP of programs whose rule says PROXY. `0` direct (legacy: WebRTC and QUIC reveal the real IP), `1` via the SOCKS5 proxy with UDP ASSOCIATE, blocked when the proxy is HTTP or refuses UDP ASSOCIATE, `2` always blocked. Programs with DIRECT rules or without rules are untouched. `SetDisableUdp(TRUE)` equals mode 2, `FALSE` mode 0. The GUI maps its setting "auto" to 1.
+- `ProxyBridge_SetDnsViaProxy(BOOL)`: UDP/53 of every process is answered through the proxy as DNS over TCP (one short-lived thread per query, works with HTTP proxies and with SOCKS5 proxies without UDP). Windows resolves names in the DNS Client service, not in the application, so the proxy comes from `ProxyBridge_SetDnsProxy(id)` (0 = the first PROXY rule's proxy, else the first registered proxy); the GUI passes the catch-all proxy when there is one. Queries addressed to private resolvers (the router) are sent to `ProxyBridge_SetDnsServer("1.1.1.1")` instead; the answer is injected back from the original resolver address so the DNS Client accepts it. DNS over TCP from applications themselves is a normal TCP flow and follows the rules.
+- The capture filter includes UDP only when needed (mode 1 or 2, a UDP BLOCK rule, or DNS via proxy); DHCP is never captured.
+- Rules are registered with protocol BOTH by the GUI; the UDP mode decides, not the rule.
+- The proxy checker probes SOCKS5 UDP ASSOCIATE with a STUN Binding Request (`gui/Services/Socks5UdpProbe.cs`) and stores `UdpSupported` and the UDP exit IP with the check result; the list shows a "UDP" or "без UDP" chip.
+
 ## Behaviour requirements
 - Works when the default route goes through a VPN tunnel adapter (WireGuard/Wintun, OpenVPN TAP) as well as on plain Ethernet/Wi-Fi: redirected packets must reach the local relay without relying on loopback rewriting that Windows drops on non-loopback interfaces.
 - The process that loaded the DLL (the GUI) is never intercepted, so its own checks and license calls go direct.

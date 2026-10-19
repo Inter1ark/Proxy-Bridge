@@ -115,6 +115,32 @@
                             </Button>
                         </Grid>
                     </Border>
+                    <Border Classes="srow">
+                        <StackPanel Spacing="8">
+                            <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                                <StackPanel>
+                                    <TextBlock Classes="slabel" Text="{i:Tr settings.udp}"/>
+                                    <TextBlock Classes="shint" Text="{Binding UdpModeHint}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <ComboBox Grid.Column="1" Width="230" VerticalAlignment="Center"
+                                          AutomationProperties.AutomationId="UdpModeBox"
+                                          SelectedIndex="{Binding UdpModeIndex}">
+                                    <ComboBoxItem Content="{i:Tr settings.udp_auto}"/>
+                                    <ComboBoxItem Content="{i:Tr settings.udp_block}"/>
+                                    <ComboBoxItem Content="{i:Tr settings.udp_direct}"/>
+                                </ComboBox>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="srow">
+                        <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                            <StackPanel>
+                                <TextBlock Classes="slabel" Text="{i:Tr settings.dns_proxy}"/>
+                                <TextBlock Classes="shint" Text="{i:Tr settings.dns_proxy_hint}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1" Classes="switch" IsChecked="{Binding DnsViaProxy}"/>
+                        </Grid>
+                    </Border>
                     <Border Classes="srow" IsVisible="{Binding IsMacOS}">
                         <StackPanel Spacing="8">
                             <Grid Classes="setting" ColumnDefinitions="*,Auto">

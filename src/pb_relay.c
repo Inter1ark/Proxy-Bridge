@@ -12,6 +12,120 @@
  */
 #include "pb_internal.h"
 
+// ---------------------------------------------------------------------------------------
+// DNS over TCP through the proxy. One short-lived thread per query: the relay loop must
+// never block on a proxy round trip, and DNS volume is small.
+// ---------------------------------------------------------------------------------------
+typedef struct {
+    PROXY_CONFIG cfg;
+    UINT32 resolver_ip;            // network order; where the app sent the query
+    struct sockaddr_in client;     // where the answer goes back (through the relay socket)
+    int query_len;
+    unsigned char query[1024];
+} DNS_JOB;
+
+static volatile LONG g_dns_jobs = 0;
+#define DNS_MAX_JOBS 64
+
+BOOL pb_dns_tcp_exchange(const PROXY_CONFIG *cfg, UINT32 resolver_ip, const unsigned char *query, int query_len,
+                         unsigned char *answer, int answer_cap, int *answer_len)
+{
+    *answer_len = 0;
+    if (query_len <= 0 || query_len > 65535)
+        return FALSE;
+    UINT32 proxy_ip = cfg->resolved_ip ? cfg->resolved_ip : resolve_hostname(cfg->host);
+    if (proxy_ip == 0)
+        return FALSE;
+    SOCKET s = socket(AF_INET, SOCK_STREAM, 0);
+    if (s == INVALID_SOCKET)
+        return FALSE;
+    configure_tcp_socket(s, 65536, 5000);
+    struct sockaddr_in pa;
+    memset(&pa, 0, sizeof(pa));
+    pa.sin_family = AF_INET;
+    pa.sin_addr.s_addr = proxy_ip;
+    pa.sin_port = htons(cfg->port);
+    BOOL ok = FALSE;
+    if (connect(s, (struct sockaddr *)&pa, sizeof(pa)) == 0)
+    {
+        int rc = cfg->type == PROXY_TYPE_SOCKS5 ? socks5_connect(s, resolver_ip, 53, cfg)
+                                                : http_connect(s, resolver_ip, 53, cfg);
+        if (rc == 0)
+        {
+            unsigned char len2[2] = { (unsigned char)(query_len >> 8), (unsigned char)query_len };
+            if (send_all(s, (const char *)len2, 2) != SOCKET_ERROR && send_all(s, (const char *)query, query_len) != SOCKET_ERROR
+                && recv_n(s, (char *)len2, 2) == 2)
+            {
+                int n = (len2[0] << 8) | len2[1];
+                if (n > 0 && n <= answer_cap && recv_n(s, (char *)answer, n) == n)
+                {
+                    *answer_len = n;
+                    ok = TRUE;
+                }
+            }
+        }
+    }
+    closesocket(s);
+    return ok;
+}
+
+static DWORD WINAPI dns_proxy_worker(LPVOID arg)
+{
+    DNS_JOB *job = (DNS_JOB *)arg;
+    unsigned char answer[4096];
+    int n = 0;
+    UINT32 resolver = pb_is_private_ipv4(job->resolver_ip) ? g_dns_server_ip : job->resolver_ip;
+    if (pb_dns_tcp_exchange(&job->cfg, resolver, job->query, job->query_len, answer, sizeof(answer), &n))
+    {
+        snoop_dns_response(answer, n);
+        if (udp_relay_socket != INVALID_SOCKET)
+            sendto(udp_relay_socket, (const char *)answer, n, 0, (struct sockaddr *)&job->client, sizeof(job->client));
+    }
+    else
+    {
+        char key[64];
+        snprintf(key, sizeof(key), "dnsfail:%u", job->cfg.config_id);
+        pb_log_ratelimited(key, "[DNS] query via proxy #%u failed (DNS over TCP to the resolver)", job->cfg.config_id);
+    }
+    SecureZeroMemory(job->cfg.password, sizeof(job->cfg.password));
+    free(job);
+    InterlockedDecrement(&g_dns_jobs);
+    return 0;
+}
+
+static void dns_proxy_submit(const PROXY_CONFIG *cfg, UINT32 resolver_ip, const struct sockaddr_in *client,
+                             const unsigned char *query, int query_len)
+{
+    if (query_len <= 0 || query_len > (int)sizeof(((DNS_JOB *)0)->query))
+        return;
+    if (InterlockedIncrement(&g_dns_jobs) > DNS_MAX_JOBS)
+    {
+        InterlockedDecrement(&g_dns_jobs);
+        pb_log_ratelimited("dnsbusy", "[DNS] too many queries in flight, dropping one");
+        return;
+    }
+    DNS_JOB *job = (DNS_JOB *)calloc(1, sizeof(DNS_JOB));
+    if (job == NULL)
+    {
+        InterlockedDecrement(&g_dns_jobs);
+        return;
+    }
+    job->cfg = *cfg;
+    job->resolver_ip = resolver_ip;
+    job->client = *client;
+    job->query_len = query_len;
+    memcpy(job->query, query, query_len);
+    HANDLE t = CreateThread(NULL, 0, dns_proxy_worker, job, 0, NULL);
+    if (t == NULL)
+    {
+        SecureZeroMemory(job->cfg.password, sizeof(job->cfg.password));
+        free(job);
+        InterlockedDecrement(&g_dns_jobs);
+        return;
+    }
+    CloseHandle(t);
+}
+
 DWORD WINAPI udp_relay_server(LPVOID arg)
 {
     WSADATA wsa_data;
@@ -181,9 +295,18 @@ DWORD WINAPI udp_relay_server(LPVOID arg)
                     UINT32 proxy_config_id = get_connection_proxy_id(from_port, TRUE);
                     PROXY_CONFIG *cfg = find_proxy_config(proxy_config_id);
 
+                    // DNS goes as DNS over TCP through the proxy (works with HTTP proxies and
+                    // with SOCKS5 proxies that refuse UDP ASSOCIATE).
+                    if (dest_port == 53 && g_dns_via_proxy)
+                    {
+                        if (cfg != NULL)
+                            dns_proxy_submit(cfg, dest_ip, &from_addr, recv_buf, recv_len);
+                        continue;
+                    }
+
                     if (cfg == NULL || cfg->type != PROXY_TYPE_SOCKS5)
                     {
-                        log_message("[UDP RELAY] No SOCKS5 config for port %d", from_port);
+                        pb_log_ratelimited("udpnosocks", "[UDP RELAY] UDP for a non-SOCKS5 proxy dropped (port %d)", from_port);
                         continue;
                     }
 
@@ -194,7 +317,9 @@ DWORD WINAPI udp_relay_server(LPVOID arg)
                     {
                         if (!establish_udp_associate_for_config(cfg))
                         {
-                            log_message("[UDP RELAY] UDP ASSOCIATE unavailable for %s:%d - dropping packet", cfg->host, cfg->port);
+                            char key[64];
+                            snprintf(key, sizeof(key), "udpassoc:%u", cfg->config_id);
+                            pb_log_ratelimited(key, "[UDP RELAY] proxy #%u does not accept UDP ASSOCIATE: its UDP is dropped (no leak)", cfg->config_id);
                             continue;
                         }
                         assoc_replaced = 1;   // new sockets created - read_fds is stale

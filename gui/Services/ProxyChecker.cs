@@ -22,9 +22,13 @@ public sealed class ProxyCheckResult
     public string City { get; init; } = "";
     /// <summary>TCP connect time to the proxy in ms, or 0 when unknown.</summary>
     public int LatencyMs { get; init; }
+    public bool? UdpSupported { get; init; }
+    public string UdpIp { get; init; } = "";
 
     public ProxyCheckInfo ToInfo() => new()
     {
+        UdpSupported = UdpSupported,
+        UdpIp = UdpIp,
         Ok = Ok,
         Error = Error,
         Ip = Ip,
@@ -51,6 +55,8 @@ public static class ProxyChecker
     public const string ErrBadResponse = "bad_response";
 
     public static TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(10);
+    /// <summary>Overridable for tests: skip the SOCKS5 UDP probe.</summary>
+    public static bool ProbeUdp { get; set; } = true;
 
     /// <summary>Overridable for tests (a local fake echo server).</summary>
     public static string PrimaryUrl { get; set; } =
@@ -92,6 +98,8 @@ public static class ProxyChecker
         }
 
         int latency = 0;
+        bool? udp = null;
+        var udpIp = "";
         if (result.Ok)
         {
             try
@@ -101,6 +109,28 @@ public static class ProxyChecker
             catch
             {
                 // the probe never throws; keep 0 (unknown) just in case
+            }
+            // Does the proxy relay UDP (WebRTC, QUIC, calls)? HTTP proxies never do.
+            if (p.IsHttp)
+            {
+                udp = false;
+            }
+            else if (ProbeUdp)
+            {
+                try
+                {
+                    var u = await Socks5UdpProbe.ProbeAsync(p, ct);
+                    udp = u.Supported;
+                    udpIp = u.Ip;
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch
+                {
+                    udp = null;
+                }
             }
         }
 
@@ -113,7 +143,9 @@ public static class ProxyChecker
             Country = result.Country,
             CountryCode = result.CountryCode,
             City = result.City,
-            LatencyMs = result.Ok ? latency : 0
+            LatencyMs = result.Ok ? latency : 0,
+            UdpSupported = udp,
+            UdpIp = udpIp
         };
     }
 

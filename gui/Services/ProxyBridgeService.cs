@@ -216,6 +216,16 @@ public class ProxyBridgeService : IDisposable
         ProxyBridgeNative.ProxyBridge_SetDisableUdp(disable);
     }
 
+    public void SetUdpMode(string mode)
+    {
+        ProxyBridgeNative.ProxyBridge_SetUdpMode(mode switch { "proxy" => 1, "block" => 2, _ => 0 });
+    }
+
+    public void SetDnsProxy(uint proxyId)
+    {
+        ProxyBridgeNative.ProxyBridge_SetDnsProxy(proxyId);
+    }
+
     public string TestConnection(string targetHost, ushort targetPort)
     {
         var buffer = new System.Text.StringBuilder(4096);

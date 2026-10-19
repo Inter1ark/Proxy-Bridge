@@ -322,6 +322,16 @@
     <Style Selector="Border.chip.success > TextBlock">
         <Setter Property="Foreground" Value="{StaticResource PbSuccessTextBrush}"/>
     </Style>
+    <Style Selector="Border.chip.udp">
+        <Setter Property="BorderBrush" Value="#6622C55E"/>
+    </Style>
+    <Style Selector="Border.chip.udp > TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PbSuccessTextBrush}"/>
+    </Style>
+    <Style Selector="Border.chip.noudp">
+        <Setter Property="BorderBrush" Value="{StaticResource PbOutlineBrush}"/>
+        <Setter Property="Opacity" Value="0.75"/>
+    </Style>
     <Style Selector="Border.chip.danger">
         <Setter Property="BorderBrush" Value="#66EF4444"/>
     </Style>

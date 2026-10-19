@@ -123,11 +123,11 @@ public static class RulePlanner
             uint id;
             if (rule.IsDirect)
             {
-                id = engine.AddRuleEx(rule.Process, "*", "*", "TCP", "DIRECT", 0);
+                id = engine.AddRuleEx(rule.Process, "*", "*", "BOTH", "DIRECT", 0);
             }
             else
             {
-                id = engine.AddRuleEx(rule.Process, "*", "*", "TCP", "PROXY", applied.ProxyIds[rule.Proxy]);
+                id = engine.AddRuleEx(rule.Process, "*", "*", "BOTH", "PROXY", applied.ProxyIds[rule.Proxy]);
             }
             if (id == 0)
             {

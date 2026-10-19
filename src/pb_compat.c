@@ -278,12 +278,12 @@ void pb_relay_shutdown_all(void)
 // ---------------------------------------------------------------------------------------
 // Builds the WinDivert filter. Returns the number of proxy addresses excluded.
 //  - TCP: everything outbound or on loopback, plus the relay port in either direction.
-//  - UDP: only when capture_udp (a BLOCK rule can match UDP); DNS, DHCP and loopback UDP
-//    are never captured, so DNS always goes direct.
+//  - UDP: only when capture_udp (proxied, blocked or a BLOCK rule can match UDP); DHCP and
+//    loopback UDP are never captured; DNS (udp/53) only when capture_dns.
 //  - exclude_proxies: IPv4 packets to the proxy servers are not captured at all.
 //    "(ipv6 or ip.DstAddr != X)" is used instead of "ip.DstAddr != X" so IPv6 packets,
 //    which have no ip.* fields, are not excluded by accident.
-int pb_build_filter(char *buf, size_t size, BOOL capture_udp, BOOL exclude_proxies)
+int pb_build_filter(char *buf, size_t size, BOOL capture_udp, BOOL capture_dns, BOOL exclude_proxies)
 {
     char excl[2048] = "";
     int excluded = 0;
@@ -315,13 +315,15 @@ int pb_build_filter(char *buf, size_t size, BOOL capture_udp, BOOL exclude_proxi
     }
 
     char udp[512] = "";
-    if (capture_udp)
+    if (capture_udp || capture_dns)
     {
         snprintf(udp, sizeof(udp),
             " or (udp and outbound and not loopback"
-            " and udp.DstPort != 53 and udp.SrcPort != 53"
+            "%s and udp.SrcPort != 53"
             " and udp.DstPort != 67 and udp.DstPort != 68"
-            " and udp.DstPort != 546 and udp.DstPort != 547)");
+            " and udp.DstPort != 546 and udp.DstPort != 547)",
+            capture_udp && capture_dns ? "" :
+            capture_dns ? " and udp.DstPort == 53" : " and udp.DstPort != 53");
     }
 
     snprintf(buf, size,
@@ -516,7 +518,10 @@ void pb_log_start_diagnostics(void)
         return;
     log_message("Core %s starting: host process pid %lu (never intercepted), TCP relay port %u",
         VERSION, (unsigned long)g_current_process_id, g_local_relay_port);
-    log_message("Policy: UDP is never proxied, DNS goes direct, loopback/broadcast/multicast/DHCP and proxy servers go direct");
+    log_message("Policy: UDP of proxied programs %s, DNS %s, loopback/broadcast/multicast/DHCP and proxy servers go direct",
+        g_udp_mode == PB_UDP_PROXY ? "via SOCKS5 UDP (blocked when the proxy cannot)" :
+        g_udp_mode == PB_UDP_BLOCK ? "blocked" : "goes direct",
+        g_dns_via_proxy ? "via proxy (DNS over TCP)" : "goes direct");
     log_interfaces();
     log_default_routes();
     log_proxies();
@@ -606,18 +611,45 @@ PROXYBRIDGE_API BOOL ProxyBridge_SetProxyConfig(ProxyType type, const char* prox
     return TRUE;
 }
 
-PROXYBRIDGE_API void ProxyBridge_SetDnsViaProxy(BOOL enable)
+PROXYBRIDGE_API void ProxyBridge_SetUdpMode(int mode)
 {
-    // DNS always goes direct in this core; kept so existing callers keep working.
-    if (enable)
-        log_message("DNS via proxy is not supported by this core: DNS goes direct");
+    if (mode < PB_UDP_DIRECT || mode > PB_UDP_BLOCK)
+        mode = PB_UDP_DIRECT;
+    InterlockedExchange(&g_udp_mode, mode);
+    log_message("UDP of proxied programs: %s (applies at the next Start)",
+        mode == PB_UDP_PROXY ? "via SOCKS5 UDP, blocked when the proxy cannot" :
+        mode == PB_UDP_BLOCK ? "blocked" : "direct");
 }
 
 PROXYBRIDGE_API void ProxyBridge_SetDisableUdp(BOOL disable)
 {
-    // UDP is never proxied in this core; kept so existing callers keep working.
-    if (!disable)
-        log_message("UDP proxying is not supported by this core: UDP goes direct");
+    ProxyBridge_SetUdpMode(disable ? PB_UDP_BLOCK : PB_UDP_DIRECT);
+}
+
+PROXYBRIDGE_API void ProxyBridge_SetDnsViaProxy(BOOL enable)
+{
+    g_dns_via_proxy = enable ? TRUE : FALSE;
+    log_message("DNS: %s (applies at the next Start)", enable ? "via proxy as DNS over TCP" : "direct");
+}
+
+PROXYBRIDGE_API void ProxyBridge_SetDnsProxy(UINT32 proxy_id)
+{
+    InterlockedExchange(&g_dns_proxy_id, (LONG)proxy_id);
+}
+
+PROXYBRIDGE_API BOOL ProxyBridge_SetDnsServer(const char* ipv4)
+{
+    if (ipv4 == NULL)
+        return FALSE;
+    UINT32 ip = inet_addr(ipv4);
+    if (ip == INADDR_NONE || ip == 0)
+    {
+        log_message("DNS server %s rejected: not an IPv4 address", ipv4);
+        return FALSE;
+    }
+    g_dns_server_ip = ip;
+    log_message("DNS server for proxied queries: %s", ipv4);
+    return TRUE;
 }
 
 // ---------------------------------------------------------------------------------------

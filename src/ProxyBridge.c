@@ -79,6 +79,10 @@ volatile LONG port_decided_bitmap[2048] = {0};  // 8 KB
 volatile LONG port_direct_bitmap[2048]  = {0};  // 8 KB
 
 UINT16 g_local_relay_port = LOCAL_PROXY_PORT;
+volatile LONG g_udp_mode = PB_UDP_DIRECT;
+volatile BOOL g_dns_via_proxy = FALSE;
+volatile LONG g_dns_proxy_id = 0;
+UINT32 g_dns_server_ip = 0x01010101;   // 1.1.1.1 (network order)
 BOOL g_localhost_via_proxy = FALSE;  // default disabled for security - most proxy server block localhost for ssrf and also many app might not work if localhost trafic goes to remote server if proxy server is on diffrent machine
 LogCallback g_log_callback = NULL;
 ConnectionCallback g_connection_callback = NULL;
@@ -1025,7 +1029,18 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
         return FALSE;
     }
 
-    // UDP is never proxied by this build, so the SOCKS5 UDP relay is not started.
+    // The UDP relay (SOCKS5 UDP ASSOCIATE and DNS over TCP) is needed only when UDP or DNS
+    // can be sent to a proxy.
+    if (g_udp_mode == PB_UDP_PROXY || g_dns_via_proxy)
+    {
+        udp_relay_thread = CreateThread(NULL, 0, udp_relay_server, NULL, 0, NULL);
+        if (udp_relay_thread == NULL)
+        {
+            log_message("Start failed: cannot create UDP relay thread (%lu)", GetLastError());
+            stop_workers();
+            return FALSE;
+        }
+    }
 
     // Do not divert anything until the relay is really listening: if the relay port is
     // taken, every proxied connection would otherwise be sent to a dead (or foreign) port.
@@ -1040,18 +1055,19 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
     }
 
     // "not impostor" ensures WinDivert never re-captures packets it already injected.
-    // UDP is captured only when an enabled BLOCK rule can match it (UDP is never proxied),
-    // DNS and DHCP never enter the filter, and the proxy servers' own addresses are
-    // excluded so relayed traffic does not pass through the packet loop at all.
-    BOOL capture_udp = pb_rules_need_udp_capture();
+    // UDP is captured when it is proxied or blocked (SetUdpMode) or when an enabled BLOCK
+    // rule can match it; DNS only when it goes via proxy; DHCP never. The proxy servers' own
+    // addresses are excluded so relayed traffic does not pass through the packet loop at all.
+    BOOL capture_udp = g_udp_mode != PB_UDP_DIRECT || pb_rules_need_udp_capture();
+    BOOL capture_dns = g_dns_via_proxy;
     const char *filter_err = NULL;
     UINT filter_err_pos = 0;
-    pb_build_filter(filter, sizeof(filter), capture_udp, TRUE);
+    pb_build_filter(filter, sizeof(filter), capture_udp, capture_dns, TRUE);
     if (!WinDivertHelperCompileFilter(filter, WINDIVERT_LAYER_NETWORK, NULL, 0, &filter_err, &filter_err_pos))
     {
         log_message("Packet filter with proxy exclusions rejected (%s at %u), using the basic filter",
             filter_err ? filter_err : "unknown error", filter_err_pos);
-        pb_build_filter(filter, sizeof(filter), capture_udp, FALSE);
+        pb_build_filter(filter, sizeof(filter), capture_udp, capture_dns, FALSE);
     }
     log_message("Packet filter: %s", filter);
 
@@ -1106,8 +1122,10 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
         }
     }
 
-    log_message("Interception started (relay port %u, UDP %s)", g_local_relay_port,
-        capture_udp ? "captured for BLOCK rules only, never proxied" : "not captured, goes direct");
+    log_message("Interception started (relay port %u, UDP of proxied programs: %s, DNS: %s)", g_local_relay_port,
+        g_udp_mode == PB_UDP_PROXY ? "via SOCKS5 UDP, blocked when the proxy cannot" :
+        g_udp_mode == PB_UDP_BLOCK ? "blocked (no leaks)" : "direct",
+        g_dns_via_proxy ? "via proxy (DNS over TCP)" : "direct");
     return TRUE;
 }
 

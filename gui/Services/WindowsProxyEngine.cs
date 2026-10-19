@@ -34,6 +34,8 @@ public sealed class WindowsProxyEngine : IProxyEngine
     public void SetDisableUdp(bool disable) => _service.SetDisableUdp(disable);
 
     public void SetDnsViaProxy(bool enable) => _service.SetDnsViaProxy(enable);
+    public void SetUdpMode(string mode) => _service.SetUdpMode(mode);
+    public void SetDnsProxy(uint proxyId) => _service.SetDnsProxy(proxyId);
 
     public Task<bool> StartAsync()
     {

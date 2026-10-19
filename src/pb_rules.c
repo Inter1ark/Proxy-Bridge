@@ -5,7 +5,8 @@
  * Copyright (c) 2025 Anof-cyber/InterceptSuite, MIT License.
  * Modifications copyright (c) 2026 ProxyBridge Team, MIT License:
  *   strict first-match-wins evaluation (a bare "*" rule is no longer deferred to the end),
- *   UDP is never proxied, proxy servers and the host process always go direct,
+ *   UDP follows the UDP mode (direct, via SOCKS5 UDP or blocked), DNS the DNS mode,
+ *   proxy servers and the host process always go direct,
  *   rate-limited decision logging, rule API renamed to internal pb_rule_* functions.
  */
 #include "pb_internal.h"
@@ -26,18 +27,97 @@ BOOL is_ipv6_multicast_or_linklocal(const UINT8 ip6[16])
     return FALSE;
 }
 
-// Post-match policy shared by the IPv4 and IPv6 paths: things that must never be proxied.
-static RuleAction apply_policy(RuleAction action, BOOL is_udp, UINT32 *proxy_config_id, const char **note)
+BOOL pb_is_private_ipv4(UINT32 ip_net)
 {
+    UINT32 ip = ntohl(ip_net);
+    return (ip >> 24) == 10 || (ip >> 24) == 127 || (ip >> 20) == 0xAC1 /* 172.16/12 */ ||
+           (ip >> 16) == 0xC0A8 /* 192.168/16 */ || (ip >> 16) == 0xA9FE /* 169.254/16 */ ||
+           (ip >> 22) == (100u << 2 | 1) /* 100.64/10 */;
+}
+
+// What a UDP flow of a proxied program becomes. DNS (udp/53) is answered through the proxy as
+// DNS over TCP, so it works with HTTP proxies and with SOCKS5 proxies without UDP support.
+RuleAction pb_udp_policy(UINT16 dest_port, ProxyType proxy_type, const char **note)
+{
+    if (dest_port == 53)
+    {
+        if (!g_dns_via_proxy)
+        {
+            *note = "DNS goes direct";
+            return RULE_ACTION_DIRECT;
+        }
+        *note = "DNS via proxy";
+        return RULE_ACTION_PROXY;
+    }
+    switch (g_udp_mode)
+    {
+        case PB_UDP_PROXY:
+            if (proxy_type != PROXY_TYPE_SOCKS5)
+            {
+                *note = "UDP blocked: HTTP proxies cannot relay UDP";
+                return RULE_ACTION_BLOCK;
+            }
+            *note = "UDP via SOCKS5";
+            return RULE_ACTION_PROXY;
+        case PB_UDP_BLOCK:
+            *note = "UDP blocked (no leaks)";
+            return RULE_ACTION_BLOCK;
+        default:
+            *note = "UDP goes direct";
+            return RULE_ACTION_DIRECT;
+    }
+}
+
+UINT32 pb_dns_proxy_choice(void)
+{
+    UINT32 id = (UINT32)g_dns_proxy_id;
+    PROXY_CONFIG snap;
+    if (id != 0 && pb_proxy_snapshot(id, &snap))
+    {
+        SecureZeroMemory(snap.password, sizeof(snap.password));
+        return snap.config_id;
+    }
+    id = 0;
+    // automatic: the first PROXY rule's proxy, else the first registered proxy
+    AcquireSRWLockShared(&g_rules_lock);
+    for (PROCESS_RULE *r = rules_list; r != NULL && id == 0; r = r->next)
+        if (r->enabled && r->action == RULE_ACTION_PROXY)
+            id = r->proxy_config_id;
+    ReleaseSRWLockShared(&g_rules_lock);
+    if (pb_proxy_snapshot(id, &snap))
+    {
+        SecureZeroMemory(snap.password, sizeof(snap.password));
+        return snap.config_id;
+    }
+    return 0;
+}
+
+// Post-match policy shared by the IPv4 and IPv6 paths: things that must never be proxied,
+// the UDP mode and DNS via proxy.
+static RuleAction apply_policy(RuleAction action, BOOL is_udp, UINT16 dest_port, UINT32 *proxy_config_id, const char **note)
+{
+    // DNS queries come from the Windows DNS Client service, not from the application, so
+    // with DNS via proxy every query (no matching rule included) goes through the DNS proxy.
+    if (is_udp && dest_port == 53 && g_dns_via_proxy && action != RULE_ACTION_BLOCK)
+    {
+        UINT32 id = action == RULE_ACTION_PROXY ? *proxy_config_id : 0;
+        PROXY_CONFIG snap;
+        if (id == 0 || !pb_proxy_snapshot(id, &snap))
+            id = pb_dns_proxy_choice();
+        else
+            SecureZeroMemory(snap.password, sizeof(snap.password));
+        if (id == 0)
+        {
+            *note = "DNS via proxy: no proxy registered, goes direct";
+            return RULE_ACTION_DIRECT;
+        }
+        *proxy_config_id = id;
+        *note = "DNS via proxy";
+        return RULE_ACTION_PROXY;
+    }
+
     if (action != RULE_ACTION_PROXY)
         return action;
-
-    // UDP is never proxied by this core (DNS and all other UDP go direct).
-    if (is_udp)
-    {
-        *note = "UDP is not proxied";
-        return RULE_ACTION_DIRECT;
-    }
 
     PROXY_CONFIG snap;
     if (!pb_proxy_snapshot(*proxy_config_id, &snap) || snap.host[0] == '\0' || snap.port == 0)
@@ -46,8 +126,29 @@ static RuleAction apply_policy(RuleAction action, BOOL is_udp, UINT32 *proxy_con
         return RULE_ACTION_DIRECT;
     }
     *proxy_config_id = snap.config_id;   // resolve 0 ("default proxy") to the real id
+    ProxyType ptype = snap.type;
     SecureZeroMemory(snap.password, sizeof(snap.password));
+
+    if (is_udp)
+    {
+        RuleAction a = pb_udp_policy(dest_port, ptype, note);
+        if (a != RULE_ACTION_PROXY)
+            *proxy_config_id = 0;
+        return a;
+    }
     return RULE_ACTION_PROXY;
+}
+
+// Flows whose owner cannot be determined go direct, except DNS when it goes via proxy:
+// the leak protection must not depend on finding the DNS Client service's socket.
+static RuleAction unowned_policy(BOOL is_udp, UINT16 dest_port, UINT32 *out_proxy_config_id)
+{
+    const char *note = NULL;
+    UINT32 id = 0;
+    RuleAction a = apply_policy(RULE_ACTION_DIRECT, is_udp, dest_port, &id, &note);
+    if (out_proxy_config_id != NULL)
+        *out_proxy_config_id = a == RULE_ACTION_PROXY ? id : 0;
+    return a;
 }
 
 RuleAction check_process_rule_v6(const UINT8 src_ip6[16], UINT16 src_port, const UINT8 dest_ip6[16], UINT16 dest_port, BOOL is_udp, DWORD *out_pid, UINT32 *out_proxy_config_id)
@@ -66,18 +167,18 @@ RuleAction check_process_rule_v6(const UINT8 src_ip6[16], UINT16 src_port, const
     {
         if (!is_udp)
             pb_log_decision(0, NULL, TRUE, dest_ip6, dest_port, is_udp, 0, RULE_ACTION_DIRECT, 0, "owner process not found");
-        return RULE_ACTION_DIRECT;
+        return unowned_policy(is_udp, dest_port, out_proxy_config_id);
     }
     if (!get_process_name_from_pid(pid, process_name, sizeof(process_name)))
     {
         if (!is_udp)
             pb_log_decision(pid, NULL, TRUE, dest_ip6, dest_port, is_udp, 0, RULE_ACTION_DIRECT, 0, "process name unavailable");
-        return RULE_ACTION_DIRECT;
+        return unowned_policy(is_udp, dest_port, out_proxy_config_id);
     }
 
     UINT32 proxy_config_id = 0, rule_id = 0;
     RuleAction action = match_rule_v6(process_name, dest_ip6, dest_port, is_udp, &proxy_config_id, &rule_id);
-    action = apply_policy(action, is_udp, &proxy_config_id, &note);
+    action = apply_policy(action, is_udp, dest_port, &proxy_config_id, &note);
 
     if (action == RULE_ACTION_PROXY && !g_localhost_via_proxy)
     {
@@ -702,19 +803,19 @@ RuleAction check_process_rule(UINT32 src_ip, UINT16 src_port, UINT32 dest_ip, UI
     {
         if (!is_udp)
             pb_log_decision(0, NULL, FALSE, &dest_ip, dest_port, is_udp, 0, RULE_ACTION_DIRECT, 0, "owner process not found");
-        return RULE_ACTION_DIRECT;
+        return unowned_policy(is_udp, dest_port, out_proxy_config_id);
     }
 
     if (!get_process_name_from_pid(pid, process_name, sizeof(process_name)))
     {
         if (!is_udp)
             pb_log_decision(pid, NULL, FALSE, &dest_ip, dest_port, is_udp, 0, RULE_ACTION_DIRECT, 0, "process name unavailable");
-        return RULE_ACTION_DIRECT;
+        return unowned_policy(is_udp, dest_port, out_proxy_config_id);
     }
 
     UINT32 proxy_config_id = 0, rule_id = 0;
     RuleAction action = match_rule(process_name, dest_ip, dest_port, is_udp, &proxy_config_id, &rule_id);
-    action = apply_policy(action, is_udp, &proxy_config_id, &note);
+    action = apply_policy(action, is_udp, dest_port, &proxy_config_id, &note);
 
     if (action == RULE_ACTION_PROXY)
     {

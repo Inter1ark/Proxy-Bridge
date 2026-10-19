@@ -75,6 +75,7 @@ public class MainWindowViewModel : ViewModelBase
     private bool _autoConnectLastProxy;
     private bool _showNotifications = true;
     private bool _dnsBypass = true;
+    private string _udpMode = "auto";
 
     // License
     private LicenseState _license = new();
@@ -1045,10 +1046,12 @@ public class MainWindowViewModel : ViewModelBase
             foreach (var r in plan.Rules)
                 Log($"  rule {r.Process} -> {(r.IsDirect ? "DIRECT" : AppLog.Sanitize(r.Proxy))}");
 
-            // Optional legacy switches: the core proxies TCP only and sends DNS direct (docs/CORE_API.md),
-            // so a core without these exports is fine.
-            Optional(() => engine.SetDisableUdp(true));
-            Optional(() => engine.SetDnsViaProxy(false));
+            // UDP of proxied programs and DNS: see docs/CORE_API.md. A core without these exports
+            // (older DLL) keeps its defaults, so the calls are optional.
+            var udpMode = _udpMode switch { "block" => "block", "direct" => "direct", _ => "proxy" };
+            Optional(() => engine.SetUdpMode(udpMode));
+            Optional(() => engine.SetDnsViaProxy(!_dnsBypass));
+            Log($"  udp: {udpMode}, dns via proxy: {!_dnsBypass}");
             var applied = RulePlanner.RegisterProxies(engine, plan);
             if (!applied.Ok)
             {
@@ -1057,6 +1060,8 @@ public class MainWindowViewModel : ViewModelBase
                 engine.ClearProxies();
                 return false;
             }
+            var dnsProxy = plan.DefaultProxy.Length > 0 && applied.ProxyIds.TryGetValue(plan.DefaultProxy, out var dp) ? dp : 0u;
+            Optional(() => engine.SetDnsProxy(dnsProxy));
 
             // pbcore (macOS) takes the whole table at start, so the very first connections already
             // follow the rules; the Windows core takes rules only after Start.
@@ -1412,6 +1417,36 @@ public class MainWindowViewModel : ViewModelBase
         set { if (SetProperty(ref _showNotifications, value)) SaveSettings(); }
     }
 
+    /// <summary>0 auto (via SOCKS5 UDP, blocked when the proxy cannot), 1 block, 2 direct.</summary>
+    public int UdpModeIndex
+    {
+        get => _udpMode switch { "block" => 1, "direct" => 2, _ => 0 };
+        set
+        {
+            var mode = value switch { 1 => "block", 2 => "direct", _ => "auto" };
+            if (mode == _udpMode) return;
+            _udpMode = mode;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(UdpModeHint));
+            SaveSettings();
+            OnRulesChanged();
+        }
+    }
+
+    public string UdpModeHint => I18n.T("settings.udp_hint_" + _udpMode);
+
+    /// <summary>DNS queries go through the proxy as DNS over TCP (the inverse of DnsBypass).</summary>
+    public bool DnsViaProxy
+    {
+        get => !_dnsBypass;
+        set
+        {
+            if (DnsBypass == !value) return;
+            DnsBypass = !value;
+            OnPropertyChanged();
+        }
+    }
+
     public bool DnsBypass
     {
         get => _dnsBypass;
@@ -1480,6 +1515,7 @@ public class MainWindowViewModel : ViewModelBase
             _autoConnectLastProxy = config.AutoConnectLastProxy;
             _showNotifications = config.ShowNotifications;
             _dnsBypass = !config.DnsViaProxy;
+            _udpMode = config.UdpMode is "block" or "direct" ? config.UdpMode : "auto";
 
             _proxyLabels.Clear();
             foreach (var kv in config.ProxyLabels ?? new())
@@ -1566,7 +1602,8 @@ public class MainWindowViewModel : ViewModelBase
             config.AutoConnectLastProxy = _autoConnectLastProxy;
             config.ShowNotifications = _showNotifications;
             config.DnsViaProxy = !_dnsBypass;
-            config.DisableUdp = true;
+            config.DisableUdp = _udpMode == "block";
+            config.UdpMode = _udpMode;
             config.RulesVersion = 2;
             config.DefaultProxy = _defaultChoice.Raw;
             config.LastProxyInput = _defaultChoice.Raw;

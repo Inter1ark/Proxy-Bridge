@@ -521,5 +521,18 @@
   "settings.helper_removing": "Removing the helper...",
   "settings.helper_removed": "Helper removed. On the next connect ProxyBridge asks for the password and installs it again.",
   "settings.helper_remove_failed": "Could not remove the helper: {0}",
-  "settings.helper_disconnect_first": "Disconnect first, then remove the helper."
+  "settings.helper_disconnect_first": "Disconnect first, then remove the helper.",
+  "settings.udp": "UDP and WebRTC in proxied programs",
+  "settings.udp_auto": "Via proxy or block",
+  "settings.udp_block": "Always block",
+  "settings.udp_direct": "Direct (IP leak)",
+  "settings.udp_hint_auto": "UDP goes through the proxy when it supports UDP (the UDP badge in the list). Otherwise UDP is blocked: WebRTC cannot reveal your IP and browsers fall back from QUIC to TCP.",
+  "settings.udp_hint_block": "UDP of proxied programs is always blocked. No WebRTC leaks; calls and games in those programs do not work.",
+  "settings.udp_hint_direct": "UDP bypasses the proxy. Sites see your real IP through WebRTC. Only when you really want that.",
+  "settings.dns_proxy": "DNS via proxy",
+  "settings.dns_proxy_hint": "DNS queries go through the proxy (DNS over TCP), so your ISP does not see which sites you open. Turn off if sites stop opening.",
+  "proxies.no_udp": "no UDP",
+  "proxies.udp_tip": "The proxy relays UDP (WebRTC, QUIC, calls). IP for UDP: {0}",
+  "proxies.no_udp_tip": "The proxy refuses UDP. In the \"Via proxy or block\" mode UDP of those programs is blocked, nothing leaks.",
+  "proxies.no_udp_http_tip": "HTTP proxies cannot relay UDP. UDP of programs behind this proxy is blocked, nothing leaks."
 }

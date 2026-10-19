@@ -521,5 +521,18 @@
   "settings.helper_removing": "Удаляем помощник...",
   "settings.helper_removed": "Помощник удалён. При следующем подключении ProxyBridge попросит пароль и поставит его снова.",
   "settings.helper_remove_failed": "Не удалось удалить помощник: {0}",
-  "settings.helper_disconnect_first": "Сначала отключись, потом удаляй помощник."
+  "settings.helper_disconnect_first": "Сначала отключись, потом удаляй помощник.",
+  "settings.udp": "UDP и WebRTC в программах через прокси",
+  "settings.udp_auto": "Через прокси или блокировать",
+  "settings.udp_block": "Всегда блокировать",
+  "settings.udp_direct": "Напрямую (утечка IP)",
+  "settings.udp_hint_auto": "UDP идёт через прокси, если он поддерживает UDP (бейдж «UDP» в списке). Иначе UDP блокируется: WebRTC не раскроет твой IP, браузер перейдёт с QUIC на TCP.",
+  "settings.udp_hint_block": "UDP программ, идущих через прокси, всегда блокируется. Утечек через WebRTC нет, звонки и игры в этих программах не работают.",
+  "settings.udp_hint_direct": "UDP идёт напрямую, мимо прокси. Сайты видят твой реальный IP через WebRTC. Только если это осознанно нужно.",
+  "settings.dns_proxy": "DNS через прокси",
+  "settings.dns_proxy_hint": "DNS-запросы уходят через прокси (DNS over TCP), провайдер не видит, какие сайты ты открываешь. Выключи, если сайты перестали открываться.",
+  "proxies.no_udp": "без UDP",
+  "proxies.udp_tip": "Прокси передаёт UDP (WebRTC, QUIC, звонки). IP для UDP: {0}",
+  "proxies.no_udp_tip": "Прокси не принимает UDP. В режиме «Через прокси или блокировать» UDP этих программ блокируется, утечки не будет.",
+  "proxies.no_udp_http_tip": "HTTP-прокси не передают UDP. UDP программ через этот прокси блокируется, утечки не будет."
 }

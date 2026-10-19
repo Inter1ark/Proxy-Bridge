@@ -137,6 +137,11 @@ public sealed class ProxyItem : ViewModelBase
     public bool IsUnchecked => !_isChecking && _check == null;
     public string CountryCode => _check is { Ok: true } ? _check.CountryCode : "";
     public int LatencyMs => _check is { Ok: true } ? _check.LatencyMs : 0;
+    public bool HasUdp => !_isChecking && _check is { Ok: true, UdpSupported: true };
+    public bool NoUdp => !_isChecking && _check is { Ok: true, UdpSupported: false };
+    public string UdpTip => _check is { Ok: true, UdpSupported: true }
+        ? I18n.T("proxies.udp_tip", _check.UdpIp.Length > 0 ? _check.UdpIp : _check.Ip)
+        : I18n.T(Parsed.IsHttp ? "proxies.no_udp_http_tip" : "proxies.no_udp_tip");
 
     /// <summary>Status column, first line: "42 мс", "не проверен", "ошибка", "проверяю...".</summary>
     public string StatusMain =>
@@ -176,6 +181,9 @@ public sealed class ProxyItem : ViewModelBase
         OnPropertyChanged(nameof(IsUnchecked));
         OnPropertyChanged(nameof(CountryCode));
         OnPropertyChanged(nameof(LatencyMs));
+        OnPropertyChanged(nameof(HasUdp));
+        OnPropertyChanged(nameof(NoUdp));
+        OnPropertyChanged(nameof(UdpTip));
         OnPropertyChanged(nameof(StatusMain));
         OnPropertyChanged(nameof(StatusSub));
         OnPropertyChanged(nameof(Place));
