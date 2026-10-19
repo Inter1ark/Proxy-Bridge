@@ -252,6 +252,24 @@ BOOL get_connection_full(UINT16 src_port, BOOL is_udp, UINT32 *dest_ip, UINT16 *
     return found;
 }
 
+// The application's own address for a tracked IPv4 flow (where replies must be sent).
+BOOL get_connection_src_ip(UINT16 src_port, BOOL is_udp, UINT32 *src_ip)
+{
+    BOOL found = FALSE;
+    AcquireSRWLockShared(&lock);
+    for (CONNECTION_INFO *conn = connection_hash_table[src_port % CONNECTION_HASH_SIZE]; conn != NULL; conn = conn->next)
+    {
+        if (conn->src_port == src_port && conn->is_udp == is_udp && !conn->is_ipv6)
+        {
+            *src_ip = conn->src_ip;
+            found = TRUE;
+            break;
+        }
+    }
+    ReleaseSRWLockShared(&lock);
+    return found;
+}
+
 UINT32 get_connection_proxy_id(UINT16 src_port, BOOL is_udp)
 {
     UINT32 proxy_config_id = 0;

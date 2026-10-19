@@ -795,7 +795,7 @@ static void test_filter(void)
     ProxyBridge_AddProxy(PROXY_TYPE_SOCKS5, "127.0.0.1", 1080, NULL, NULL);   // loopback: not excluded
 
     char f[FILTER_BUFFER_SIZE];
-    int ex = pb_build_filter(f, sizeof(f), FALSE, FALSE, TRUE);
+    int ex = pb_build_filter(f, sizeof(f), FALSE, FALSE, TRUE, 0);
     printf("  filter: %s\n", f);
     CHECK(ex == 2, "two unique non-loopback proxy IPs excluded");
     const char *err = NULL;
@@ -813,27 +813,36 @@ static void test_filter(void)
     CHECK(!eval(f, FALSE, FALSE, "10.8.0.2", "1.2.3.4", 50006, 443, TRUE, TRUE, FALSE), "impostor (re-injected) packets not captured");
     CHECK(eval(f, FALSE, FALSE, "1.2.3.4", "10.8.0.2", 50000, LOCAL_PROXY_PORT, FALSE, FALSE, FALSE), "reflected packet to the relay port matches");
 
-    ex = pb_build_filter(f, sizeof(f), TRUE, FALSE, TRUE);
+    ex = pb_build_filter(f, sizeof(f), TRUE, FALSE, TRUE, 0);
     CHECK(WinDivertHelperCompileFilter(f, WINDIVERT_LAYER_NETWORK, NULL, 0, &err, &pos), err ? err : "TCP+UDP-block filter compiles");
     CHECK(eval(f, FALSE, TRUE, "10.8.0.2", "8.8.8.8", 50007, 443, TRUE, FALSE, FALSE), "UDP captured when a UDP BLOCK rule exists");
     CHECK(!eval(f, FALSE, TRUE, "10.8.0.2", "8.8.8.8", 50008, 53, TRUE, FALSE, FALSE), "DNS still not captured");
     CHECK(!eval(f, FALSE, TRUE, "0.0.0.0", "255.255.255.255", 68, 67, TRUE, FALSE, FALSE), "DHCP not captured");
 
     // DNS via proxy: only udp/53 enters the filter when UDP itself stays direct
-    ex = pb_build_filter(f, sizeof(f), FALSE, TRUE, TRUE);
+    ex = pb_build_filter(f, sizeof(f), FALSE, TRUE, TRUE, 0);
     CHECK(WinDivertHelperCompileFilter(f, WINDIVERT_LAYER_NETWORK, NULL, 0, &err, &pos), err ? err : "DNS-only UDP filter compiles");
     CHECK(eval(f, FALSE, TRUE, "10.8.0.2", "192.168.1.1", 50009, 53, TRUE, FALSE, FALSE), "DNS captured when DNS goes via proxy");
     CHECK(!eval(f, FALSE, TRUE, "10.8.0.2", "8.8.8.8", 50010, 443, TRUE, FALSE, FALSE), "other UDP still not captured");
     CHECK(!eval(f, FALSE, TRUE, "10.8.0.2", "1.2.3.4", 53, 50011, TRUE, FALSE, FALSE), "replies of a local DNS server not captured");
     // UDP and DNS both captured
-    ex = pb_build_filter(f, sizeof(f), TRUE, TRUE, TRUE);
+    ex = pb_build_filter(f, sizeof(f), TRUE, TRUE, TRUE, 0);
     CHECK(WinDivertHelperCompileFilter(f, WINDIVERT_LAYER_NETWORK, NULL, 0, &err, &pos), err ? err : "UDP+DNS filter compiles");
     CHECK(eval(f, FALSE, TRUE, "10.8.0.2", "192.168.1.1", 50012, 53, TRUE, FALSE, FALSE), "DNS captured");
     CHECK(eval(f, FALSE, TRUE, "10.8.0.2", "8.8.8.8", 50013, 443, TRUE, FALSE, FALSE), "UDP captured");
     CHECK(!eval(f, FALSE, TRUE, "0.0.0.0", "255.255.255.255", 68, 67, TRUE, FALSE, FALSE), "DHCP never captured");
 
-    pb_build_filter(f, sizeof(f), FALSE, FALSE, FALSE);
+    pb_build_filter(f, sizeof(f), FALSE, FALSE, FALSE, 0);
     CHECK(WinDivertHelperCompileFilter(f, WINDIVERT_LAYER_NETWORK, NULL, 0, &err, &pos), "basic filter compiles");
+
+    // UDP pinned to the default-route interface (VPN: the tunnel adapter, not the physical one)
+    pb_build_filter(f, sizeof(f), TRUE, TRUE, TRUE, 15);
+    CHECK(WinDivertHelperCompileFilter(f, WINDIVERT_LAYER_NETWORK, NULL, 0, &err, &pos), err ? err : "UDP filter with ifIdx compiles");
+    CHECK(strstr(f, "ifIdx == 15") != NULL, "UDP clause carries the interface index");
+    CHECK(eval(f, FALSE, TRUE, "10.66.0.10", "10.66.0.10", LOCAL_UDP_RELAY_PORT, 50020, TRUE, FALSE, TRUE), "UDP relay reply on loopback is captured");
+    CHECK(eval(f, FALSE, TRUE, "1.1.1.1", "10.66.0.10", 53, LOCAL_UDP_RELAY_PORT, FALSE, FALSE, FALSE), "UDP redirected to the relay port is captured");
+    CHECK(strstr(f, "(tcp and (outbound") != NULL && strstr(strstr(f, "(tcp and"), "ifIdx") == NULL || strstr(f, "ifIdx") > strstr(f, " or (udp"), "TCP clause is not restricted to the interface");
+    CHECK(pb_default_route_ifidx() != 0, "default route interface is known on this machine");
 
     // many proxies: filter must stay valid (capped at 32 exclusions)
     clear_all_proxies();
@@ -843,7 +852,7 @@ static void test_filter(void)
         snprintf(host, sizeof(host), "198.18.%d.%d", i / 100, i % 100 + 1);
         ProxyBridge_AddProxy(PROXY_TYPE_SOCKS5, host, 1080, NULL, NULL);
     }
-    ex = pb_build_filter(f, sizeof(f), TRUE, TRUE, TRUE);
+    ex = pb_build_filter(f, sizeof(f), TRUE, TRUE, TRUE, 0);
     BOOL ok = WinDivertHelperCompileFilter(f, WINDIVERT_LAYER_NETWORK, NULL, 0, &err, &pos);
     printf("  64 proxies: %d excluded, %zu chars, compile %s%s%s\n", ex, strlen(f), ok ? "ok" : "FAILED: ", ok ? "" : (err ? err : "?"), "");
     CHECK(ex == 32, "exclusions capped at 32");
@@ -970,6 +979,28 @@ static void test_udp_policy(void)
 
 static DWORD WINAPI fake_dns_proxy_server(LPVOID arg);
 
+
+static void test_udp_cache(void)
+{
+    printf("[udp] per-port decision cache\n");
+    udp_cache_clear_all();
+    CHECK(udp_cache_get(5353) == 0, "nothing cached at start");
+    udp_cache_set(5353, RULE_ACTION_DIRECT);
+    CHECK(udp_cache_get(5353) == RULE_ACTION_DIRECT + 1, "DIRECT cached");
+    udp_cache_set(5353, RULE_ACTION_BLOCK);
+    CHECK(udp_cache_get(5353) == RULE_ACTION_BLOCK + 1, "BLOCK overrides DIRECT");
+    udp_cache_set(5353, RULE_ACTION_DIRECT);
+    CHECK(udp_cache_get(5353) == RULE_ACTION_DIRECT + 1, "DIRECT overrides BLOCK");
+    CHECK(udp_cache_get(5354) == 0 && udp_cache_get(65535) == 0, "other ports untouched");
+    g_udp_cache_until[5353] = (LONGLONG)GetTickCount64() - 1;
+    CHECK(udp_cache_get(5353) == 0, "expired entry is not used");
+    udp_cache_set(65535, RULE_ACTION_BLOCK);
+    udp_cache_set(0, RULE_ACTION_DIRECT);
+    CHECK(udp_cache_get(65535) == RULE_ACTION_BLOCK + 1 && udp_cache_get(0) == RULE_ACTION_DIRECT + 1, "edge ports");
+    udp_cache_clear_all();
+    CHECK(udp_cache_get(65535) == 0, "clear_all empties the cache");
+}
+
 static void test_dns_over_tcp(void)
 {
     printf("[dns] DNS over TCP exchange through a local fake HTTP proxy\n");
@@ -1069,6 +1100,7 @@ int main(void)
     test_testconnection();
     test_udp_dns_exports();
     test_udp_policy();
+    test_udp_cache();
     test_dns_over_tcp();
     test_diagnostics();
     flush_to_all_log();

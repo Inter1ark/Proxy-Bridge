@@ -78,8 +78,13 @@ static DWORD WINAPI dns_proxy_worker(LPVOID arg)
     if (pb_dns_tcp_exchange(&job->cfg, resolver, job->query, job->query_len, answer, sizeof(answer), &n))
     {
         snoop_dns_response(answer, n);
+        int sent = -1;
         if (udp_relay_socket != INVALID_SOCKET)
-            sendto(udp_relay_socket, (const char *)answer, n, 0, (struct sockaddr *)&job->client, sizeof(job->client));
+            sent = sendto(udp_relay_socket, (const char *)answer, n, 0, (struct sockaddr *)&job->client, sizeof(job->client));
+        char key[64];
+        snprintf(key, sizeof(key), "dnsok:%u", job->cfg.config_id);
+        pb_log_ratelimited(key, "[DNS] answered %d bytes via proxy #%u to client port %u (sendto %d, WSA %d)",
+            n, job->cfg.config_id, ntohs(job->client.sin_port), sent, sent == SOCKET_ERROR ? WSAGetLastError() : 0);
     }
     else
     {
@@ -299,8 +304,17 @@ DWORD WINAPI udp_relay_server(LPVOID arg)
                     // with SOCKS5 proxies that refuse UDP ASSOCIATE).
                     if (dest_port == 53 && g_dns_via_proxy)
                     {
+                        pb_log_ratelimited("dnsin", "[DNS] query from client port %u (%d bytes) -> resolver %d.%d.%d.%d via proxy #%u",
+                            from_port, recv_len, dest_ip & 0xFF, (dest_ip >> 8) & 0xFF, (dest_ip >> 16) & 0xFF, (dest_ip >> 24) & 0xFF,
+                            cfg ? cfg->config_id : 0);
+                        // The datagram arrived "from" its original destination (the packet loop swaps
+                        // the addresses); the answer must go to the application's real address.
+                        struct sockaddr_in client = from_addr;
+                        UINT32 app_ip = 0;
+                        if (get_connection_src_ip(from_port, TRUE, &app_ip))
+                            client.sin_addr.s_addr = app_ip;
                         if (cfg != NULL)
-                            dns_proxy_submit(cfg, dest_ip, &from_addr, recv_buf, recv_len);
+                            dns_proxy_submit(cfg, dest_ip, &client, recv_buf, recv_len);
                         continue;
                     }
 

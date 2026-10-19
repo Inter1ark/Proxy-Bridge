@@ -283,7 +283,7 @@ void pb_relay_shutdown_all(void)
 //  - exclude_proxies: IPv4 packets to the proxy servers are not captured at all.
 //    "(ipv6 or ip.DstAddr != X)" is used instead of "ip.DstAddr != X" so IPv6 packets,
 //    which have no ip.* fields, are not excluded by accident.
-int pb_build_filter(char *buf, size_t size, BOOL capture_udp, BOOL capture_dns, BOOL exclude_proxies)
+int pb_build_filter(char *buf, size_t size, BOOL capture_udp, BOOL capture_dns, BOOL exclude_proxies, UINT32 udp_ifidx)
 {
     char excl[2048] = "";
     int excluded = 0;
@@ -317,11 +317,20 @@ int pb_build_filter(char *buf, size_t size, BOOL capture_udp, BOOL capture_dns, 
     char udp[512] = "";
     if (capture_udp || capture_dns)
     {
+        char ifclause[48] = "";
+        if (udp_ifidx != 0)
+            snprintf(ifclause, sizeof(ifclause), " and ifIdx == %u", (unsigned)udp_ifidx);
+        // The relay's own datagrams (port LOCAL_UDP_RELAY_PORT) must be captured on any
+        // interface, loopback included: the reply to the application travels to the
+        // machine's own address and is rewritten (source restored, injected inbound) there.
         snprintf(udp, sizeof(udp),
-            " or (udp and outbound and not loopback"
+            " or (udp and (udp.SrcPort == %u or udp.DstPort == %u))"
+            " or (udp and outbound and not loopback%s"
             "%s and udp.SrcPort != 53"
             " and udp.DstPort != 67 and udp.DstPort != 68"
             " and udp.DstPort != 546 and udp.DstPort != 547)",
+            LOCAL_UDP_RELAY_PORT, LOCAL_UDP_RELAY_PORT,
+            ifclause,
             capture_udp && capture_dns ? "" :
             capture_dns ? " and udp.DstPort == 53" : " and udp.DstPort != 53");
     }
@@ -360,6 +369,8 @@ static void wide_to_utf8(const WCHAR *w, char *out, int out_size)
         WideCharToMultiByte(CP_UTF8, 0, w, -1, out, out_size, NULL, NULL);
     out[out_size - 1] = '\0';
 }
+
+UINT32 pb_default_route_ifidx(void);
 
 static DWORD best_if_for_ipv4(UINT32 ip)
 {
@@ -873,4 +884,11 @@ done:
     SecureZeroMemory(proxy.password, sizeof(proxy.password));
     tc_append(result_buffer, buffer_size, ret == 0 ? "\nProxy connection test PASSED\n" : "\nProxy connection test FAILED\n");
     return ret;
+}
+
+// Interface of the IPv4 default route (0 when there is none): where applications' traffic
+// to the internet leaves, i.e. the tunnel adapter when a VPN is active.
+UINT32 pb_default_route_ifidx(void)
+{
+    return (UINT32)best_if_for_ipv4(inet_addr("1.1.1.1"));
 }

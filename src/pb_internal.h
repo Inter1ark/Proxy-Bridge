@@ -219,6 +219,13 @@ extern DNS_CACHE_ENTRY_V6 *g_dns_cache_v6[DNS_CACHE_BUCKETS];
 extern SRWLOCK             g_dns_cache_lock;
 extern volatile LONG port_decided_bitmap[2048];  // 8 KB
 extern volatile LONG port_direct_bitmap[2048];  // 8 KB
+// UDP has no handshake, so every datagram would otherwise cost a socket-table lookup
+// (GetExtendedUdpTable) in the packet loop; with a VPN or QUIC that saturates the loop and
+// stalls all traffic. Decisions that leave the datagram alone (DIRECT) or drop it (BLOCK)
+// are cached per source port for a few seconds; PROXY flows are tracked by conntrack anyway.
+#define UDP_CACHE_TTL_MS 10000
+extern volatile LONGLONG g_udp_cache_until[65536];   // tick (ms) until which the cached decision holds
+extern volatile LONG     g_udp_cache_block[2048];    // bit set = cached decision is BLOCK (else DIRECT)
 extern UINT16 g_local_relay_port;
 extern volatile LONG g_udp_mode;        // UdpMode
 extern volatile BOOL g_dns_via_proxy;
@@ -246,6 +253,26 @@ extern HANDLE g_relay_ready_event;     // set by the relay thread once it listen
 #endif
 
 // ---- per-source-port decision bitmaps: hot-path inline helpers ----
+// 0 = not cached, RULE_ACTION_DIRECT + 1 or RULE_ACTION_BLOCK + 1 when cached
+PB_FORCEINLINE int udp_cache_get(UINT16 p)
+{
+    LONGLONG until = g_udp_cache_until[p];
+    if (until == 0 || (LONGLONG)GetTickCount64() > until)
+        return 0;
+    return (g_udp_cache_block[p >> 5] & (1L << (p & 31))) ? RULE_ACTION_BLOCK + 1 : RULE_ACTION_DIRECT + 1;
+}
+PB_FORCEINLINE void udp_cache_set(UINT16 p, RuleAction a)
+{
+    if (a == RULE_ACTION_BLOCK) InterlockedOr(&g_udp_cache_block[p >> 5], 1L << (p & 31));
+    else InterlockedAnd(&g_udp_cache_block[p >> 5], ~(1L << (p & 31)));
+    g_udp_cache_until[p] = (LONGLONG)GetTickCount64() + UDP_CACHE_TTL_MS;
+}
+PB_FORCEINLINE void udp_cache_clear_all(void)
+{
+    memset((void*)g_udp_cache_until, 0, sizeof(LONGLONG) * 65536);
+    memset((void*)g_udp_cache_block, 0, sizeof(LONG) * 2048);
+}
+
 PB_FORCEINLINE BOOL port_is_decided(UINT16 p)
 {
     return (port_decided_bitmap[p >> 5] >> (p & 31)) & 1;
@@ -382,6 +409,7 @@ BOOL find_v6_udp_sender(const UINT8 orig_dest_ip6[16], UINT16 orig_dest_port, UI
 BOOL is_connection_tracked(UINT16 src_port, BOOL is_udp, BOOL is_ipv6);
 BOOL get_connection(UINT16 src_port, BOOL is_udp, UINT32 *dest_ip, UINT16 *dest_port);
 BOOL get_connection_full(UINT16 src_port, BOOL is_udp, UINT32 *dest_ip, UINT16 *dest_port, UINT32 *proxy_config_id);
+BOOL get_connection_src_ip(UINT16 src_port, BOOL is_udp, UINT32 *src_ip);
 UINT32 get_connection_proxy_id(UINT16 src_port, BOOL is_udp);
 void remove_connection(UINT16 src_port, BOOL is_udp, BOOL is_ipv6);
 void cleanup_stale_connections(void);
@@ -404,7 +432,12 @@ void pb_relay_register(RELAY_PAIR *pair);
 void pb_relay_unregister(RELAY_PAIR *pair);
 void pb_relay_shutdown_all(void);
 void pb_log_start_diagnostics(void);
-int  pb_build_filter(char *buf, size_t size, BOOL capture_udp, BOOL capture_dns, BOOL exclude_proxies);
+// udp_ifidx: when non-zero, UDP is captured only on that interface (the interface of the
+// default route). Behind a VPN the applications' datagrams leave through the tunnel adapter,
+// while the VPN client's own encrypted UDP leaves through the physical adapter; capturing and
+// re-injecting the latter breaks the tunnel (every connection dies while the core runs).
+int  pb_build_filter(char *buf, size_t size, BOOL capture_udp, BOOL capture_dns, BOOL exclude_proxies, UINT32 udp_ifidx);
+UINT32 pb_default_route_ifidx(void);
 const char *pb_action_name(RuleAction action);
 
 // ---- ProxyBridge.c ----

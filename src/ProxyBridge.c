@@ -77,6 +77,8 @@ SRWLOCK             g_dns_cache_lock;
 // reads (x86/x64 aligned read is atomic; we only need visibility, not ordering).
 volatile LONG port_decided_bitmap[2048] = {0};  // 8 KB
 volatile LONG port_direct_bitmap[2048]  = {0};  // 8 KB
+volatile LONGLONG g_udp_cache_until[65536] = {0};
+volatile LONG     g_udp_cache_block[2048]  = {0};
 
 UINT16 g_local_relay_port = LOCAL_PROXY_PORT;
 volatile LONG g_udp_mode = PB_UDP_DIRECT;
@@ -172,6 +174,16 @@ DWORD WINAPI packet_processor(LPVOID arg)
                         WinDivertSend(windivert_handle, packet, packet_len, NULL, &addr);
                         continue;
                     }
+                    {
+                        int cached6 = udp_cache_get(sp);
+                        if (cached6 == RULE_ACTION_DIRECT + 1)
+                        {
+                            WinDivertSend(windivert_handle, packet, packet_len, NULL, &addr);
+                            continue;
+                        }
+                        if (cached6 == RULE_ACTION_BLOCK + 1)
+                            continue;
+                    }
 
                     RuleAction action6u;
                     DWORD pid6u = 0;
@@ -217,7 +229,7 @@ DWORD WINAPI packet_processor(LPVOID arg)
                         }
                     }
 
-                    if (action6u == RULE_ACTION_BLOCK) continue;
+                    if (action6u == RULE_ACTION_BLOCK) { udp_cache_set(sp, RULE_ACTION_BLOCK); continue; }
 
                     if (action6u == RULE_ACTION_PROXY)
                     {
@@ -251,6 +263,7 @@ DWORD WINAPI packet_processor(LPVOID arg)
                     {
                         // DIRECT (or no matching rule): unmodified packet, send as-is without
                         // recomputing checksums (wasteful + can clash with NIC offload, #161).
+                        udp_cache_set(sp, RULE_ACTION_DIRECT);
                         WinDivertSend(windivert_handle, packet, packet_len, NULL, &addr);
                         continue;
                     }
@@ -531,6 +544,18 @@ DWORD WINAPI packet_processor(LPVOID arg)
                         continue;
                     }
 
+                    // Cached decision for this source port (no socket-table lookup per datagram).
+                    {
+                        int cached = udp_cache_get(src_port);
+                        if (cached == RULE_ACTION_DIRECT + 1)
+                        {
+                            WinDivertSend(windivert_handle, packet, packet_len, NULL, &addr);
+                            continue;
+                        }
+                        if (cached == RULE_ACTION_BLOCK + 1)
+                            continue;
+                    }
+
                     RuleAction action;
                     DWORD pid = 0;
                     UINT32 proxy_config_id = 0;
@@ -597,6 +622,7 @@ DWORD WINAPI packet_processor(LPVOID arg)
 
                     if (action == RULE_ACTION_BLOCK)
                     {
+                        udp_cache_set(src_port, RULE_ACTION_BLOCK);
                         continue;
                     }
 
@@ -630,6 +656,7 @@ DWORD WINAPI packet_processor(LPVOID arg)
                         // DIRECT (or no matching rule): the packet is unmodified, so send it
                         // as-is. Recomputing checksums on an untouched packet is wasteful and
                         // can conflict with NIC checksum offload on some drivers (see #161).
+                        udp_cache_set(src_port, RULE_ACTION_DIRECT);
                         WinDivertSend(windivert_handle, packet, packet_len, NULL, &addr);
                         continue;
                     }
@@ -1060,14 +1087,17 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
     // addresses are excluded so relayed traffic does not pass through the packet loop at all.
     BOOL capture_udp = g_udp_mode != PB_UDP_DIRECT || pb_rules_need_udp_capture();
     BOOL capture_dns = g_dns_via_proxy;
+    UINT32 udp_ifidx = (capture_udp || capture_dns) ? pb_default_route_ifidx() : 0;
+    if (capture_udp || capture_dns)
+        log_message("UDP is captured on interface #%lu only (the default route), so a VPN client's own packets are left alone", (unsigned long)udp_ifidx);
     const char *filter_err = NULL;
     UINT filter_err_pos = 0;
-    pb_build_filter(filter, sizeof(filter), capture_udp, capture_dns, TRUE);
+    pb_build_filter(filter, sizeof(filter), capture_udp, capture_dns, TRUE, udp_ifidx);
     if (!WinDivertHelperCompileFilter(filter, WINDIVERT_LAYER_NETWORK, NULL, 0, &filter_err, &filter_err_pos))
     {
         log_message("Packet filter with proxy exclusions rejected (%s at %u), using the basic filter",
             filter_err ? filter_err : "unknown error", filter_err_pos);
-        pb_build_filter(filter, sizeof(filter), capture_udp, capture_dns, FALSE);
+        pb_build_filter(filter, sizeof(filter), capture_udp, capture_dns, FALSE, udp_ifidx);
     }
     log_message("Packet filter: %s", filter);
 
@@ -1166,6 +1196,7 @@ PROXYBRIDGE_API BOOL ProxyBridge_Stop(void)
     // if ProxyBridge is stopped and restarted with different rules.
     memset((void*)port_decided_bitmap, 0, sizeof(port_decided_bitmap));
     memset((void*)port_direct_bitmap,  0, sizeof(port_direct_bitmap));
+    udp_cache_clear_all();
 
     UINT64 up = 0, down = 0;
     ProxyBridge_GetTrafficStats(&up, &down);
