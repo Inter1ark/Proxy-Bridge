@@ -120,19 +120,24 @@ Step "2. Build"
 if ($DryRun -or $SkipBuild) {
     Write-Host "  skipped ($(if ($DryRun) { '-DryRun' } else { '-SkipBuild' }))"
 } else {
-    Push-Location (Join-Path $Root "gui")
-    try {
-        dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true
-        if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
-    } finally { Pop-Location }
-
-    $builderArgs = @{ SkipPublish = $true; NoOpen = $true }
+    # build-installer.ps1 compiles ProxyBridgeCore.dll FIRST and publishes after it, so the
+    # publish folder (what the installer packs) always carries the freshly built core.
+    # (3.6.0 shipped a stale core because the publish ran before the core build.)
+    $builderArgs = @{ NoOpen = $true }
     if ($SkipCoreBuild) { $builderArgs.SkipCoreBuild = $true }
     Push-Location $Root
     try {
         & $builder @builderArgs
         if ($LASTEXITCODE -ne 0) { throw "build-installer.ps1 failed" }
     } finally { Pop-Location }
+
+    $coreRepo = Join-Path $Root "ProxyBridgeCore.dll"
+    $corePub  = Join-Path $Root "guiin\Release
+et9.0-windows\win-x64\publish\ProxyBridgeCore.dll"
+    if ((Get-FileHash $coreRepo).Hash -ne (Get-FileHash $corePub).Hash) {
+        throw "publish folder has a stale ProxyBridgeCore.dll (differs from the one just built)"
+    }
+    Write-Host "  core in publish folder matches the fresh build"
 }
 
 # ---------------------------------------------------------------------------
