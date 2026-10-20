@@ -170,7 +170,7 @@ func main() {
 		log.Infof("control token: %s", token)
 	}
 
-	netcfg.Logf = log.Debugf
+	netcfg.Logf = log.Infof
 
 	if *daemon {
 		if *controlPort <= 0 {

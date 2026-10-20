@@ -124,43 +124,79 @@ func RouteAllViaTun(cfg Config, original Gateway, undo *Undo) error {
 	}
 }
 
+// routeTaken reports whether a route with exactly this destination and mask is
+// already in the table (a VPN's 0/1 and 128/1, for instance). "route get" answers
+// with the most specific covering route, so a shorter prefix shows up as a
+// different mask. The check matters because "route add" of a prefix that another
+// interface already holds reports success on macOS without installing anything,
+// and deleting it afterwards would remove the VPN's route instead.
+func routeTaken(p netip.Prefix) bool {
+	out, err := run("route", "-n", "get", "-inet", "-net", p.String())
+	if err != nil {
+		return false
+	}
+	var dest, mask string
+	for _, line := range strings.Split(out, "\n") {
+		k, v, ok := strings.Cut(strings.TrimSpace(line), ":")
+		if !ok {
+			continue
+		}
+		switch strings.TrimSpace(k) {
+		case "destination":
+			dest = strings.TrimSpace(v)
+		case "mask":
+			mask = strings.TrimSpace(v)
+		}
+	}
+	addr := p.Masked().Addr().String()
+	if dest == "default" {
+		dest = "0.0.0.0"
+	}
+	return dest == addr && mask == maskString(p.Bits())
+}
+
 // addSplitRoutes covers the IPv4 space with routes through the tunnel: the /1
 // pair, or, when a VPN already holds those, the four /2 routes (and /3 after a
 // VPN that fell back to /2 itself). The VPN keeps its routes and stays usable.
 func addSplitRoutes(iface string, undo *Undo) error {
 	for bits := 1; bits <= maxSplitBits; bits++ {
+		prefixes := splitPrefixes(bits)
+		taken := false
+		for _, p := range prefixes {
+			if routeTaken(p) {
+				Logf("route %s is already taken (a VPN?)", p)
+				taken = true
+				break
+			}
+		}
+		if taken {
+			continue
+		}
 		var added []netip.Prefix
 		rollback := func() {
 			for _, p := range added {
-				_, _ = run("route", "-n", "delete", "-inet", "-net", p.String())
+				_, _ = run("route", "-n", "delete", "-inet", "-net", p.String(), "-interface", iface)
 			}
 		}
-		exists := false
-		var failure error
-		for _, p := range splitPrefixes(bits) {
+		for _, p := range prefixes {
 			if _, err := run("route", "-n", "add", "-inet", "-net", p.String(), "-interface", iface); err != nil {
+				rollback()
 				if strings.Contains(err.Error(), "exists") {
-					exists = true
-				} else {
-					failure = err
+					Logf("route %s appeared meanwhile, trying /%d", p, bits+1)
+					taken = true
+					break
 				}
-				break
+				return err
 			}
 			added = append(added, p)
 		}
-		if failure != nil {
-			rollback()
-			return failure
-		}
-		if exists {
-			rollback()
-			Logf("/%d routes are taken (a VPN?), trying /%d", bits, bits+1)
+		if taken {
 			continue
 		}
 		for _, p := range added {
 			n := p.String()
 			undo.Push(func() error {
-				_, err := run("route", "-n", "delete", "-inet", "-net", n)
+				_, err := run("route", "-n", "delete", "-inet", "-net", n, "-interface", iface)
 				return err
 			})
 		}

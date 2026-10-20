@@ -246,7 +246,7 @@ workflows:
           sudo /bin/sh /tmp/vpn-launch.sh < /dev/null
           for i in $(seq 1 30); do grep -q '"status":"up"' /tmp/vpn.log && break; sleep 0.5; done
           vtun=$(sed -n 's/.*TUN \(utun[0-9]*\) created.*/\1/p' /tmp/vpn.log | head -1); echo "vpn tun=$vtun"
-          echo "== routes with the VPN up"; netstat -rn -f inet | grep -E "^(default|0/1|128.0/1|0/2|64/2|128.0/2|192.0/2)"
+          echo "== routes with the VPN up"; netstat -rn -f inet | grep -E "^(default|0/1|128.0/1|0/2|64/2|128.0/2|192)"
           echo "curl through the VPN: $(curl -4 -sS -m 30 https://api.ipify.org) (expected: $direct_ip)"
           echo "route to 8.8.8.8:"; route -n get 8.8.8.8 | grep -E "interface|gateway"
           # 2) the daemon starts a session on top of it
@@ -263,7 +263,7 @@ workflows:
           )
           echo "start: $(printf 'start %s %s\n' "$tok" "$req" | nc -w 60 -U "$sock")"
           echo "== routes with both up (expected: the /2 set on the daemon's utun, the /1 pair still on $vtun)"
-          netstat -rn -f inet | grep -E "^(default|0/1|128.0/1|0/2|64/2|128.0/2|192.0/2)"
+          netstat -rn -f inet | grep -E "^(default|0/1|128.0/1|0/2|64/2|128.0/2|192)"
           echo "== daemon log: gateway decision"; sudo grep -E "VPN|default route|routes installed|routes are taken|scoped|exec: route" /Library/Logs/ProxyBridge/pbcore.log | tail -12
           echo "== fake VPN still alive: $(pgrep -f vpncore | head -1)"
           echo "== 1) curl (rule: direct, should still leave through the VPN) "; curl -4 -sS -m 40 https://api.ipify.org; echo " exit=$? (expected: $direct_ip)"
@@ -271,7 +271,7 @@ workflows:
           echo "== 3) the VPN's own log saw the daemon's flows as direct:"; grep -c "direct" /tmp/vpn.log
           echo "stop: $(printf 'stop %s\n' "$tok" | nc -w 3 -U "$sock")"
           sleep 2
-          echo "== routes after stop (expected: only the /1 pair on $vtun)"; netstat -rn -f inet | grep -E "^(0/1|128.0/1|0/2|64/2|128.0/2|192.0/2)"
+          echo "== routes after stop (expected: only the /1 pair on $vtun)"; netstat -rn -f inet | grep -E "^(0/1|128.0/1|0/2|64/2|128.0/2|192)"
           echo "python3 after stop (VPN only): $(python3 -c "import urllib.request; print(urllib.request.urlopen('https://api.ipify.org', timeout=30).read().decode())") (expected: $direct_ip)"
           echo "== daemon log (last 30)"; sudo tail -n 30 /Library/Logs/ProxyBridge/pbcore.log
           sudo /bin/sh "$app/uninstall-helper.sh" >/dev/null; echo "uninstall exit=$?"
