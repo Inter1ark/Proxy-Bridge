@@ -164,6 +164,7 @@ func addSplitRoutes(iface string, undo *Undo) error {
 				return err
 			})
 		}
+		lastSplitBits = bits
 		if bits > 1 {
 			Logf("tunnel routes installed as /%d next to the existing /%d pair", bits, bits-1)
 		}

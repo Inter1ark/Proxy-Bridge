@@ -187,11 +187,13 @@ workflows:
           echo "unix ping: $(printf 'ping %s\n' "$tok" | nc -w 2 -U "$sock") (expected: ok ${VERSION})"
           echo "== loopback TCP filtered by pf (what a VPN kill switch does): the unix socket must still answer"
           pf_was=$(sudo pfctl -s info 2>/dev/null | head -1)
-          echo "block drop quick proto tcp from any to 127.0.0.1 port 34050" | sudo pfctl -a pbtest -f - 2>&1 | grep -v "^$"
+          echo "block drop quick proto tcp from any to 127.0.0.1 port 34050" > /tmp/pbtest.rules
+          { cat /etc/pf.conf; echo 'anchor "pbtest"'; echo 'load anchor "pbtest" from "/tmp/pbtest.rules"'; } | sudo pfctl -f - 2>&1 | grep -v "^$"
           sudo pfctl -e 2>&1 | head -1
+          sudo pfctl -a pbtest -s rules 2>/dev/null
           echo "tcp ping, filtered: '$(printf 'ping %s\n' "$tok" | nc -w 2 127.0.0.1 34050)' (expected empty)"
           echo "unix ping, filtered: $(printf 'ping %s\n' "$tok" | nc -w 2 -U "$sock") (expected: ok ${VERSION})"
-          sudo pfctl -a pbtest -F all 2>&1 | grep -v "^$"
+          sudo pfctl -f /etc/pf.conf 2>&1 | grep -v "^$"
           case "$pf_was" in *Enabled*) ;; *) sudo pfctl -d 2>&1 | head -1 ;; esac
           echo "tcp ping, filter removed: $(printf 'ping %s\n' "$tok" | nc -w 2 127.0.0.1 34050)"
           req=$(python3 - "$TEST_PROXY" <<'PY'
@@ -230,12 +232,15 @@ workflows:
           app=/Applications/ProxyBridge.app/Contents/MacOS
           core="$app/pbcore"
           direct_ip=$(curl -4 -sS -m 15 https://api.ipify.org); echo "direct IP: $direct_ip"
-          # 1) the "VPN": a per-session pbcore that routes everything direct through its own utun
+          sudo /bin/sh "$app/install-helper.sh" "$core" >/dev/null; echo "install exit=$?"
+          # 1) the "VPN": a per-session pbcore (a copy, so the helper scripts never touch it) that routes
+          #    everything direct through its own utun and holds the 0/1 and 128/1 routes
+          cp "$core" /tmp/vpncore; chmod +x /tmp/vpncore
           echo '{"proxies":[],"rules":[{"process":"*","action":"direct"}]}' > /tmp/vpn.json
           cat > /tmp/vpn-launch.sh <<EOF
           #!/bin/sh
           trap '' HUP
-          "$core" --rules-file /tmp/vpn.json --dns 1.1.1.1 --tun-addr 10.254.0.2/24 --control-port 34060 --control-token vpn --log-level debug > /tmp/vpn.log 2>&1 < /dev/null &
+          /tmp/vpncore --rules-file /tmp/vpn.json --dns 1.1.1.1 --tun-addr 10.254.0.2/24 --control-port 34060 --control-token vpn --log-level debug > /tmp/vpn.log 2>&1 < /dev/null &
           exit 0
           EOF
           sudo /bin/sh /tmp/vpn-launch.sh < /dev/null
@@ -245,7 +250,6 @@ workflows:
           echo "curl through the VPN: $(curl -4 -sS -m 30 https://api.ipify.org) (expected: $direct_ip)"
           echo "route to 8.8.8.8:"; route -n get 8.8.8.8 | grep -E "interface|gateway"
           # 2) the daemon starts a session on top of it
-          sudo /bin/sh "$app/install-helper.sh" "$core" >/dev/null; echo "install exit=$?"
           tok=$(sudo cat "/Library/Application Support/ProxyBridge/control.token")
           sock="/Library/Application Support/ProxyBridge/control.sock"
           for i in $(seq 1 20); do r=$(printf 'ping %s\n' "$tok" | nc -w 2 -U "$sock"); [ -n "$r" ] && break; sleep 0.5; done; echo "ping: $r"
@@ -260,7 +264,8 @@ workflows:
           echo "start: $(printf 'start %s %s\n' "$tok" "$req" | nc -w 60 -U "$sock")"
           echo "== routes with both up (expected: the /2 set on the daemon's utun, the /1 pair still on $vtun)"
           netstat -rn -f inet | grep -E "^(default|0/1|128.0/1|0/2|64/2|128.0/2|192.0/2)"
-          echo "== daemon log: gateway decision"; sudo grep -E "VPN|default route|routes installed|routes are taken|scoped" /Library/Logs/ProxyBridge/pbcore.log | tail -5
+          echo "== daemon log: gateway decision"; sudo grep -E "VPN|default route|routes installed|routes are taken|scoped|exec: route" /Library/Logs/ProxyBridge/pbcore.log | tail -12
+          echo "== fake VPN still alive: $(pgrep -f vpncore | head -1)"
           echo "== 1) curl (rule: direct, should still leave through the VPN) "; curl -4 -sS -m 40 https://api.ipify.org; echo " exit=$? (expected: $direct_ip)"
           echo "== 2) python3 (catch-all: proxy)"; python3 -c "import urllib.request; print(urllib.request.urlopen('https://api.ipify.org', timeout=40).read().decode())"; echo " exit=$? (expected: the proxy IP)"
           echo "== 3) the VPN's own log saw the daemon's flows as direct:"; grep -c "direct" /tmp/vpn.log
@@ -274,7 +279,7 @@ workflows:
           echo "== routes after the VPN is gone"; netstat -rn -f inet | grep -E "^(0/1|128.0/1|0/2|64/2)" || echo "(none, as expected)"
           echo "IP after everything: $(curl -4 -sS -m 15 https://api.ipify.org)"
           cp /tmp/vpn.log out/vpn-coexistence-vpn.log
-          sudo pkill -f pbcore
+          sudo pkill -f vpncore; sudo pkill -f pbcore
           exit 0
 
       - name: UDP end-to-end test (SOCKS5 UDP, block mode, DNS via proxy)

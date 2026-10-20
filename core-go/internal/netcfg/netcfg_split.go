@@ -25,3 +25,9 @@ func splitPrefixes(bits int) []netip.Prefix {
 // maxSplitBits is the longest split tried before giving up: /1 (nothing else
 // in the way), /2 (one VPN holding /1), /3 (a VPN that itself fell back to /2).
 const maxSplitBits = 3
+
+// lastSplitBits remembers the prefix length the last addSplitRoutes ended up with.
+var lastSplitBits int
+
+// SplitBits reports the prefix length of the tunnel routes installed last (0 before any).
+func SplitBits() int { return lastSplitBits }

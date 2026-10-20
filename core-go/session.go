@@ -145,6 +145,9 @@ func (s *session) setup() error {
 	if err := netcfg.RouteAllViaTun(ncfg, gw, &s.undo); err != nil {
 		return fmt.Errorf("route traffic via %s: %v", ifName, err)
 	}
+	if bits := netcfg.SplitBits(); bits > 1 {
+		s.log.Infof("tunnel routes installed as /%d: another tunnel holds the shorter prefixes", bits)
+	}
 
 	s.rep.UpWithRules(ifName, s.rt.Summary(), len(cfg.Set.Rules), s.rt.Procmap())
 	s.log.Infof("up: %d rules, all other programs -> %s (process attribution: %s, udp: %s, dns via proxy: %v)",
