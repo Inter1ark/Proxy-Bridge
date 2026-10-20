@@ -21,6 +21,11 @@ param(
     [string]$NotesRu = "",
     [string]$NotesEn = "",
     [string]$MinSupported = "",
+    # macOS: the version whose .pkg files are on the GitHub release (defaults to -Version) and their SHA-256,
+    # so the app can verify the package it downloads for the in-app update.
+    [string]$MacVersion = "",
+    [string]$MacSha256Arm64 = "",
+    [string]$MacSha256X64 = "",
     [string]$Published = (Get-Date -Format "yyyy-MM-dd"),
     [string]$SiteBase = "https://www.proxybridge.org",
     [string]$GitHubRepo = "Inter1ark/Proxy-Bridge",
@@ -168,6 +173,8 @@ if ($DryRun) {
 # ---------------------------------------------------------------------------
 Step "4. Update manifest"
 $gh = "https://github.com/$GitHubRepo/releases/download/v$Version"
+$macVer = if ($MacVersion) { $MacVersion } else { $Version }
+$ghMac = "https://github.com/$GitHubRepo/releases/download/v$macVer"
 $json = @"
 {
   "version": "$Version",
@@ -184,8 +191,11 @@ $json = @"
     "size": $size
   },
   "macos": {
-    "arm64": "$gh/ProxyBridge-$Version-macOS-arm64.zip",
-    "x64": "$gh/ProxyBridge-$Version-macOS-x64.zip",
+    "version": "$macVer",
+    "arm64": "$ghMac/ProxyBridge-$macVer-macOS-arm64.pkg",
+    "x64": "$ghMac/ProxyBridge-$macVer-macOS-x64.pkg",
+    "sha256_arm64": "$MacSha256Arm64",
+    "sha256_x64": "$MacSha256X64",
     "page": "$SiteBase/skachat/"
   }
 }
