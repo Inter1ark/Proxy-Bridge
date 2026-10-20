@@ -534,5 +534,8 @@
   "proxies.no_udp": "no UDP",
   "proxies.udp_tip": "The proxy relays UDP (WebRTC, QUIC, calls). IP for UDP: {0}",
   "proxies.no_udp_tip": "The proxy refuses UDP. In the \"Via proxy or block\" mode UDP of those programs is blocked, nothing leaks.",
-  "proxies.no_udp_http_tip": "HTTP proxies cannot relay UDP. UDP of programs behind this proxy is blocked, nothing leaks."
+  "proxies.no_udp_http_tip": "HTTP proxies cannot relay UDP. UDP of programs behind this proxy is blocked, nothing leaks.",
+  "engine.mac.helper_install_failed": "Could not install the system helper: {0}",
+  "engine.mac.helper_token": "The helper is installed but its key is not readable by this user ({0}). Remove the helper in Settings and connect again.",
+  "engine.mac.helper_not_up": "The system helper is installed but does not answer. Log: {0}"
 }

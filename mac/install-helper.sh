@@ -32,13 +32,15 @@ chmod 755 "$HELPER.new"
 xattr -c "$HELPER.new" 2>/dev/null || true
 mv -f "$HELPER.new" "$HELPER"
 
-# The token lets the app drive the daemon; only root and administrators can read it.
+# The token lets the app drive the daemon. It is readable by every local user (group staff):
+# the person using the app is often not an administrator (the admin only types the password
+# at install time), and driving the proxy daemon gives no privilege beyond routing traffic.
 if [ ! -s "$TOKEN" ]; then
   od -An -tx1 -N16 /dev/urandom | tr -d ' \n' > "$TOKEN"
   echo >> "$TOKEN"
 fi
-chown root:admin "$TOKEN"
-chmod 640 "$TOKEN"
+chown root:staff "$TOKEN"
+chmod 644 "$TOKEN"
 
 cat > "$PLIST.new" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -71,5 +73,17 @@ if [ -f "$LOGDIR/pbcore.log" ] && [ "$(stat -f %z "$LOGDIR/pbcore.log" 2>/dev/nu
   mv -f "$LOGDIR/pbcore.log" "$LOGDIR/pbcore.log.1"
 fi
 
-launchctl bootstrap system "$PLIST"
+# A job that is still registered (bootout did not finish) makes bootstrap fail with
+# "service already loaded" or "Input/output error"; kickstart restarts it in that case.
+if ! launchctl bootstrap system "$PLIST" 2>/tmp/pb-bootstrap.err; then
+  echo "bootstrap: $(cat /tmp/pb-bootstrap.err)"; sleep 1
+  launchctl bootstrap system "$PLIST" 2>/dev/null || launchctl kickstart -k "system/$LABEL"
+fi
+# wait until the daemon answers on its port (up to 10 s)
+i=0
+while [ $i -lt 20 ]; do
+  if nc -z 127.0.0.1 $PORT 2>/dev/null; then break; fi
+  sleep 0.5; i=$((i+1))
+done
+launchctl print "system/$LABEL" 2>/dev/null | grep -E "state =|pid =" | head -2
 echo "helper installed"

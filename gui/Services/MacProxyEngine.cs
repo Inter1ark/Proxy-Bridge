@@ -211,10 +211,17 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
 
     /// <summary>
     /// Connects through the installed daemon, installing or upgrading it first (one
-    /// administrator prompt). Unavailable means the legacy per-session launch should be used.
+    /// administrator prompt). Unavailable means the helper scripts are not bundled at all, and only
+    /// then the legacy per-session launch (a prompt on every connect) is used. After a prompt has
+    /// been shown, a failure is reported instead of asking for the password a second time.
     /// </summary>
     private async Task<DaemonOutcome> StartViaDaemonAsync()
     {
+        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "install-helper.sh")))
+        {
+            Log("[helper] install-helper.sh is not bundled: per-session start");
+            return DaemonOutcome.Unavailable;
+        }
         var wanted = MacHelper.BundledVersion(PbcorePath);
         var token = MacHelper.ReadToken();
         var running = token != null ? MacHelper.Ping(token, TimeSpan.FromSeconds(1)) : null;
@@ -232,20 +239,23 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
                     Log(_lastError);
                     return DaemonOutcome.Failed;
                 }
-                Log($"[helper] install failed: {res.Output}. Falling back to a per-session start.");
-                return DaemonOutcome.Unavailable;
+                _lastError = I18n.T("engine.mac.helper_install_failed", Tail(res.Output));
+                Log($"[helper] install failed: {res.Output}");
+                return DaemonOutcome.Failed;
             }
             token = MacHelper.ReadToken();
             if (token == null)
             {
-                Log("[helper] token not readable after install. Falling back to a per-session start.");
-                return DaemonOutcome.Unavailable;
+                _lastError = I18n.T("engine.mac.helper_token", MacHelper.TokenPath);
+                Log("[helper] token not readable after install: " + MacHelper.TokenPath);
+                return DaemonOutcome.Failed;
             }
             running = await MacHelper.WaitForDaemonAsync(token, TimeSpan.FromSeconds(10));
             if (running == null)
             {
-                Log("[helper] daemon did not come up: " + MacHelper.TailLog() + ". Falling back to a per-session start.");
-                return DaemonOutcome.Unavailable;
+                _lastError = I18n.T("engine.mac.helper_not_up", MacHelper.TailLog());
+                Log("[helper] daemon did not come up: " + MacHelper.TailLog());
+                return DaemonOutcome.Failed;
             }
             Log($"[helper] daemon {running} ready");
         }
@@ -637,6 +647,12 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
                 File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
         catch { }
+    }
+
+    private static string Tail(string s)
+    {
+        s = (s ?? "").Trim();
+        return s.Length <= 300 ? s : s[^300..];
     }
 
     private static string Q(string s) => "'" + s.Replace("'", "'\\''") + "'";
