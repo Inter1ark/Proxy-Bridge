@@ -9,6 +9,7 @@
  *   Stop closes relayed connections, failure paths release every thread they started.
  */
 #include "pb_internal.h"
+#include <stdarg.h>
 
 // ==== shared global definitions ====
 PROXY_CONFIG g_proxy_configs[MAX_PROXY_CONFIGS];
@@ -1005,8 +1006,100 @@ static void stop_workers(void)
     pb_relay_shutdown_all();
 }
 
+static char g_last_error[1024];
+
+static void set_last_error(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(g_last_error, sizeof(g_last_error), fmt, ap);
+    va_end(ap);
+}
+
+PROXYBRIDGE_API int ProxyBridge_GetLastError(char* buffer, int buffer_size)
+{
+    if (!buffer || buffer_size <= 0) return (int)strlen(g_last_error);
+    snprintf(buffer, (size_t)buffer_size, "%s", g_last_error);
+    return (int)strlen(buffer);
+}
+
+// Opens the WinDivert handle; on the driver errors that a stale or foreign service entry
+// causes, repairs the entry and tries once more. Returns INVALID_HANDLE_VALUE with
+// g_last_error set when both attempts fail.
+static HANDLE open_windivert(const char *filter, INT16 priority)
+{
+    HANDLE h = WinDivertOpen(filter, WINDIVERT_LAYER_NETWORK, priority, 0);
+    if (h != INVALID_HANDLE_VALUE) return h;
+    DWORD wd_err = GetLastError();
+    const char *kind = "other";
+    const char *why;
+    switch (wd_err)
+    {
+        case 2:    // ERROR_FILE_NOT_FOUND
+        case 3:
+            kind = "notfound";
+            why = "WinDivert64.sys not found - it may have been quarantined or deleted by antivirus, or the service entry points to another program's copy";
+            break;
+        case 5:    // ERROR_ACCESS_DENIED
+            kind = "denied";
+            why = "Access denied - make sure ProxyBridge is running as Administrator";
+            break;
+        case 87:   // ERROR_INVALID_PARAMETER
+            why = "invalid packet filter or parameters";
+            break;
+        case 577:  // ERROR_INVALID_IMAGE_HASH
+            kind = "blocked";
+            why = "Driver signature verification failed - WinDivert64.sys may have been modified or blocked by security software";
+            break;
+        case 1275: // ERROR_DRIVER_BLOCKED
+            kind = "blocked";
+            why = "WinDivert64.sys is blocked by Windows security policy or antivirus (BYOVD protection)";
+            break;
+        case 433:  // ERROR_NO_SUCH_DEVICE
+            why = "the driver did not come up - usually another program's WinDivert (a DPI bypass tool such as zapret or GoodbyeDPI) is registered under the same service name";
+            break;
+        case 1058: // ERROR_SERVICE_DISABLED
+            why = "the WinDivert service entry is marked disabled (left behind by another program or an antivirus)";
+            break;
+        case 1072: // ERROR_SERVICE_MARKED_FOR_DELETE
+            why = "the WinDivert service entry is marked for deletion";
+            break;
+        default:
+            why = "ensure ProxyBridge is installed correctly and running as Administrator";
+            break;
+    }
+    log_message("Failed to open WinDivert (%lu): %s", wd_err, why);
+
+    char detail[512] = "";
+    if (pb_windivert_repair(wd_err, detail, sizeof(detail)))
+    {
+        h = WinDivertOpen(filter, WINDIVERT_LAYER_NETWORK, priority, 0);
+        if (h != INVALID_HANDLE_VALUE)
+        {
+            log_message("WinDivert opened on the second attempt after the service entry was repaired");
+            return h;
+        }
+        DWORD second = GetLastError();
+        log_message("Failed to open WinDivert again after the repair (%lu)", second);
+        snprintf(detail, sizeof(detail), "still failing after the service entry was re-created (%lu)", second);
+        if (second == 577 || second == 1275) kind = "blocked";
+        else if (second == 2 || second == 3) kind = "notfound";
+        else if (second == 5) kind = "denied";
+        wd_err = second;
+    }
+    else if (detail[0])
+    {
+        log_message("WinDivert repair: %s", detail);
+        if (strstr(detail, "in use by another program")) kind = "inuse";
+        else if (strstr(detail, "stale")) kind = "stale";
+    }
+    set_last_error("windivert %lu %s %s", wd_err, kind, detail[0] ? detail : why);
+    return INVALID_HANDLE_VALUE;
+}
+
 PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
 {
+    g_last_error[0] = 0;
     char filter[FILTER_BUFFER_SIZE];
     INT16 priority = 123;
 
@@ -1023,7 +1116,8 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
         g_relay_ready_event = CreateEventW(NULL, TRUE, FALSE, NULL);
     if (g_stop_event == NULL || g_relay_ready_event == NULL)
     {
-        log_message("Start failed: cannot create events (%lu)", GetLastError());
+        set_last_error("cannot create events (%lu)", GetLastError());
+        log_message("Start failed: %s", g_last_error);
         return FALSE;
     }
     ResetEvent(g_stop_event);
@@ -1043,7 +1137,8 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
     proxy_thread = CreateThread(NULL, 0, local_proxy_server, NULL, 0, NULL);
     if (proxy_thread == NULL)
     {
-        log_message("Start failed: cannot create relay thread (%lu)", GetLastError());
+        set_last_error("cannot create relay thread (%lu)", GetLastError());
+        log_message("Start failed: %s", g_last_error);
         stop_workers();
         return FALSE;
     }
@@ -1051,7 +1146,8 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
     cleanup_thread = CreateThread(NULL, 0, cleanup_worker, NULL, 0, NULL);
     if (cleanup_thread == NULL)
     {
-        log_message("Start failed: cannot create cleanup thread (%lu)", GetLastError());
+        set_last_error("cannot create cleanup thread (%lu)", GetLastError());
+        log_message("Start failed: %s", g_last_error);
         stop_workers();
         return FALSE;
     }
@@ -1063,7 +1159,8 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
         udp_relay_thread = CreateThread(NULL, 0, udp_relay_server, NULL, 0, NULL);
         if (udp_relay_thread == NULL)
         {
-            log_message("Start failed: cannot create UDP relay thread (%lu)", GetLastError());
+            set_last_error("cannot create UDP relay thread (%lu)", GetLastError());
+        log_message("Start failed: %s", g_last_error);
             stop_workers();
             return FALSE;
         }
@@ -1101,34 +1198,9 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
     }
     log_message("Packet filter: %s", filter);
 
-    windivert_handle = WinDivertOpen(filter, WINDIVERT_LAYER_NETWORK, priority, 0);
+    windivert_handle = open_windivert(filter, priority);
     if (windivert_handle == INVALID_HANDLE_VALUE)
     {
-        DWORD wd_err = GetLastError();
-        switch (wd_err)
-        {
-            case 2:    // ERROR_FILE_NOT_FOUND
-                log_message("Failed to open WinDivert (%lu): WinDivert64.sys not found - it may have been quarantined or deleted by antivirus. Whitelist WinDivert64.sys and ProxyBridgeCore.dll in your AV and reinstall.", wd_err);
-                break;
-            case 5:    // ERROR_ACCESS_DENIED
-                log_message("Failed to open WinDivert (%lu): Access denied - make sure ProxyBridge is running as Administrator.", wd_err);
-                break;
-            case 87:   // ERROR_INVALID_PARAMETER
-                log_message("Failed to open WinDivert (%lu): invalid packet filter or parameters.", wd_err);
-                break;
-            case 577:  // ERROR_INVALID_IMAGE_HASH - driver signature check failed
-                log_message("Failed to open WinDivert (%lu): Driver signature verification failed - WinDivert64.sys may have been modified or blocked by security software. Reinstall ProxyBridge.", wd_err);
-                break;
-            case 1058: // ERROR_SERVICE_DISABLED
-                log_message("Failed to open WinDivert (%lu): A stale WinDivert driver entry from a previous install is marked disabled. Reinstall ProxyBridge to fix it, or manually delete the registry key: HKLM\\SYSTEM\\CurrentControlSet\\Services\\WinDivert", wd_err);
-                break;
-            case 1275: // ERROR_DRIVER_BLOCKED
-                log_message("Failed to open WinDivert (%lu): WinDivert64.sys is blocked by Windows security policy or antivirus (BYOVD protection). Whitelist WinDivert64.sys in your security software.", wd_err);
-                break;
-            default:
-                log_message("Failed to open WinDivert (%lu): Ensure ProxyBridge is installed correctly and running as Administrator.", wd_err);
-                break;
-        }
         stop_workers();
         return FALSE;
     }
@@ -1146,7 +1218,8 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
         packet_thread[i] = CreateThread(NULL, 0, packet_processor, NULL, 0, NULL);
         if (packet_thread[i] == NULL)
         {
-            log_message("Start failed: cannot create packet thread (%lu)", GetLastError());
+            set_last_error("cannot create packet thread (%lu)", GetLastError());
+        log_message("Start failed: %s", g_last_error);
             stop_workers();
             return FALSE;
         }

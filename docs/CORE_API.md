@@ -5,6 +5,7 @@ The GUI (`gui\Interop\ProxyBridgeNative.cs`, `gui\Services\ProxyBridgeService.cs
 ## Lifecycle
 - `void ProxyBridge_SetLogCallback(LogCallback cb)` where `typedef void (*LogCallback)(const char* message)`. The core must log, in plain English, at least: start parameters (relay ports, active interfaces with index and IPv4, default route interface), every proxy registered (type, host:port, resolved IP, auth yes/no; never the password), every rule added, each outbound connection decision (process, destination, rule matched, action, proxy id) rate-limited, every failure to connect to a proxy with the WSA error, SOCKS5/HTTP handshake failures with the reply code, and stop.
 - `void ProxyBridge_SetConnectionCallback(ConnectionCallback cb)` (unchanged signature).
+- `int ProxyBridge_GetLastError(char* buf, int size)`: why the last Start failed, empty on success. Driver failures are `windivert <code> <kind> <detail>` (kind notfound, denied, blocked, inuse, stale, other). Before giving up, Start removes a WinDivert service entry that is disabled or belongs to another program (zapret, GoodbyeDPI) and retries once.
 - `BOOL ProxyBridge_Start(void)` and `BOOL ProxyBridge_Stop(void)`. Start resets traffic counters. Stop must release the WinDivert handle and all threads even if called twice.
 - `void ProxyBridge_GetTrafficStats(UINT64* bytes_up, UINT64* bytes_down)`: cumulative TCP payload bytes relayed through proxies since Start (up = application to proxy).
 

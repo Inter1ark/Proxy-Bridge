@@ -11,7 +11,7 @@ $WinDivertPath = "C:\WinDivert-2.2.2-A"
 $SourcePath = "src"
 $SourceFile = "ProxyBridge.c"
 # The core is split into several files (docs\CORE_NOTES.md)
-$CoreSources = (@("ProxyBridge.c", "pb_compat.c", "pb_conntrack.c", "pb_dns.c", "pb_http.c", "pb_process.c", "pb_proxy.c", "pb_relay.c", "pb_rules.c", "pb_socks5.c", "pb_util.c") | ForEach-Object { "$SourcePath\$_" }) -join " "
+$CoreSources = (@("ProxyBridge.c", "pb_compat.c", "pb_conntrack.c", "pb_dns.c", "pb_http.c", "pb_process.c", "pb_proxy.c", "pb_relay.c", "pb_rules.c", "pb_socks5.c", "pb_util.c", "pb_windivert.c") | ForEach-Object { "$SourcePath\$_" }) -join " "
 $OutputDLL = "ProxyBridgeCore.dll"
 $OutputDir = "output"
 

@@ -456,6 +456,12 @@ RuleAction pb_udp_policy(UINT16 dest_port, ProxyType proxy_type, const char **no
 // Proxy id used for DNS queries when DNS goes via proxy (0 when nothing is registered).
 UINT32 pb_dns_proxy_choice(void);
 BOOL pb_is_private_ipv4(UINT32 ip_net);
+// ---- WinDivert service repair (pb_windivert.c) ----
+typedef enum { PB_WD_NO_REPAIR = 0, PB_WD_DELETE = 1, PB_WD_IN_USE = 2 } PB_WD_REPAIR;
+// Pure decision: what to do with the "WinDivert" service entry after WinDivertOpen failed with open_err.
+PB_WD_REPAIR pb_windivert_repair_plan(DWORD open_err, DWORD start_type, DWORD state, BOOL our_path);
+// Inspects and repairs the entry; TRUE when WinDivertOpen is worth retrying. detail explains a failure.
+BOOL pb_windivert_repair(DWORD open_err, char *detail, size_t detail_size);
 // ---- DNS over TCP through the proxy (pb_relay.c) ----
 BOOL pb_dns_tcp_exchange(const PROXY_CONFIG *cfg, UINT32 resolver_ip, const unsigned char *query, int query_len,
                          unsigned char *answer, int answer_cap, int *answer_len);

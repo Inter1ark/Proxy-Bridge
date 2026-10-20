@@ -78,6 +78,9 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void);   // resets the traffic counters
 PROXYBRIDGE_API BOOL ProxyBridge_Stop(void);    // idempotent: returns TRUE once everything is released
 PROXYBRIDGE_API void ProxyBridge_GetTrafficStats(UINT64* bytes_up, UINT64* bytes_down);  // cumulative since Start
 PROXYBRIDGE_API int ProxyBridge_TestConnection(const char* target_host, UINT16 target_port, char* result_buffer, size_t buffer_size);
+// Why the last ProxyBridge_Start failed, for the user interface. Empty when it succeeded. Driver failures
+// are "windivert <code> <kind> <detail>" with kind notfound|denied|blocked|inuse|stale|other.
+PROXYBRIDGE_API int ProxyBridge_GetLastError(char* buffer, int buffer_size);
 
 #ifdef __cplusplus
 }

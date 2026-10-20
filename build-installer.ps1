@@ -89,13 +89,13 @@ if ($SkipCoreBuild) {
 $coreSources = @(
     "src\ProxyBridge.c", "src\pb_compat.c", "src\pb_conntrack.c", "src\pb_dns.c",
     "src\pb_http.c", "src\pb_process.c", "src\pb_proxy.c", "src\pb_relay.c",
-    "src\pb_rules.c", "src\pb_socks5.c", "src\pb_util.c"
+    "src\pb_rules.c", "src\pb_socks5.c", "src\pb_util.c", "src\pb_windivert.c"
 )
 gcc -shared -o ProxyBridgeCore.dll -O2 -Wall -DPROXYBRIDGE_EXPORTS `
     $coreSources `
     "-I$WinDivertPath\include" `
     "-L$WinDivertPath\x64" `
-    -lWinDivert -lws2_32 -liphlpapi -lpsapi
+    -lWinDivert -lws2_32 -liphlpapi -lpsapi -ladvapi32
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ОШИБКА: Компиляция DLL провалилась!" -ForegroundColor Red

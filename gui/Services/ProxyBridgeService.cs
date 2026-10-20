@@ -42,6 +42,22 @@ public class ProxyBridgeService : IDisposable
         return _isRunning;
     }
 
+    /// <summary>The core's reason for the last failed Start ("windivert 1058 stale ..."), or "" when unknown.</summary>
+    public static string ReadLastError()
+    {
+        try
+        {
+            var buf = new byte[1024];
+            var n = ProxyBridgeNative.ProxyBridge_GetLastError(buf, buf.Length);
+            if (n <= 0) return "";
+            return System.Text.Encoding.UTF8.GetString(buf, 0, Math.Min(n, buf.Length)).Trim();
+        }
+        catch
+        {
+            return ""; // an older core without the export
+        }
+    }
+
     public bool Stop()
     {
         if (!_isRunning)

@@ -917,6 +917,32 @@ static void test_udp_dns_exports(void)
     flush_to_all_log();
 }
 
+static void test_windivert_repair_plan(void)
+{
+    printf("windivert repair plan\n");
+    // a disabled entry (the customer's case) is removed whoever it belongs to
+    CHECK(pb_windivert_repair_plan(1058, SERVICE_DISABLED, SERVICE_STOPPED, TRUE) == PB_WD_DELETE, "1058 ours disabled -> delete");
+    CHECK(pb_windivert_repair_plan(1058, SERVICE_DISABLED, SERVICE_STOPPED, FALSE) == PB_WD_DELETE, "1058 foreign disabled -> delete");
+    // another program's driver registered under the same name, not loaded
+    CHECK(pb_windivert_repair_plan(433, SERVICE_DEMAND_START, SERVICE_STOPPED, FALSE) == PB_WD_DELETE, "433 foreign stopped -> delete");
+    // loaded and in use (zapret running)
+    CHECK(pb_windivert_repair_plan(433, SERVICE_DEMAND_START, SERVICE_RUNNING, FALSE) == PB_WD_IN_USE, "433 foreign running -> in use");
+    CHECK(pb_windivert_repair_plan(1058, SERVICE_DEMAND_START, SERVICE_START_PENDING, TRUE) == PB_WD_IN_USE, "start pending -> in use");
+    // our own file is gone: deleting the entry does not help
+    CHECK(pb_windivert_repair_plan(2, SERVICE_DEMAND_START, SERVICE_STOPPED, TRUE) == PB_WD_NO_REPAIR, "2 ours -> no repair");
+    CHECK(pb_windivert_repair_plan(2, SERVICE_DEMAND_START, SERVICE_STOPPED, FALSE) == PB_WD_DELETE, "2 foreign path -> delete");
+    // signature / policy / access problems are not service entry problems
+    CHECK(pb_windivert_repair_plan(577, SERVICE_DEMAND_START, SERVICE_STOPPED, TRUE) == PB_WD_NO_REPAIR, "577 -> no repair");
+    CHECK(pb_windivert_repair_plan(1275, SERVICE_DEMAND_START, SERVICE_STOPPED, FALSE) == PB_WD_NO_REPAIR, "1275 -> no repair");
+    CHECK(pb_windivert_repair_plan(5, SERVICE_DEMAND_START, SERVICE_STOPPED, TRUE) == PB_WD_NO_REPAIR, "5 -> no repair");
+    CHECK(pb_windivert_repair_plan(1072, SERVICE_DEMAND_START, SERVICE_STOPPED, TRUE) == PB_WD_DELETE, "1072 -> delete");
+    // the last error export is empty before any Start and bounded
+    char buf[8] = "xxxxxxx";
+    int n = ProxyBridge_GetLastError(buf, sizeof(buf));
+    CHECK(n == 0 && buf[0] == 0, "GetLastError empty before Start");
+    CHECK(ProxyBridge_GetLastError(NULL, 0) == 0, "GetLastError NULL buffer");
+}
+
 static void test_udp_policy(void)
 {
     printf("[policy] UDP of proxied programs and DNS via proxy\n");
@@ -1099,6 +1125,7 @@ int main(void)
     test_filter();
     test_testconnection();
     test_udp_dns_exports();
+    test_windivert_repair_plan();
     test_udp_policy();
     test_udp_cache();
     test_dns_over_tcp();

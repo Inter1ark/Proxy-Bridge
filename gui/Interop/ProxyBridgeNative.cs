@@ -144,6 +144,10 @@ public static class ProxyBridgeNative
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool ProxyBridge_Stop();
 
+    /// <summary>Why the last ProxyBridge_Start failed (UTF-8, empty on success); absent in cores before 3.6.2.</summary>
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern int ProxyBridge_GetLastError(byte[] buffer, int bufferSize);
+
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
     public static extern int ProxyBridge_TestConnection(
         [MarshalAs(UnmanagedType.LPStr)] string targetHost,

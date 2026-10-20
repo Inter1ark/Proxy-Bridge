@@ -9,8 +9,8 @@ REM        build-dll.bat tests    build and run the core unit tests (output\test
 cd /d "%~dp0"
 
 REM Core sources (see docs\CORE_NOTES.md)
-set CORE_SRC=src\ProxyBridge.c src\pb_compat.c src\pb_conntrack.c src\pb_dns.c src\pb_http.c src\pb_process.c src\pb_proxy.c src\pb_relay.c src\pb_rules.c src\pb_socks5.c src\pb_util.c
-set CORE_LIBS=-lWinDivert -lws2_32 -liphlpapi -lpsapi
+set CORE_SRC=src\ProxyBridge.c src\pb_compat.c src\pb_conntrack.c src\pb_dns.c src\pb_http.c src\pb_process.c src\pb_proxy.c src\pb_relay.c src\pb_rules.c src\pb_socks5.c src\pb_util.c src\pb_windivert.c
+set CORE_LIBS=-lWinDivert -lws2_32 -liphlpapi -lpsapi -ladvapi32
 
 REM Проверяем наличие GCC
 where gcc >nul 2>&1
