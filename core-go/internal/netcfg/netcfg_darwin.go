@@ -10,10 +10,30 @@ import (
 )
 
 // DefaultGateway reads the current IPv4 default route with "route -n get default".
+// When a VPN is up, the internet route is usually not the default route but its
+// 0/1 and 128/1 pair (or a default route on its utun); the route that an
+// internet address actually takes is probed as well, and when it leaves through
+// another interface than the default route, that tunnel is what direct traffic
+// and the proxy connections must keep using (the VPN stays in the chain).
 func DefaultGateway() (Gateway, error) {
-	out, err := run("route", "-n", "get", "-inet", "default")
+	gw, err := routeGet("default")
 	if err != nil {
 		return Gateway{}, fmt.Errorf("read default route: %w", err)
+	}
+	probe, perr := routeGet("8.8.8.8")
+	if perr == nil && probe.Interface != "" && probe.Interface != gw.Interface && !strings.HasPrefix(probe.Interface, "lo") {
+		Logf("internet route leaves through %s, not the default route's %s: treating it as a VPN", probe.Interface, gw.Interface)
+		probe.Tunnel = true
+		return probe, nil
+	}
+	return gw, nil
+}
+
+// routeGet parses "route -n get -inet <dest>" into the gateway and interface.
+func routeGet(dest string) (Gateway, error) {
+	out, err := run("route", "-n", "get", "-inet", dest)
+	if err != nil {
+		return Gateway{}, err
 	}
 	var gw Gateway
 	for _, line := range strings.Split(out, "\n") {
@@ -32,7 +52,7 @@ func DefaultGateway() (Gateway, error) {
 		}
 	}
 	if !gw.IP.IsValid() && gw.Interface == "" {
-		return Gateway{}, fmt.Errorf("no default route found")
+		return Gateway{}, fmt.Errorf("no route to %s found", dest)
 	}
 	return gw, nil
 }
@@ -100,30 +120,71 @@ func RouteAllViaTun(cfg Config, original Gateway, undo *Undo) error {
 		}
 		return nil
 	default:
-		for _, net := range []string{"0.0.0.0/1", "128.0.0.0/1"} {
-			n := net
-			if _, err := run("route", "-n", "add", "-inet", "-net", n, "-interface", cfg.Interface); err != nil {
-				return err
+		return addSplitRoutes(cfg.Interface, undo)
+	}
+}
+
+// addSplitRoutes covers the IPv4 space with routes through the tunnel: the /1
+// pair, or, when a VPN already holds those, the four /2 routes (and /3 after a
+// VPN that fell back to /2 itself). The VPN keeps its routes and stays usable.
+func addSplitRoutes(iface string, undo *Undo) error {
+	for bits := 1; bits <= maxSplitBits; bits++ {
+		var added []netip.Prefix
+		rollback := func() {
+			for _, p := range added {
+				_, _ = run("route", "-n", "delete", "-inet", "-net", p.String())
 			}
+		}
+		exists := false
+		var failure error
+		for _, p := range splitPrefixes(bits) {
+			if _, err := run("route", "-n", "add", "-inet", "-net", p.String(), "-interface", iface); err != nil {
+				if strings.Contains(err.Error(), "exists") {
+					exists = true
+				} else {
+					failure = err
+				}
+				break
+			}
+			added = append(added, p)
+		}
+		if failure != nil {
+			rollback()
+			return failure
+		}
+		if exists {
+			rollback()
+			Logf("/%d routes are taken (a VPN?), trying /%d", bits, bits+1)
+			continue
+		}
+		for _, p := range added {
+			n := p.String()
 			undo.Push(func() error {
 				_, err := run("route", "-n", "delete", "-inet", "-net", n)
 				return err
 			})
 		}
+		if bits > 1 {
+			Logf("tunnel routes installed as /%d next to the existing /%d pair", bits, bits-1)
+		}
 		return nil
 	}
+	return fmt.Errorf("could not install tunnel routes: /1 through /%d are all taken", maxSplitBits)
 }
 
 // AddScopedDefault installs a default route scoped to the original interface
-// ("route add default <gw> -ifscope en0"). Sockets bound to that interface with
+// ("route add default <gw> -ifscope en0", or "-interface utun4 -ifscope utun4"
+// for a VPN tunnel without a next hop). Sockets bound to that interface with
 // IP_BOUND_IF use scoped routes first; without one, the lookup picks the 0/1
 // and 128/1 tunnel routes and then rejects them for the wrong interface
 // ("network is unreachable"). A route that already exists is left alone.
 func AddScopedDefault(gw Gateway, undo *Undo) error {
-	if !gw.IP.IsValid() || gw.Interface == "" {
+	if gw.Interface == "" {
 		return nil
 	}
-	_, err := run("route", "-n", "add", "-inet", "default", gw.IP.String(), "-ifscope", gw.Interface)
+	args := append([]string{"-n", "add", "-inet", "default"}, viaArgs(gw)...)
+	args = append(args, "-ifscope", gw.Interface)
+	_, err := run("route", args...)
 	if err != nil {
 		if strings.Contains(err.Error(), "exists") {
 			return nil

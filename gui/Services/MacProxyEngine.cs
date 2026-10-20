@@ -43,7 +43,8 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
 
     private string _token = "";
     private bool _viaDaemon;
-    private TcpClient? _watch;
+    private MacHelper.ControlConnection? _watch;
+    private CancellationTokenSource? _startCts;
     private CancellationTokenSource? _watchCts;
     private Task? _watchTask;
     private volatile bool _isRunning;
@@ -185,10 +186,26 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
     // Start / stop
     // ------------------------------------------------------------------
 
+    public void CancelStart()
+    {
+        Log("Connect attempt cancelled by the user");
+        try { _startCts?.Cancel(); } catch { }
+        MacHelper.CancelAdminScript();
+    }
+
+    private bool StartCancelled()
+    {
+        if (_startCts == null || !_startCts.IsCancellationRequested) return false;
+        _lastError = I18n.T("engine.mac.cancelled");
+        return true;
+    }
+
     public async Task<bool> StartAsync()
     {
         _lastError = "";
         if (_isRunning) return true;
+        _startCts?.Dispose();
+        _startCts = new CancellationTokenSource();
         if (!File.Exists(PbcorePath))
         {
             _lastError = I18n.T("engine.mac.helper_missing", PbcorePath);
@@ -224,13 +241,16 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
         }
         var wanted = MacHelper.BundledVersion(PbcorePath);
         var token = MacHelper.ReadToken();
-        var running = token != null ? MacHelper.Ping(token, TimeSpan.FromSeconds(1)) : null;
+        var running = token != null ? MacHelper.Ping(token, TimeSpan.FromSeconds(2)) : null;
+        if (running == null && MacHelper.IsInstalled)
+            Log("[helper] the launchd job is registered but nothing answered on the control socket (" + MacHelper.SocketPath + " / 127.0.0.1:" + MacHelper.ControlPort + ")");
         if (running == null || (wanted.Length > 0 && running != wanted))
         {
             Log(running == null
                 ? "Installing the system helper (one administrator prompt)..."
                 : $"Upgrading the system helper {running} -> {wanted} (one administrator prompt)...");
             var res = await MacHelper.InstallAsync(PbcorePath);
+            if (StartCancelled()) return DaemonOutcome.Failed;
             if (!res.Ok)
             {
                 if (res.Cancelled)
@@ -251,6 +271,7 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
                 return DaemonOutcome.Failed;
             }
             running = await MacHelper.WaitForDaemonAsync(token, TimeSpan.FromSeconds(10));
+            if (StartCancelled()) return DaemonOutcome.Failed;
             if (running == null)
             {
                 _lastError = I18n.T("engine.mac.helper_not_up", MacHelper.TailLog());
@@ -278,6 +299,11 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
         {
             reply = "error " + ex.Message;
         }
+        if (StartCancelled())
+        {
+            try { MacHelper.SendCommand("stop", _token, TimeSpan.FromSeconds(2)); } catch { }
+            return DaemonOutcome.Failed;
+        }
         if (reply != "ok")
         {
             _lastError = I18n.T("engine.mac.start_failed", (reply ?? "no reply").Replace("error ", ""));
@@ -294,7 +320,7 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
             try { MacHelper.SendCommand("stop", _token, TimeSpan.FromSeconds(2)); } catch { }
             return DaemonOutcome.Failed;
         }
-        var stream = client.GetStream();
+        var stream = client.Stream;
         await stream.WriteAsync(Encoding.ASCII.GetBytes($"watch {_token}\n"));
         var reader = new StreamReader(stream, Encoding.UTF8);
         var upTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -392,7 +418,7 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
             return false;
         }
 
-        var stream = client.GetStream();
+        var stream = client.Stream;
         await stream.WriteAsync(Encoding.ASCII.GetBytes($"watch {_token}\n"));
         var reader = new StreamReader(stream, Encoding.UTF8);
 
@@ -547,7 +573,7 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
         }
         catch { }
         try { _watchCts?.Cancel(); } catch { }
-        try { _watch?.Close(); } catch { }
+        try { _watch?.Dispose(); } catch { }
         _watch = null;
         _watchCts = null;
         _watchTask = null;
@@ -570,24 +596,13 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
         }
     }
 
-    private static async Task<TcpClient?> ConnectControlAsync(TimeSpan timeout)
+    private static async Task<MacHelper.ControlConnection?> ConnectControlAsync(TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < deadline)
         {
-            var client = new TcpClient();
-            try
-            {
-                var connect = client.ConnectAsync("127.0.0.1", ControlPort);
-                var done = await Task.WhenAny(connect, Task.Delay(500));
-                if (done == connect && client.Connected)
-                {
-                    await connect;
-                    return client;
-                }
-            }
-            catch { }
-            client.Dispose();
+            var conn = await MacHelper.ControlConnection.ConnectAsync(TimeSpan.FromMilliseconds(500));
+            if (conn != null) return conn;
             await Task.Delay(250);
         }
         return null;

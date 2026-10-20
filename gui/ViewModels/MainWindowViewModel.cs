@@ -274,7 +274,7 @@ public class MainWindowViewModel : ViewModelBase
     public bool IsConnected => _isConnected;
     public bool IsConnecting => _isBusy;
     public bool IsDisconnected => !_isConnected && !_isBusy;
-    public bool CanToggle => !_isBusy;
+    public bool CanToggle => !_isBusy || !_isConnected; // while connecting the button cancels the attempt
 
     private void SetConnected(bool value)
     {
@@ -322,11 +322,16 @@ public class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsErrorState));
     }
 
-    public string ConnectButtonLabel => I18n.T(IsConnected ? "conn.disconnect" : "conn.connect");
+    public string ConnectButtonLabel => I18n.T(IsConnected ? "conn.disconnect" : _isBusy ? "conn.cancel" : "conn.connect");
 
     private async Task MainAction()
     {
-        if (_isBusy) return;
+        if (_isBusy)
+        {
+            // A connect that waits on a password prompt, the helper install or the daemon can be abandoned.
+            if (!IsConnected && !_demo) _engine?.CancelStart();
+            return;
+        }
         ClosePicker();
         if (_demo)
         {

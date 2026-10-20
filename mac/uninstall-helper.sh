@@ -5,6 +5,6 @@ set -u
 LABEL="org.proxybridge.pbcore"
 launchctl bootout "system/$LABEL" 2>/dev/null || true
 rm -f "/Library/LaunchDaemons/$LABEL.plist" "/Library/PrivilegedHelperTools/$LABEL"
-rm -f "/Library/Application Support/ProxyBridge/control.token"
+rm -f "/Library/Application Support/ProxyBridge/control.token" "/Library/Application Support/ProxyBridge/control.sock"
 rmdir "/Library/Application Support/ProxyBridge" 2>/dev/null || true
 echo "helper removed"

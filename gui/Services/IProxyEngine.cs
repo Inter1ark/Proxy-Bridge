@@ -34,6 +34,9 @@ public interface IProxyEngine : IDisposable
     void SetDnsProxy(uint proxyId);
 
     Task<bool> StartAsync();
+
+    /// <summary>Abandons a StartAsync that is still waiting (password prompt, helper install, daemon). Default: nothing to do.</summary>
+    void CancelStart() { }
     bool Stop();
 
     uint AddRule(string processName, string targetHosts, string targetPorts, string protocol, string action);

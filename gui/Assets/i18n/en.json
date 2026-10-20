@@ -537,5 +537,7 @@
   "proxies.no_udp_http_tip": "HTTP proxies cannot relay UDP. UDP of programs behind this proxy is blocked, nothing leaks.",
   "engine.mac.helper_install_failed": "Could not install the system helper: {0}",
   "engine.mac.helper_token": "The helper is installed but its key is not readable by this user ({0}). Remove the helper in Settings and connect again.",
-  "engine.mac.helper_not_up": "The system helper is installed but does not answer. Log: {0}"
+  "engine.mac.helper_not_up": "The system helper is installed but does not answer. Log: {0}",
+  "engine.mac.cancelled": "Connection attempt cancelled.",
+  "conn.cancel": "Cancel"
 }

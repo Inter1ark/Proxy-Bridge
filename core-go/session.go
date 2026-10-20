@@ -78,7 +78,11 @@ func (s *session) setup() error {
 	if err != nil {
 		return err
 	}
-	s.log.Infof("original default route: gateway=%s interface=%s", gw.IP, gw.Interface)
+	if gw.Tunnel {
+		s.log.Infof("a VPN owns the internet route (interface %s): direct traffic and proxy connections go through it", gw.Interface)
+	} else {
+		s.log.Infof("original default route: gateway=%s interface=%s", gw.IP, gw.Interface)
+	}
 
 	// The router resolves and pins the proxies now, before routing changes.
 	udp := cfg.UDP

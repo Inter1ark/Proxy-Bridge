@@ -6,10 +6,12 @@ package netcfg
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/netip"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Gateway is the default route that was active before the tunnel came up.
@@ -18,7 +20,14 @@ type Gateway struct {
 	IP netip.Addr
 	// Interface is the outgoing interface name (may be empty on Linux if unknown).
 	Interface string
+	// Tunnel is set when another tunnel (a VPN) owns the internet route at start:
+	// the gateway then describes that tunnel, so direct traffic stays inside it.
+	Tunnel bool
 }
+
+// commandTimeout bounds every route/ifconfig call: a wedged tool must never hang
+// a session start (the app would wait on it forever).
+const commandTimeout = 20 * time.Second
 
 // RouteMode selects how all traffic is pointed at the TUN.
 type RouteMode string
@@ -46,7 +55,9 @@ var Logf = func(format string, args ...any) {}
 
 func run(name string, args ...string) (string, error) {
 	Logf("exec: %s %s", name, strings.Join(args, " "))
-	cmd := exec.Command(name, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errb

@@ -13,6 +13,7 @@ HELPER="/Library/PrivilegedHelperTools/$LABEL"
 PLIST="/Library/LaunchDaemons/$LABEL.plist"
 DATA="/Library/Application Support/ProxyBridge"
 TOKEN="$DATA/control.token"
+SOCK="$DATA/control.sock"
 LOGDIR="/Library/Logs/ProxyBridge"
 PORT=34050
 
@@ -25,6 +26,7 @@ chmod 755 /Library/PrivilegedHelperTools "$DATA" "$LOGDIR"
 # A previous daemon or a per-session pbcore would hold the control port.
 launchctl bootout "system/$LABEL" 2>/dev/null || true
 pkill -f "/Contents/MacOS/pbcore " 2>/dev/null || true
+rm -f "$SOCK"
 
 cp -f "$SRC" "$HELPER.new"
 chown root:wheel "$HELPER.new"
@@ -54,6 +56,7 @@ cat > "$PLIST.new" <<EOF
     <string>--daemon</string>
     <string>--control-port</string><string>$PORT</string>
     <string>--token-file</string><string>$TOKEN</string>
+    <string>--control-socket</string><string>$SOCK</string>
     <string>--log-level</string><string>info</string>
   </array>
   <key>RunAtLoad</key><true/>
@@ -79,11 +82,13 @@ if ! launchctl bootstrap system "$PLIST" 2>/tmp/pb-bootstrap.err; then
   echo "bootstrap: $(cat /tmp/pb-bootstrap.err)"; sleep 1
   launchctl bootstrap system "$PLIST" 2>/dev/null || launchctl kickstart -k "system/$LABEL"
 fi
-# wait until the daemon answers on its port (up to 10 s)
+# wait until the daemon has opened its unix socket (up to 10 s); the TCP port is
+# only probed with a timeout, since a VPN packet filter may swallow loopback SYNs
 i=0
 while [ $i -lt 20 ]; do
-  if nc -z 127.0.0.1 $PORT 2>/dev/null; then break; fi
+  if [ -S "$SOCK" ] || nc -z -w 1 127.0.0.1 $PORT 2>/dev/null; then break; fi
   sleep 0.5; i=$((i+1))
 done
+ls -l "$SOCK" 2>/dev/null || echo "no unix socket yet"
 launchctl print "system/$LABEL" 2>/dev/null | grep -E "state =|pid =" | head -2
 echo "helper installed"

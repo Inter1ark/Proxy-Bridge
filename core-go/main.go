@@ -85,6 +85,7 @@ func main() {
 		dnsAlias     = flag.String("dns-direct", "", "alias of --dns")
 		routeMode    = flag.String("route-mode", string(netcfg.RouteSplit), "split (0/1 + 128/1 routes, default route untouched) or replace (default route swapped and restored on exit)")
 		controlPort  = flag.Int("control-port", 34050, "localhost control socket port (0 disables)")
+		controlSock  = flag.String("control-socket", "", "daemon mode: also listen on this unix socket (root:staff 0660); a VPN packet filter that drops loopback TCP cannot block it")
 		controlToken = flag.String("control-token", "", "token required by the control socket (random if empty)")
 		tokenFile    = flag.String("token-file", "", "read the control token from this file (daemon mode; created with a random token when missing)")
 		daemon       = flag.Bool("daemon", false, "stay up without a tunnel and bring it up/down on \"start\"/\"stop\" control commands")
@@ -176,7 +177,7 @@ func main() {
 			fail("--daemon needs a control port")
 			os.Exit(1)
 		}
-		os.Exit(runDaemon(log, rep, *controlPort, token, defaults))
+		os.Exit(runDaemon(log, rep, *controlPort, *controlSock, token, defaults))
 	}
 
 	cfg, err := loadRules(*rulesFile, *proxyFile, *proxyURL, defaults)
@@ -260,7 +261,7 @@ func runOnce(log logger, rep *status.Reporter, port int, token string, cfg sessi
 
 // runDaemon keeps the process alive without a tunnel; "start" and "stop" over
 // the control socket bring sessions up and down. launchd keeps it running.
-func runDaemon(log logger, rep *status.Reporter, port int, token string, defaults sessionConfig) int {
+func runDaemon(log logger, rep *status.Reporter, port int, sock, token string, defaults sessionConfig) int {
 	var (
 		mu  sync.Mutex
 		cur *session
@@ -277,6 +278,7 @@ func runDaemon(log logger, rep *status.Reporter, port int, token string, default
 	var srv *control.Server
 	srv, err := control.Listen(port, control.Options{
 		Token: token, Version: version, Reporter: rep,
+		Socket: sock, SocketGroup: tokenFileGroup,
 		OnStop: func() {
 			log.Infof("stop requested over control socket")
 			stopCurrent()
@@ -326,7 +328,7 @@ func runDaemon(log logger, rep *status.Reporter, port int, token string, default
 		return 1
 	}
 	defer srv.Close()
-	log.Infof("pbcore %s daemon: control socket on %s, waiting for start", version, srv.Addr())
+	log.Infof("pbcore %s daemon: control socket on %s, waiting for start", version, srv.Addrs())
 	rep.Emit(status.Line{Status: "idle"})
 
 	sigs := make(chan os.Signal, 2)

@@ -3,6 +3,9 @@ package control
 import (
 	"bufio"
 	"net"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -165,5 +168,49 @@ func TestStartCommandAndVersion(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	if stops != 2 {
 		t.Fatalf("stops = %d, want 2", stops)
+	}
+}
+
+func TestUnixSocketAnswersToo(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix sockets with file permissions are not used on Windows")
+	}
+	sock := filepath.Join(t.TempDir(), "c.sock")
+	if err := os.WriteFile(sock, []byte("stale"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rep := status.New()
+	srv, err := Listen(0, Options{Token: "tok", Version: "1.2.3", Reporter: rep, OnStop: func() {}, Socket: sock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	if !strings.Contains(srv.Addrs(), sock) {
+		t.Fatalf("addrs %q lack the socket path", srv.Addrs())
+	}
+	st, err := os.Stat(sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o660 {
+		t.Fatalf("socket mode %o, want 660", st.Mode().Perm())
+	}
+	c, err := net.DialTimeout("unix", sock, 2*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	c.SetDeadline(time.Now().Add(2 * time.Second))
+	c.Write([]byte("ping tok\n"))
+	reply, _ := bufio.NewReader(c).ReadString('\n')
+	if strings.TrimSpace(reply) != "ok 1.2.3" {
+		t.Fatalf("unix ping: %q", reply)
+	}
+	if got := send(t, srv.Addr(), "ping tok"); got != "ok 1.2.3" {
+		t.Fatalf("tcp ping: %q", got)
+	}
+	srv.Close()
+	if _, err := net.DialTimeout("unix", sock, time.Second); err == nil {
+		t.Fatal("socket still accepts after Close")
 	}
 }

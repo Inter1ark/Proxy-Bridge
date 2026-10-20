@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ProxyBridge.GUI.Services;
@@ -10,8 +11,10 @@ namespace ProxyBridge.GUI.Services;
 /// <summary>
 /// The macOS "system helper": pbcore installed as a launchd daemon
 /// (mac/install-helper.sh) so connecting needs no administrator password.
-/// The daemon listens on the localhost control port; its token is readable by
-/// administrators only, which is what makes the socket safe to expose.
+/// The daemon listens on a unix socket (and on the localhost control port for
+/// tools); the token file is what authorises a client. The unix socket is used
+/// first: a VPN with a packet filter can drop loopback TCP, which once left the
+/// app spinning on "connecting" with a VPN in the background.
 /// </summary>
 public static class MacHelper
 {
@@ -20,6 +23,7 @@ public static class MacHelper
     public const string PlistPath = "/Library/LaunchDaemons/" + Label + ".plist";
     public const string HelperPath = "/Library/PrivilegedHelperTools/" + Label;
     public const string LogPath = "/Library/Logs/ProxyBridge/pbcore.log";
+    public const string SocketPath = "/Library/Application Support/ProxyBridge/control.sock";
     public const int ControlPort = 34050;
 
     private static string ScriptPath(string name) => Path.Combine(AppContext.BaseDirectory, name);
@@ -106,12 +110,76 @@ public static class MacHelper
         }
     }
 
+    /// <summary>One connection to the daemon's control socket (unix socket or loopback TCP).</summary>
+    public sealed class ControlConnection : IDisposable
+    {
+        private readonly Socket _socket;
+        public Stream Stream { get; }
+        public string Via { get; }
+
+        private ControlConnection(Socket socket, string via)
+        {
+            _socket = socket;
+            Stream = new NetworkStream(socket, ownsSocket: true);
+            Via = via;
+        }
+
+        /// <summary>
+        /// Connects within the timeout: the unix socket when its file exists, otherwise
+        /// (or when the unix socket refuses) loopback TCP. Null when nothing answers in time.
+        /// A connect that never completes is abandoned, not left to fault unobserved.
+        /// </summary>
+        public static async Task<ControlConnection?> ConnectAsync(TimeSpan timeout, CancellationToken ct = default)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeout);
+            if (File.Exists(SocketPath))
+            {
+                var s = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+                try
+                {
+                    await s.ConnectAsync(new UnixDomainSocketEndPoint(SocketPath), cts.Token).ConfigureAwait(false);
+                    return new ControlConnection(s, "unix");
+                }
+                catch (OperationCanceledException)
+                {
+                    s.Dispose();
+                    return null;
+                }
+                catch
+                {
+                    s.Dispose(); // refused or not permitted: the TCP port may still answer
+                }
+            }
+            var t = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            try
+            {
+                await t.ConnectAsync(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, ControlPort), cts.Token).ConfigureAwait(false);
+                return new ControlConnection(t, "tcp");
+            }
+            catch
+            {
+                t.Dispose();
+                return null;
+            }
+        }
+
+        /// <summary>Blocking variant. Runs on the thread pool so a caller on the UI thread cannot deadlock on the continuation.</summary>
+        public static ControlConnection? Connect(TimeSpan timeout)
+            => Task.Run(() => ConnectAsync(timeout)).GetAwaiter().GetResult();
+
+        public void Dispose()
+        {
+            try { Stream.Dispose(); } catch { }
+            try { _socket.Dispose(); } catch { }
+        }
+    }
+
     public static string? SendCommand(string command, string token, TimeSpan timeout, string? argument = null)
     {
-        using var client = new TcpClient();
-        var connect = client.ConnectAsync("127.0.0.1", ControlPort);
-        if (!connect.Wait(timeout)) return null;
-        using var stream = client.GetStream();
+        using var conn = ControlConnection.Connect(timeout);
+        if (conn == null) return null;
+        var stream = conn.Stream;
         stream.ReadTimeout = (int)timeout.TotalMilliseconds;
         stream.WriteTimeout = (int)timeout.TotalMilliseconds;
         var line = argument == null ? $"{command} {token}\n" : $"{command} {token} {argument}\n";
@@ -123,6 +191,17 @@ public static class MacHelper
     }
 
     public readonly record struct OsascriptResult(bool Ok, bool Cancelled, string Output);
+
+    /// <summary>Time for the password prompt plus the script itself; a stuck script is killed after it.</summary>
+    public static TimeSpan AdminScriptTimeout { get; set; } = TimeSpan.FromSeconds(180);
+
+    private static Process? _adminProcess;
+
+    /// <summary>Aborts a running administrator script (closes the prompt, kills the script).</summary>
+    public static void CancelAdminScript()
+    {
+        try { _adminProcess?.Kill(entireProcessTree: true); } catch { }
+    }
 
     /// <summary>Runs "/bin/sh script [arg]" with administrator privileges (one password prompt).</summary>
     public static async Task<OsascriptResult> RunAdminScriptAsync(string scriptPath, string? arg)
@@ -145,9 +224,21 @@ public static class MacHelper
         {
             using var p = Process.Start(psi);
             if (p == null) return new OsascriptResult(false, false, "osascript could not be started");
+            _adminProcess = p;
             var stdout = p.StandardOutput.ReadToEndAsync();
             var stderr = p.StandardError.ReadToEndAsync();
-            await p.WaitForExitAsync();
+            using var limit = new CancellationTokenSource(AdminScriptTimeout);
+            try
+            {
+                await p.WaitForExitAsync(limit.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                try { p.Kill(entireProcessTree: true); } catch { }
+                _adminProcess = null;
+                return new OsascriptResult(false, false, $"the helper script did not finish in {AdminScriptTimeout.TotalSeconds:0} s and was stopped");
+            }
+            _adminProcess = null;
             var output = (await stdout + "\n" + await stderr).Trim();
             var cancelled = p.ExitCode != 0 && (output.Contains("-128") || output.Contains("canceled", StringComparison.OrdinalIgnoreCase));
             return new OsascriptResult(p.ExitCode == 0, cancelled, output);

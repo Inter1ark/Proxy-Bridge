@@ -10,7 +10,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>ProxyBridge</AssemblyName>
     <RootNamespace>ProxyBridge.GUI</RootNamespace>
-    <Version>3.6.1</Version>
+    <Version>3.6.2</Version>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
   </PropertyGroup>
 
