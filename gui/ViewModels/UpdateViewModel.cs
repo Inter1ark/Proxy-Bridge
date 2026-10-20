@@ -239,9 +239,13 @@ public class UpdateViewModel : ViewModelBase
         var keepBusy = false;
         try
         {
+            if (OperatingSystem.IsMacOS())
+            {
+                keepBusy = await InstallMacAsync().ConfigureAwait(false);
+                return;
+            }
             if (!OperatingSystem.IsWindows())
             {
-                // macOS: no silent install, open the download page instead.
                 if (AutoUpdateService.OpenUrl(AutoUpdateService.MacPageUrl(_manifest)))
                     Ui(RaiseRequestClose);
                 else
@@ -300,5 +304,63 @@ public class UpdateViewModel : ViewModelBase
         {
             if (!keepBusy) Interlocked.Exchange(ref _busy, 0);
         }
+    }
+
+    /// <summary>
+    /// macOS: download the .pkg, verify it, stop the tunnel, install with one administrator prompt
+    /// (the script also refreshes the system helper) and relaunch. Returns true when the app is closing.
+    /// Without a package for this Mac in the manifest the download page opens, as before.
+    /// </summary>
+    private async Task<bool> InstallMacAsync()
+    {
+        if (AutoUpdateService.MacPackageFor(_manifest) == null)
+        {
+            if (AutoUpdateService.OpenUrl(AutoUpdateService.MacPageUrl(_manifest)))
+                Ui(RaiseRequestClose);
+            else
+                SetError("unsupported_platform");
+            return false;
+        }
+
+        await UiAsync(() =>
+        {
+            ErrorCode = "";
+            Progress = 0;
+            BytesReceived = 0;
+            BytesTotal = 0;
+            State = UpdateState.Downloading;
+        }).ConfigureAwait(false);
+
+        var progress = new Progress<(long received, long total)>(p => Ui(() =>
+        {
+            BytesReceived = p.received;
+            if (p.total > 0) BytesTotal = p.total;
+            Progress = BytesTotal > 0 ? Math.Min(100.0, p.received * 100.0 / BytesTotal) : 0;
+        }));
+
+        var pkg = await _service.DownloadMacPackageAsync(_manifest!, progress,
+            onVerifying: () => Ui(() => State = UpdateState.Verifying)).ConfigureAwait(false);
+
+        await UiAsync(() => { Progress = 100; State = UpdateState.Installing; }).ConfigureAwait(false);
+
+        // The tunnel goes down before the prompt, so the helper swap inside the script finds nothing running.
+        await AutoUpdateService.RunBeforeInstallAsync().ConfigureAwait(false);
+        await AutoUpdateService.InstallMacPackageAsync(pkg, _service.WorkDir).ConfigureAwait(false);
+
+        AutoUpdateService.RelaunchMacApp();
+        Ui(() =>
+        {
+            RaiseRequestClose();
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                desktop.Shutdown();
+            else
+                Environment.Exit(0);
+        });
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+            Environment.Exit(0);
+        });
+        return true;
     }
 }

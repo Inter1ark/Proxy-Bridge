@@ -45,7 +45,7 @@ workflows:
             cp -R "$pub"/. "$app/Contents/MacOS/"
             rm -f "$app/Contents/MacOS/ProxyBridgeCore.dll" "$app/Contents/MacOS/WinDivert.dll" "$app/Contents/MacOS/WinDivert64.sys"
             cp "core-go/dist/$core" "$app/Contents/MacOS/pbcore"
-            cp mac/install-helper.sh mac/uninstall-helper.sh "$app/Contents/MacOS/"
+            cp mac/install-helper.sh mac/uninstall-helper.sh mac/install-update.sh "$app/Contents/MacOS/"
             cp branding/logo.icns "$app/Contents/Resources/logo.icns"
             cp LICENSE "$app/Contents/Resources/LICENSE.txt"
             cp THIRD_PARTY_NOTICES.txt "$app/Contents/Resources/THIRD_PARTY_NOTICES.txt"
@@ -102,6 +102,28 @@ workflows:
           kill "$pid" 2>/dev/null
           grep -v -E "^\s|^$|^struct|^vertex|^fragment|^Error Domain|^#" out/pkg-app-start.log | tail -n 20
           echo "== ps comm sample (full paths expected)"; ps -axo pid=,comm= | head -5
+          exit 0
+
+      - name: In-app update script test (install-update.sh on the installed app)
+        script: |
+          set +e
+          app=/Applications/ProxyBridge.app/Contents/MacOS
+          cp "out/ProxyBridge-${VERSION}-macOS-arm64.pkg" /tmp/update.pkg
+          echo "== without the helper installed"
+          sudo /bin/sh "$app/install-update.sh" /tmp/update.pkg; echo "exit=$? (expected 0)"
+          ls /tmp/update.pkg 2>&1 | head -1
+          "$app/pbcore" --version
+          echo "== with the helper installed: the script must refresh it"
+          sudo /bin/sh "$app/install-helper.sh" "$app/pbcore" >/dev/null
+          tok=$(sudo cat "/Library/Application Support/ProxyBridge/control.token")
+          sock="/Library/Application Support/ProxyBridge/control.sock"
+          pid_before=$(sudo launchctl print system/org.proxybridge.pbcore | sed -n 's/.*pid = \([0-9]*\).*/\1/p' | head -1)
+          cp "out/ProxyBridge-${VERSION}-macOS-arm64.pkg" /tmp/update.pkg
+          sudo /bin/sh "$app/install-update.sh" /tmp/update.pkg; echo "exit=$? (expected 0)"
+          for i in $(seq 1 20); do r=$(printf 'ping %s\n' "$tok" | nc -w 2 -U "$sock"); [ -n "$r" ] && break; sleep 0.5; done
+          pid_after=$(sudo launchctl print system/org.proxybridge.pbcore | sed -n 's/.*pid = \([0-9]*\).*/\1/p' | head -1)
+          echo "ping after update: $r (expected ok ${VERSION}); helper pid $pid_before -> $pid_after (expected: different)"
+          sudo /bin/sh "$app/uninstall-helper.sh" >/dev/null
           exit 0
 
       - name: Core end-to-end test (per-program rules through a real proxy)

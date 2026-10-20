@@ -104,6 +104,8 @@ public sealed class UpdatePresenter : ViewModelBase, IDisposable
 
     public string ProgressTitle => I18n.T(IsVerifying ? "upd.verifying_title" : IsInstalling ? "upd.installing_title" : "upd.downloading_title");
 
+    public string InstallingText => I18n.T(OperatingSystem.IsMacOS() ? "upd.installing_text_mac" : "upd.installing_text");
+
     public double ProgressValue => IsVerifying || IsInstalling ? 100 : Math.Clamp(U.Progress, 0, 100);
 
     public bool IsProgressIndeterminate => IsDownloading && U.BytesTotal <= 0 && U.Progress <= 0;
@@ -114,6 +116,7 @@ public sealed class UpdatePresenter : ViewModelBase, IDisposable
         "hash_mismatch" => "upd.err.hash_mismatch",
         "download_failed" => "upd.err.download_failed",
         "install_failed" => "upd.err.install_failed",
+        "install_cancelled" => "upd.err.install_cancelled",
         "unsupported_platform" => "upd.err.unsupported_platform",
         "server" => "upd.err.server",
         _ => "upd.err.unknown"

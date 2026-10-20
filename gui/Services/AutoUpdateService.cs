@@ -6,6 +6,7 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -47,6 +48,8 @@ public class UpdateMacAssets
     [JsonPropertyName("version")] public string? Version { get; set; }
     [JsonPropertyName("arm64")] public string? Arm64 { get; set; }
     [JsonPropertyName("x64")] public string? X64 { get; set; }
+    [JsonPropertyName("sha256_arm64")] public string? Sha256Arm64 { get; set; }
+    [JsonPropertyName("sha256_x64")] public string? Sha256X64 { get; set; }
     [JsonPropertyName("page")] public string? Page { get; set; }
 }
 
@@ -281,11 +284,23 @@ public class AutoUpdateService
         TryParseVersion(manifest.Version, out var ver);
         var target = InstallerPathFor(FormatVersion(ver));
 
-        // Already downloaded earlier and intact: reuse it.
+        var urls = new List<string>();
+        if (!string.IsNullOrWhiteSpace(win.Url)) urls.Add(win.Url.Trim());
+        if (!string.IsNullOrWhiteSpace(win.FallbackUrl) && !urls.Contains(win.FallbackUrl.Trim())) urls.Add(win.FallbackUrl.Trim());
+        return await DownloadAssetAsync(urls, expected, win.Size, target, progress, onVerifying, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Downloads the first URL that works to target and verifies SHA-256 (skipped when expected is empty,
+    /// which only the macOS manifest may leave out). An intact earlier download is reused.
+    /// </summary>
+    private async Task<string> DownloadAssetAsync(List<string> urls, string expected, long size, string target,
+        IProgress<(long received, long total)>? progress, Action? onVerifying, CancellationToken ct)
+    {
         if (File.Exists(target))
         {
             onVerifying?.Invoke();
-            if (string.Equals(await ComputeSha256Async(target, ct).ConfigureAwait(false), expected, StringComparison.Ordinal))
+            if (expected.Length != 64 || string.Equals(await ComputeSha256Async(target, ct).ConfigureAwait(false), expected, StringComparison.Ordinal))
             {
                 var len = new FileInfo(target).Length;
                 progress?.Report((len, len));
@@ -293,10 +308,6 @@ public class AutoUpdateService
             }
             TryDelete(target);
         }
-
-        var urls = new List<string>();
-        if (!string.IsNullOrWhiteSpace(win.Url)) urls.Add(win.Url.Trim());
-        if (!string.IsNullOrWhiteSpace(win.FallbackUrl) && !urls.Contains(win.FallbackUrl.Trim())) urls.Add(win.FallbackUrl.Trim());
 
         var sawHashMismatch = false;
         Exception? lastError = null;
@@ -306,10 +317,10 @@ public class AutoUpdateService
             var part = target + ".part";
             try
             {
-                await DownloadFileAsync(url, part, win.Size, progress, ct).ConfigureAwait(false);
+                await DownloadFileAsync(url, part, size, progress, ct).ConfigureAwait(false);
                 onVerifying?.Invoke();
                 var actual = await ComputeSha256Async(part, ct).ConfigureAwait(false);
-                if (!string.Equals(actual, expected, StringComparison.Ordinal))
+                if (expected.Length == 64 && !string.Equals(actual, expected, StringComparison.Ordinal))
                 {
                     sawHashMismatch = true;
                     lastError = new UpdateException("hash_mismatch", $"SHA-256 mismatch for {url}: {actual}");
@@ -544,6 +555,70 @@ public class AutoUpdateService
 
     public static string MacPageUrl(UpdateManifest? manifest) =>
         string.IsNullOrWhiteSpace(manifest?.MacOs?.Page) ? MacDownloadPage : manifest!.MacOs!.Page!;
+
+    /// <summary>"arm64" on Apple silicon, "x64" otherwise (what the manifest keys are called).</summary>
+    public static string MacArch() =>
+        RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "arm64" : "x64";
+
+    /// <summary>The package URL and expected SHA-256 for this Mac, or null when the manifest has none.</summary>
+    public static (string url, string sha256)? MacPackageFor(UpdateManifest? manifest, string? arch = null)
+    {
+        var m = manifest?.MacOs;
+        if (m == null) return null;
+        arch ??= MacArch();
+        var url = arch == "arm64" ? m.Arm64 : m.X64;
+        var sha = arch == "arm64" ? m.Sha256Arm64 : m.Sha256X64;
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        return (url.Trim(), NormalizeHash(sha));
+    }
+
+    public string MacPackagePathFor(string version, string arch) =>
+        Path.Combine(WorkDir, $"ProxyBridge-{version}-macOS-{arch}.pkg");
+
+    /// <summary>
+    /// Downloads the .pkg for this Mac to WorkDir and verifies its SHA-256 when the manifest carries one.
+    /// Throws UpdateException: server (no package for this Mac), hash_mismatch, download_failed.
+    /// </summary>
+    public async Task<string> DownloadMacPackageAsync(UpdateManifest manifest,
+        IProgress<(long received, long total)>? progress = null,
+        Action? onVerifying = null,
+        CancellationToken ct = default)
+    {
+        var pkg = MacPackageFor(manifest) ?? throw new UpdateException("server", "Manifest has no package for this Mac");
+        Directory.CreateDirectory(WorkDir);
+        TryParseVersion(manifest.MacOs?.Version ?? manifest.Version, out var ver);
+        var target = MacPackagePathFor(FormatVersion(ver), MacArch());
+        return await DownloadAssetAsync(new List<string> { pkg.url }, pkg.sha256, 0, target, progress, onVerifying, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Installs the package with one administrator prompt (mac/install-update.sh, copied out of the bundle first).</summary>
+    public static async Task InstallMacPackageAsync(string pkgPath, string workDir)
+    {
+        if (!File.Exists(pkgPath)) throw new UpdateException("install_failed", "Package not found: " + pkgPath);
+        var bundled = MacHelper.BundledScript("install-update.sh");
+        if (!File.Exists(bundled)) throw new UpdateException("unsupported_platform", "install-update.sh is not bundled");
+        // The installer replaces the bundle while the script runs: sh reads scripts lazily, so run a copy.
+        Directory.CreateDirectory(workDir);
+        var script = Path.Combine(workDir, "install-update.sh");
+        File.Copy(bundled, script, overwrite: true);
+        var res = await MacHelper.RunAdminScriptAsync(script, pkgPath).ConfigureAwait(false);
+        if (res.Ok) return;
+        if (res.Cancelled) throw new UpdateException("install_cancelled", "Administrator prompt cancelled");
+        throw new UpdateException("install_failed", "install-update.sh failed: " + res.Output);
+    }
+
+    /// <summary>Starts the (new) app bundle after a short delay, from a detached shell that outlives this process.</summary>
+    public static void RelaunchMacApp()
+    {
+        var bundle = MacHelper.BundlePath();
+        var cmd = "sleep 1; /usr/bin/open -n " + Quote(bundle);
+        var psi = new ProcessStartInfo("/bin/sh") { UseShellExecute = false, CreateNoWindow = true };
+        psi.ArgumentList.Add("-c");
+        psi.ArgumentList.Add(cmd);
+        Process.Start(psi)?.Dispose();
+    }
+
+    private static string Quote(string s) => "'" + s.Replace("'", "'\\''") + "'";
 
     /// <summary>Opens a URL in the default browser. Returns false on failure.</summary>
     public static bool OpenUrl(string url)

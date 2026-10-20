@@ -122,7 +122,7 @@
                              Value="{Binding ProgressValue}"
                              IsIndeterminate="{Binding IsProgressIndeterminate}"/>
                 <TextBlock Classes="mono" FontSize="12.5" Text="{Binding ProgressText}" IsVisible="{Binding !IsInstalling}"/>
-                <TextBlock Classes="mono" FontSize="12.5" Text="{i:Tr upd.installing_text}" IsVisible="{Binding IsInstalling}"/>
+                <TextBlock Classes="mono" FontSize="12.5" Text="{Binding InstallingText}" IsVisible="{Binding IsInstalling}"/>
             </StackPanel>
 
             <!-- Error -->

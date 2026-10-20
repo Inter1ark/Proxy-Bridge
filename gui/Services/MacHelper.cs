@@ -28,6 +28,23 @@ public static class MacHelper
 
     private static string ScriptPath(string name) => Path.Combine(AppContext.BaseDirectory, name);
 
+    /// <summary>Full path of a script shipped in Contents/MacOS next to the app.</summary>
+    public static string BundledScript(string name) => ScriptPath(name);
+
+    /// <summary>The .app bundle this process runs from (Contents/MacOS is two levels down), or /Applications/ProxyBridge.app.</summary>
+    public static string BundlePath()
+    {
+        try
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd('/'));
+            var contents = dir.Parent;
+            var bundle = contents?.Parent;
+            if (bundle != null && bundle.Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase)) return bundle.FullName;
+        }
+        catch { }
+        return "/Applications/ProxyBridge.app";
+    }
+
     /// <summary>True when the launchd job is registered (the daemon may still be starting).</summary>
     public static bool IsInstalled => OperatingSystem.IsMacOS() && File.Exists(PlistPath);
 
