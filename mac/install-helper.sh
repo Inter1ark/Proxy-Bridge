@@ -76,11 +76,27 @@ if [ -f "$LOGDIR/pbcore.log" ] && [ "$(stat -f %z "$LOGDIR/pbcore.log" 2>/dev/nu
   mv -f "$LOGDIR/pbcore.log" "$LOGDIR/pbcore.log.1"
 fi
 
-# A job that is still registered (bootout did not finish) makes bootstrap fail with
-# "service already loaded" or "Input/output error"; kickstart restarts it in that case.
-if ! launchctl bootstrap system "$PLIST" 2>/tmp/pb-bootstrap.err; then
-  echo "bootstrap: $(cat /tmp/pb-bootstrap.err)"; sleep 1
-  launchctl bootstrap system "$PLIST" 2>/dev/null || launchctl kickstart -k "system/$LABEL"
+# Registering the job can fail for three reasons: the previous job is still being removed
+# (retry after a moment), the job was disabled with "launchctl disable" (lift the override),
+# or the person switched the helper off under System Settings > General > Login Items &
+# Extensions > Allow in the Background (only they can switch it back on). The real launchd
+# message goes to stderr so the app can show it instead of a generic failure.
+try_bootstrap() { launchctl bootstrap system "$PLIST" 2>/tmp/pb-bootstrap.err; }
+if ! try_bootstrap; then
+  err1=$(cat /tmp/pb-bootstrap.err); echo "bootstrap: $err1"
+  sleep 1; launchctl bootout "system/$LABEL" 2>/dev/null || true; sleep 1
+  if ! try_bootstrap; then
+    if launchctl print-disabled system 2>/dev/null | grep -q "\"$LABEL\" => \(true\|disabled\)"; then
+      echo "the job was disabled with launchctl; enabling it"
+    fi
+    launchctl enable "system/$LABEL" 2>/dev/null || true
+    if ! try_bootstrap; then
+      err3=$(cat /tmp/pb-bootstrap.err)
+      btm=$(sfltool dumpbtm 2>/dev/null | grep -i -A8 "$LABEL" | grep -i -E "disposition|enabled|allowed" | head -2 | tr '\n' ' ')
+      echo "launchd refused the helper: $err3 (login item state: ${btm:-unknown})" >&2
+      exit 3
+    fi
+  fi
 fi
 # wait until the daemon has opened its unix socket (up to 10 s); the TCP port is
 # only probed with a timeout, since a VPN packet filter may swallow loopback SYNs

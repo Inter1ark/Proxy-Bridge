@@ -1026,7 +1026,8 @@ public class MainWindowViewModel : ViewModelBase
             if (ok)
             {
                 SetConnected(true);
-                Status.Clear(); // the status word says it all
+                if (string.IsNullOrEmpty(_engine.StartWarning)) Status.Clear(); // the status word says it all
+                else Status.Set("status.warning_detail", StatusKind.Warning, _engine.StartWarning);
                 StartTimers();
             }
         }

@@ -45,6 +45,8 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
     private bool _viaDaemon;
     private MacHelper.ControlConnection? _watch;
     private CancellationTokenSource? _startCts;
+    private string _startWarning = "";
+    public string StartWarning => _startWarning;
     private CancellationTokenSource? _watchCts;
     private Task? _watchTask;
     private volatile bool _isRunning;
@@ -203,6 +205,7 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
     public async Task<bool> StartAsync()
     {
         _lastError = "";
+        _startWarning = "";
         if (_isRunning) return true;
         _startCts?.Dispose();
         _startCts = new CancellationTokenSource();
@@ -258,6 +261,14 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
                     _lastError = I18n.T("engine.mac.admin_cancelled");
                     Log(_lastError);
                     return DaemonOutcome.Failed;
+                }
+                if (res.Output.Contains("launchd refused the helper", StringComparison.Ordinal))
+                {
+                    // macOS would not register the background job (usually switched off under
+                    // Login Items & Extensions). Connect the old way for this session and say why.
+                    _startWarning = I18n.T("engine.mac.helper_background_blocked");
+                    Log($"[helper] launchd refused the job: {Tail(res.Output)}. Falling back to a per-session start.");
+                    return DaemonOutcome.Unavailable;
                 }
                 _lastError = I18n.T("engine.mac.helper_install_failed", Tail(res.Output));
                 Log($"[helper] install failed: {res.Output}");

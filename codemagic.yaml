@@ -5,7 +5,7 @@ workflows:
     max_build_duration: 60
     environment:
       vars:
-        VERSION: "3.6.2"
+        VERSION: "3.6.3"
     scripts:
       - name: Install .NET 9 and Go
         script: |
@@ -197,7 +197,9 @@ workflows:
           set +e
           if [ -z "${TEST_PROXY:-}" ]; then echo "TEST_PROXY not set, skipping"; exit 0; fi
           app=/Applications/ProxyBridge.app/Contents/MacOS
-          sudo /bin/sh "$app/install-helper.sh" "$app/pbcore"; echo "install exit=$?"
+          echo "== the job disabled by an override (launchctl disable) must be recovered by the install script"
+          sudo launchctl disable system/org.proxybridge.pbcore; sudo launchctl print-disabled system | grep proxybridge
+          sudo /bin/sh "$app/install-helper.sh" "$app/pbcore"; echo "install exit=$? (expected 0)"
           ls -la /Library/PrivilegedHelperTools/org.proxybridge.pbcore /Library/LaunchDaemons/org.proxybridge.pbcore.plist "/Library/Application Support/ProxyBridge/control.token"
           sudo launchctl print system/org.proxybridge.pbcore | grep -E "state|pid" | head -3
           tok=$(sudo cat "/Library/Application Support/ProxyBridge/control.token")

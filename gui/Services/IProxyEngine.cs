@@ -18,6 +18,9 @@ public interface IProxyEngine : IDisposable
     /// <summary>Human readable reason of the last failed Start/Stop, or an empty string.</summary>
     string LastError { get; }
 
+    /// <summary>Something the user should know after a successful start (empty when nothing). Default: none.</summary>
+    string StartWarning => "";
+
     bool IsRunning { get; }
 
     event Action<string>? LogReceived;

@@ -547,5 +547,7 @@
   "status.windivert.stale": "A stale WinDivert driver entry is left behind and could not be removed (code {0}). Reboot and connect again. {1}",
   "status.windivert.other": "The traffic filter driver did not start (code {0}). Run ProxyBridge as administrator; if that does not help, reinstall. {1}",
   "upd.installing_text_mac": "Enter the administrator password in the macOS prompt. ProxyBridge installs the update and relaunches.",
-  "upd.err.install_cancelled": "Installation cancelled: no administrator password was entered. Press Retry when ready."
+  "upd.err.install_cancelled": "Installation cancelled: no administrator password was entered. Press Retry when ready.",
+  "engine.mac.helper_background_blocked": "macOS does not allow the system helper to run in the background, so the password will be asked on every connect. Open System Settings → General → Login Items & Extensions and enable ProxyBridge under “Allow in the Background”.",
+  "status.warning_detail": "{0}"
 }
