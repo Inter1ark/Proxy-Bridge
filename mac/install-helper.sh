@@ -59,6 +59,7 @@ cat > "$PLIST.new" <<EOF
     <string>--control-socket</string><string>$SOCK</string>
     <string>--log-level</string><string>info</string>
   </array>
+  <key>AssociatedBundleIdentifiers</key><string>org.proxybridge.app</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ProcessType</key><string>Interactive</string>
