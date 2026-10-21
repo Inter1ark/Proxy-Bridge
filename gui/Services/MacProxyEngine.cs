@@ -246,7 +246,9 @@ public sealed class MacProxyEngine : IProxyEngine, ILiveRules
         var token = MacHelper.ReadToken();
         var running = token != null ? MacHelper.Ping(token, TimeSpan.FromSeconds(2)) : null;
         if (running == null && MacHelper.IsInstalled)
-            Log("[helper] the launchd job is registered but nothing answered on the control socket (" + MacHelper.SocketPath + " / 127.0.0.1:" + MacHelper.ControlPort + ")");
+            Log(token == null
+                ? "[helper] the launchd job is registered but its token is not readable by this user (" + MacHelper.TokenPath + "): reinstalling"
+                : "[helper] the launchd job is registered but nothing answered on the control socket (" + MacHelper.SocketPath + " / 127.0.0.1:" + MacHelper.ControlPort + "); daemon log: " + MacHelper.TailLog());
         if (running == null || (wanted.Length > 0 && running != wanted))
         {
             Log(running == null
