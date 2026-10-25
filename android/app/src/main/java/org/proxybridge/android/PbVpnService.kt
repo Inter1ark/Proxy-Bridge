@@ -47,6 +47,11 @@ class PbVpnService : VpnService() {
             private set
     }
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        ConfigStore.init(newBase)
+        super.attachBaseContext(LocaleHelper.wrap(newBase, ConfigStore.current.language))
+    }
+
     private var tun: ParcelFileDescriptor? = null
     private val uidNames = HashMap<Long, String>()
 
@@ -187,7 +192,7 @@ class PbVpnService : VpnService() {
     private fun notification(): Notification {
         val nm = getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL) == null) {
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, getString(R.string.notif_channel), NotificationManager.IMPORTANCE_LOW))
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, getString(R.string.pb_notif_channel), NotificationManager.IMPORTANCE_LOW))
         }
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
@@ -199,11 +204,11 @@ class PbVpnService : VpnService() {
         )
         val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(this)
         return b.setSmallIcon(R.drawable.ic_stat)
-            .setContentTitle(getString(R.string.notif_connected))
+            .setContentTitle(getString(R.string.pb_notif_connected))
             .setContentText(routeSummary(ConfigStore.current))
             .setContentIntent(open)
             .setOngoing(true)
-            .addAction(Notification.Action.Builder(null, getString(R.string.disconnect), stop).build())
+            .addAction(Notification.Action.Builder(null, getString(R.string.pb_disconnect), stop).build())
             .build()
     }
 
@@ -215,10 +220,10 @@ class PbVpnService : VpnService() {
         val named = c.rules.filter { it.enabled && it.action == "proxy" && c.proxy(it.proxyId) != null }
         val rest = if (c.defaultAction == "proxy") c.proxy(c.defaultProxyId) else null
         return when {
-            named.isEmpty() && rest == null -> getString(R.string.all_direct)
-            named.isEmpty() -> getString(R.string.whole_via_fmt, rest!!.title())
-            rest == null -> getString(R.string.apps_via_fmt, named.joinToString { it.label.ifBlank { it.pkg } })
-            else -> getString(R.string.apps_via_rest_fmt, named.joinToString { it.label.ifBlank { it.pkg } }, rest.title())
+            named.isEmpty() && rest == null -> getString(R.string.pb_all_direct)
+            named.isEmpty() -> getString(R.string.pb_whole_via_fmt, rest!!.title())
+            rest == null -> getString(R.string.pb_apps_via_fmt, named.joinToString { it.label.ifBlank { it.pkg } })
+            else -> getString(R.string.pb_apps_via_rest_fmt, named.joinToString { it.label.ifBlank { it.pkg } }, rest.title())
         }
     }
 }

@@ -47,6 +47,7 @@ import org.proxybridge.android.data.ConfigStore
 import org.proxybridge.android.data.LicenseApi
 import org.proxybridge.android.data.LicenseState
 import org.proxybridge.android.data.ProxyEntry
+import org.proxybridge.android.data.UpdateCheck
 import org.proxybridge.android.ui.AppPickerDialog
 import org.proxybridge.android.ui.HomeScreen
 import org.proxybridge.android.ui.LogDialog
@@ -65,15 +66,24 @@ class MainActivity : ComponentActivity() {
     private var pendingRequest: String? = null
 
     private val consent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-        if (r.resultCode == RESULT_OK) startService(pendingRequest) else hint = getString(R.string.status_consent)
+        if (r.resultCode == RESULT_OK) startService(pendingRequest) else hint = getString(R.string.pb_status_consent)
     }
     private val notifPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    override fun attachBaseContext(newBase: android.content.Context) {
+        ConfigStore.init(newBase)
+        super.attachBaseContext(LocaleHelper.wrap(newBase, ConfigStore.current.language))
+    }
+
+    private var updateBusy by mutableStateOf(false)
+    private var updateNote by mutableStateOf("")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ConfigStore.init(this)
         handleIntent(intent)
         verifyLicenseInBackground()
+        checkUpdateInBackground(manual = false)
         setContent {
             PbTheme {
                 val config by ConfigStore.config.collectAsStateWithLifecycle()
@@ -83,12 +93,12 @@ class MainActivity : ComponentActivity() {
                 var logs by remember { mutableStateOf(false) }
                 val licensed = LicenseApi.isValid(config.license)
                 val homeHint = when {
-                    Build.VERSION.SDK_INT < 29 && config.rules.isNotEmpty() -> stringResource(R.string.status_old_android)
+                    Build.VERSION.SDK_INT < 29 && config.rules.isNotEmpty() -> stringResource(R.string.pb_status_old_android)
                     state.phase != TunnelState.Phase.Off -> ""
                     hint.isNotBlank() -> hint
-                    config.proxies.isEmpty() -> stringResource(R.string.status_no_proxy)
-                    !config.routesSomething() -> stringResource(R.string.status_nothing)
-                    !licensed -> stringResource(R.string.status_license)
+                    config.proxies.isEmpty() -> stringResource(R.string.pb_status_no_proxy)
+                    !config.routesSomething() -> stringResource(R.string.pb_status_nothing)
+                    !licensed -> stringResource(R.string.pb_status_license)
                     else -> ""
                 }
                 androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
@@ -98,16 +108,18 @@ class MainActivity : ComponentActivity() {
                     }
                     androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
                         when (tab) {
-                            0 -> HomeScreen(config, state, homeHint, onConnect = { toggle(config.routesSomething(), licensed) }, onAddApp = { picker = true })
+                            0 -> HomeScreen(config, state, homeHint, onConnect = { toggle(config.routesSomething(), licensed) }, onAddApp = { picker = true }, onUpdate = { openUpdate() })
                             1 -> ProxiesScreen(config, checking, onCheck = { check(it) }, onCheckAll = { config.proxies.forEach { check(it) } })
                             else -> SettingsScreen(config, versionName(), Pbmobile.coreVersion(), licenseBusy, licenseNote,
-                                onActivate = { activate(it) }, onDeactivate = { deactivate() }, onLogs = { logs = true })
+                                onActivate = { activate(it) }, onDeactivate = { deactivate() }, onLogs = { logs = true },
+                                onLanguage = { lang -> if (lang != config.language) { ConfigStore.update { it.copy(language = lang) }; recreate() } },
+                                updateBusy = updateBusy, updateNote = updateNote, onCheckUpdate = { checkUpdateInBackground(manual = true) }, onDownloadUpdate = { openUpdate() })
                         }
                     }
                     NavigationBar(containerColor = org.proxybridge.android.ui.Pb.surface, modifier = Modifier.navigationBarsPadding()) {
-                        NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Default.Home, null) }, label = { Text(stringResource(R.string.tab_home)) })
-                        NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Icon(Icons.Default.List, null) }, label = { Text(stringResource(R.string.tab_proxies)) })
-                        NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text(stringResource(R.string.tab_settings)) })
+                        NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Default.Home, null) }, label = { Text(stringResource(R.string.pb_tab_home)) })
+                        NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Icon(Icons.Default.List, null) }, label = { Text(stringResource(R.string.pb_tab_proxies)) })
+                        NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text(stringResource(R.string.pb_tab_settings)) })
                     }
                 }
                 }
@@ -229,13 +241,40 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Once a day (or on demand) compares the manifest's Android version with ours. */
+    private fun checkUpdateInBackground(manual: Boolean) {
+        val c = ConfigStore.current
+        if (!manual && System.currentTimeMillis() - c.lastUpdateCheck < 86_400_000L) return
+        updateBusy = true; updateNote = ""
+        lifecycleScope.launch {
+            val info = UpdateCheck.fetch()
+            val mine = versionName()
+            val newer = info != null && UpdateCheck.newer(info.version, mine)
+            ConfigStore.update {
+                it.copy(
+                    lastUpdateCheck = if (info != null) System.currentTimeMillis() else it.lastUpdateCheck,
+                    updateVersion = if (newer) info!!.version else "",
+                    updateUrl = if (newer) info!!.url else "",
+                )
+            }
+            if (manual) updateNote = if (info == null) getString(R.string.pb_update_failed) else if (newer) "" else getString(R.string.pb_update_latest)
+            updateBusy = false
+        }
+    }
+
+    private fun openUpdate() {
+        val url = ConfigStore.current.updateUrl
+        if (url.isBlank()) return
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+    }
+
     private fun licenseError(code: String): String = when (code) {
-        "not_found" -> getString(R.string.license_err_not_found)
-        "expired" -> getString(R.string.license_err_expired)
-        "device_limit" -> getString(R.string.license_err_device_limit)
-        "revoked" -> getString(R.string.license_err_revoked)
-        "network" -> getString(R.string.license_err_network)
-        else -> getString(R.string.license_err_other, code)
+        "not_found" -> getString(R.string.pb_license_err_not_found)
+        "expired" -> getString(R.string.pb_license_err_expired)
+        "device_limit" -> getString(R.string.pb_license_err_device_limit)
+        "revoked" -> getString(R.string.pb_license_err_revoked)
+        "network" -> getString(R.string.pb_license_err_network)
+        else -> getString(R.string.pb_license_err_other, code)
     }
 
     private fun versionName(): String = runCatching { packageManager.getPackageInfo(packageName, 0).versionName ?: "" }.getOrDefault("")

@@ -71,6 +71,11 @@ data class AppConfig(
     val dnsViaProxy: Boolean = true,
     val license: LicenseState = LicenseState(),
     val nextProxyId: Int = 1,
+    val language: String = "",          // "" system, "ru", "en"
+    val autoConnect: Boolean = false,   // connect when the phone boots
+    val lastUpdateCheck: Long = 0,
+    val updateVersion: String = "",     // newer version seen in the manifest, "" when up to date
+    val updateUrl: String = "",
 ) {
     fun proxy(id: Int): ProxyEntry? = proxies.firstOrNull { it.id == id }
 

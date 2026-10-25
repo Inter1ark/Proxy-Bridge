@@ -100,9 +100,9 @@ fun AppIcon(pkg: String, size: Int = 36) {
 fun TargetPicker(config: AppConfig, action: String, proxyId: Int, allowBlock: Boolean, onPick: (String, Int) -> Unit) {
     var open by remember { mutableStateOf(false) }
     val label = when (action) {
-        AppRule.ACTION_PROXY -> config.proxy(proxyId)?.title() ?: stringResource(R.string.action_direct)
-        AppRule.ACTION_BLOCK -> stringResource(R.string.action_block)
-        else -> stringResource(R.string.action_direct)
+        AppRule.ACTION_PROXY -> config.proxy(proxyId)?.title() ?: stringResource(R.string.pb_action_direct)
+        AppRule.ACTION_BLOCK -> stringResource(R.string.pb_action_block)
+        else -> stringResource(R.string.pb_action_direct)
     }
     val color = if (action == AppRule.ACTION_PROXY && config.proxy(proxyId) != null) Pb.text else Pb.muted
     Box {
@@ -114,8 +114,8 @@ fun TargetPicker(config: AppConfig, action: String, proxyId: Int, allowBlock: Bo
             Icon(Icons.Default.ArrowDropDown, null, tint = Pb.muted)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(text = { Text(stringResource(R.string.action_direct)) }, onClick = { open = false; onPick(AppRule.ACTION_DIRECT, 0) })
-            if (allowBlock) DropdownMenuItem(text = { Text(stringResource(R.string.action_block)) }, onClick = { open = false; onPick(AppRule.ACTION_BLOCK, 0) })
+            DropdownMenuItem(text = { Text(stringResource(R.string.pb_action_direct)) }, onClick = { open = false; onPick(AppRule.ACTION_DIRECT, 0) })
+            if (allowBlock) DropdownMenuItem(text = { Text(stringResource(R.string.pb_action_block)) }, onClick = { open = false; onPick(AppRule.ACTION_BLOCK, 0) })
             for (p in config.proxies) {
                 DropdownMenuItem(
                     text = { Column { Text(p.title()); Text("${p.kind()} · ${p.hostPort()}", style = MaterialTheme.typography.bodySmall) } },
@@ -129,15 +129,15 @@ fun TargetPicker(config: AppConfig, action: String, proxyId: Int, allowBlock: Bo
 // ---------------------------------------------------------------- home
 
 @Composable
-fun HomeScreen(config: AppConfig, state: TunnelState.Snapshot, hint: String, onConnect: () -> Unit, onAddApp: () -> Unit) {
+fun HomeScreen(config: AppConfig, state: TunnelState.Snapshot, hint: String, onConnect: () -> Unit, onAddApp: () -> Unit, onUpdate: () -> Unit) {
     val ctx = LocalContext.current
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
         item {
-            ConnectPanel(state, config, hint, onConnect)
-            Text(stringResource(R.string.home_title).uppercase(), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 20.dp))
-            Text(stringResource(R.string.home_subtitle), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
+            ConnectPanel(state, config, hint, onConnect, onUpdate)
+            Text(stringResource(R.string.pb_home_title).uppercase(), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 20.dp))
+            Text(stringResource(R.string.pb_home_subtitle), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
             if (config.rules.isEmpty()) {
-                Text(stringResource(R.string.rules_empty), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 10.dp))
+                Text(stringResource(R.string.pb_rules_empty), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 10.dp))
             }
         }
         items(config.rules, key = { it.pkg }) { rule ->
@@ -152,7 +152,7 @@ fun HomeScreen(config: AppConfig, state: TunnelState.Snapshot, hint: String, onC
                         ConfigStore.update { c -> c.copy(rules = c.rules.map { if (it.pkg == rule.pkg) it.copy(enabled = on) else it }) }
                     })
                     IconButton(onClick = { ConfigStore.update { c -> c.copy(rules = c.rules.filter { it.pkg != rule.pkg }) } }) {
-                        Icon(Icons.Default.Delete, stringResource(R.string.delete), tint = Pb.muted)
+                        Icon(Icons.Default.Delete, stringResource(R.string.pb_delete), tint = Pb.muted)
                     }
                 }
                 Row(Modifier.padding(start = 46.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -170,22 +170,22 @@ fun HomeScreen(config: AppConfig, state: TunnelState.Snapshot, hint: String, onC
                     Text("⁘", color = Pb.cyan, fontSize = 18.sp)
                 }
                 Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                    Text(stringResource(R.string.rest_title), fontWeight = FontWeight.SemiBold)
-                    Text(stringResource(R.string.rest_subtitle), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.pb_rest_title), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.pb_rest_subtitle), style = MaterialTheme.typography.bodySmall)
                 }
                 TargetPicker(config, config.defaultAction, config.defaultProxyId, allowBlock = false) { a, id ->
                     ConfigStore.update { it.copy(defaultAction = a, defaultProxyId = id) }
                 }
             }
             OutlinedButton(onClick = onAddApp, modifier = Modifier.padding(top = 8.dp)) {
-                Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.add_app))
+                Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.pb_add_app))
             }
         }
     }
 }
 
 @Composable
-fun ConnectPanel(state: TunnelState.Snapshot, config: AppConfig, hint: String, onConnect: () -> Unit) {
+fun ConnectPanel(state: TunnelState.Snapshot, config: AppConfig, hint: String, onConnect: () -> Unit, onUpdate: (() -> Unit)? = null) {
     val on = state.phase == TunnelState.Phase.On
     val busy = state.phase == TunnelState.Phase.Connecting
     val ring = when (state.phase) {
@@ -202,22 +202,26 @@ fun ConnectPanel(state: TunnelState.Snapshot, config: AppConfig, hint: String, o
             Icon(Icons.Default.PowerSettingsNew, null, tint = Pb.text, modifier = Modifier.size(52.dp))
         }
         val word = when (state.phase) {
-            TunnelState.Phase.On -> stringResource(R.string.state_on)
-            TunnelState.Phase.Connecting -> stringResource(R.string.state_connecting)
-            TunnelState.Phase.Error -> stringResource(R.string.state_error)
-            else -> stringResource(R.string.state_off)
+            TunnelState.Phase.On -> stringResource(R.string.pb_state_on)
+            TunnelState.Phase.Connecting -> stringResource(R.string.pb_state_connecting)
+            TunnelState.Phase.Error -> stringResource(R.string.pb_state_error)
+            else -> stringResource(R.string.pb_state_off)
         }
         Text(word.uppercase(), style = MaterialTheme.typography.titleMedium, color = if (state.phase == TunnelState.Phase.Error) Pb.danger else if (on) Pb.cyan else Pb.text, modifier = Modifier.padding(top = 12.dp), letterSpacing = 1.sp)
         val detail = if (state.phase == TunnelState.Phase.Error) state.message else hint
         if (detail.isNotBlank()) Text(detail, style = MaterialTheme.typography.bodySmall, color = if (state.phase == TunnelState.Phase.Error) Pb.danger else Pb.muted, modifier = Modifier.padding(top = 6.dp, start = 8.dp, end = 8.dp))
-        if (on) Text(stringResource(R.string.traffic_fmt, human(state.down), human(state.up)), style = MaterialTheme.typography.labelSmall, color = Pb.muted, modifier = Modifier.padding(top = 6.dp))
+        if (on) Text(stringResource(R.string.pb_traffic_fmt, human(state.down), human(state.up)), style = MaterialTheme.typography.labelSmall, color = Pb.muted, modifier = Modifier.padding(top = 6.dp))
+        if (config.updateVersion.isNotBlank() && onUpdate != null) {
+            Text(stringResource(R.string.pb_update_banner_fmt, config.updateVersion), color = Pb.cyan, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp).clickable { onUpdate() })
+        }
         Button(
             onClick = onConnect,
             modifier = Modifier.fillMaxWidth().padding(top = 14.dp).height(48.dp),
             colors = ButtonDefaults.buttonColors(containerColor = if (on) Pb.surface2 else Pb.blue),
             shape = RoundedCornerShape(10.dp),
         ) {
-            Text((if (on) stringResource(R.string.disconnect) else if (busy) stringResource(R.string.cancel) else stringResource(R.string.connect)).uppercase(), letterSpacing = 1.sp)
+            Text((if (on) stringResource(R.string.pb_disconnect) else if (busy) stringResource(R.string.pb_cancel) else stringResource(R.string.pb_connect)).uppercase(), letterSpacing = 1.sp)
         }
     }
 }
@@ -239,11 +243,11 @@ fun AppPickerDialog(onPick: (AppCatalog.Entry) -> Unit, onDismiss: () -> Unit) {
     val shown = remember(q, all) { if (q.isBlank()) all else all.filter { it.label.contains(q, true) || it.pkg.contains(q, true) } }
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-        title = { Text(stringResource(R.string.pick_app)) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.pb_cancel)) } },
+        title = { Text(stringResource(R.string.pb_pick_app)) },
         text = {
             Column {
-                OutlinedTextField(q, { q = it }, placeholder = { Text(stringResource(R.string.search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(q, { q = it }, placeholder = { Text(stringResource(R.string.pb_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.fillMaxWidth().height(380.dp).padding(top = 8.dp)) {
                     items(shown, key = { it.pkg }) { e ->
                         Row(Modifier.fillMaxWidth().clickable { onPick(e) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -267,35 +271,35 @@ fun ProxiesScreen(config: AppConfig, checking: Set<Int>, onCheck: (ProxyEntry) -
     var renaming by remember { mutableStateOf<ProxyEntry?>(null) }
     fun add(text: String) {
         val parsed = ProxyParser.parse(text)
-        if (parsed == null) { note = ctx.getString(R.string.proxies_bad); return }
+        if (parsed == null) { note = ctx.getString(R.string.pb_proxies_bad); return }
         val url = parsed.url()
-        if (config.proxies.any { it.url == url }) { note = ctx.getString(R.string.proxies_dup); return }
+        if (config.proxies.any { it.url == url }) { note = ctx.getString(R.string.pb_proxies_dup); return }
         ConfigStore.update { c -> c.copy(proxies = c.proxies + ProxyEntry(c.nextProxyId, url), nextProxyId = c.nextProxyId + 1) }
         input = ""; note = ""
     }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
         item {
-            Text(stringResource(R.string.proxies_title).uppercase(), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp))
+            Text(stringResource(R.string.pb_proxies_title).uppercase(), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp))
             OutlinedTextField(
                 input, { input = it; note = "" },
                 placeholder = { Text("socks5://user:pass@host:port", color = Pb.muted) },
                 singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
             )
-            Text(stringResource(R.string.proxies_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+            Text(stringResource(R.string.pb_proxies_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
             if (note.isNotBlank()) Text(note, color = Pb.danger, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
             Row(Modifier.padding(top = 8.dp)) {
-                Button(onClick = { add(input) }, colors = ButtonDefaults.buttonColors(containerColor = Pb.blue)) { Text(stringResource(R.string.proxies_add)) }
+                Button(onClick = { add(input) }, colors = ButtonDefaults.buttonColors(containerColor = Pb.blue)) { Text(stringResource(R.string.pb_proxies_add)) }
                 Spacer(Modifier.width(8.dp))
                 OutlinedButton(onClick = {
                     val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     val t = cm.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString() ?: ""
                     input = t.trim(); if (t.isNotBlank()) add(t)
-                }) { Text(stringResource(R.string.proxies_paste)) }
+                }) { Text(stringResource(R.string.pb_proxies_paste)) }
                 Spacer(Modifier.weight(1f))
-                if (config.proxies.size > 1) TextButton(onClick = onCheckAll) { Text(stringResource(R.string.check_all)) }
+                if (config.proxies.size > 1) TextButton(onClick = onCheckAll) { Text(stringResource(R.string.pb_check_all)) }
             }
-            if (config.proxies.isEmpty()) Text(stringResource(R.string.proxies_empty), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 16.dp))
+            if (config.proxies.isEmpty()) Text(stringResource(R.string.pb_proxies_empty), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 16.dp))
         }
         items(config.proxies, key = { it.id }) { p ->
             Column(Modifier.fillMaxWidth().padding(top = 10.dp).background(Pb.surface, RoundedCornerShape(12.dp)).border(1.dp, Pb.line, RoundedCornerShape(12.dp)).padding(12.dp)) {
@@ -304,8 +308,8 @@ fun ProxiesScreen(config: AppConfig, checking: Set<Int>, onCheck: (ProxyEntry) -
                         Text(p.title(), fontWeight = FontWeight.SemiBold, maxLines = 1)
                         Text("${p.kind()} · ${p.hostPort()}", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, maxLines = 1)
                     }
-                    IconButton(onClick = { onCheck(p) }, enabled = p.id !in checking) { Icon(Icons.Default.Refresh, stringResource(R.string.check), tint = Pb.cyan) }
-                    IconButton(onClick = { ConfigStore.update { c -> c.copy(proxies = c.proxies.filter { it.id != p.id }) } }) { Icon(Icons.Default.Delete, stringResource(R.string.delete), tint = Pb.muted) }
+                    IconButton(onClick = { onCheck(p) }, enabled = p.id !in checking) { Icon(Icons.Default.Refresh, stringResource(R.string.pb_check), tint = Pb.cyan) }
+                    IconButton(onClick = { ConfigStore.update { c -> c.copy(proxies = c.proxies.filter { it.id != p.id }) } }) { Icon(Icons.Default.Delete, stringResource(R.string.pb_delete), tint = Pb.muted) }
                 }
                 CheckLine(p, p.id in checking)
             }
@@ -315,10 +319,10 @@ fun ProxiesScreen(config: AppConfig, checking: Set<Int>, onCheck: (ProxyEntry) -
         var name by remember { mutableStateOf(p.label) }
         AlertDialog(
             onDismissRequest = { renaming = null },
-            title = { Text(stringResource(R.string.rename)) },
-            text = { OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.label)) }, singleLine = true) },
-            confirmButton = { TextButton(onClick = { ConfigStore.update { c -> c.copy(proxies = c.proxies.map { if (it.id == p.id) it.copy(label = name.trim()) else it }) }; renaming = null }) { Text(stringResource(R.string.ok)) } },
-            dismissButton = { TextButton(onClick = { renaming = null }) { Text(stringResource(R.string.cancel)) } },
+            title = { Text(stringResource(R.string.pb_rename)) },
+            text = { OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.pb_label)) }, singleLine = true) },
+            confirmButton = { TextButton(onClick = { ConfigStore.update { c -> c.copy(proxies = c.proxies.map { if (it.id == p.id) it.copy(label = name.trim()) else it }) }; renaming = null }) { Text(stringResource(R.string.pb_ok)) } },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text(stringResource(R.string.pb_cancel)) } },
         )
     }
 }
@@ -327,9 +331,9 @@ fun ProxiesScreen(config: AppConfig, checking: Set<Int>, onCheck: (ProxyEntry) -
 fun CheckLine(p: ProxyEntry, checking: Boolean) {
     val c = p.check
     val text = when {
-        checking -> stringResource(R.string.checking)
-        c == null -> stringResource(R.string.not_checked)
-        !c.ok -> stringResource(R.string.check_failed) + if (c.error.isNotBlank()) ": ${c.error}" else ""
+        checking -> stringResource(R.string.pb_checking)
+        c == null -> stringResource(R.string.pb_not_checked)
+        !c.ok -> stringResource(R.string.pb_check_failed) + if (c.error.isNotBlank()) ": ${c.error}" else ""
         else -> listOf(flag(c.countryCode), c.country, c.city, c.ip, "${c.ms} мс").filter { it.isNotBlank() }.joinToString(" · ")
     }
     val color = when { checking -> Pb.muted; c == null -> Pb.muted; !c.ok -> Pb.danger; else -> Pb.ok }
@@ -338,7 +342,7 @@ fun CheckLine(p: ProxyEntry, checking: Boolean) {
         if (c != null && c.ok && p.kind() == "SOCKS5") {
             val udp = c.udp
             Text(
-                if (udp) stringResource(R.string.udp_yes) else stringResource(R.string.udp_no),
+                if (udp) stringResource(R.string.pb_udp_yes) else stringResource(R.string.pb_udp_no),
                 fontSize = 10.sp, color = if (udp) Pb.cyan else Pb.muted,
                 modifier = Modifier.border(1.dp, if (udp) Pb.cyan else Pb.line, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
             )
@@ -357,17 +361,27 @@ fun flag(cc: String): String {
 fun SettingsScreen(
     config: AppConfig, appVersion: String, coreVersion: String,
     licenseBusy: Boolean, licenseNote: String, onActivate: (String) -> Unit, onDeactivate: () -> Unit, onLogs: () -> Unit,
+    onLanguage: (String) -> Unit, updateBusy: Boolean, updateNote: String, onCheckUpdate: () -> Unit, onDownloadUpdate: () -> Unit,
 ) {
     var key by remember { mutableStateOf(config.license.key) }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
         item {
-            Text(stringResource(R.string.settings_title).uppercase(), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp))
-            SectionTitle(stringResource(R.string.settings_udp))
+            Text(stringResource(R.string.pb_settings_title).uppercase(), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp))
+            SectionTitle(stringResource(R.string.pb_settings_language))
+            Card {
+                for ((code, title) in listOf("" to stringResource(R.string.pb_lang_system), "ru" to stringResource(R.string.pb_lang_ru), "en" to stringResource(R.string.pb_lang_en))) {
+                    Row(Modifier.fillMaxWidth().clickable { onLanguage(code) }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = config.language == code, onClick = { onLanguage(code) })
+                        Text(title)
+                    }
+                }
+            }
+            SectionTitle(stringResource(R.string.pb_settings_udp))
             Card {
                 for ((mode, title, hint) in listOf(
-                    Triple("auto", stringResource(R.string.udp_auto), stringResource(R.string.udp_auto_hint)),
-                    Triple("block", stringResource(R.string.udp_block), ""),
-                    Triple("direct", stringResource(R.string.udp_direct), stringResource(R.string.udp_direct_hint)),
+                    Triple("auto", stringResource(R.string.pb_udp_auto), stringResource(R.string.pb_udp_auto_hint)),
+                    Triple("block", stringResource(R.string.pb_udp_block), ""),
+                    Triple("direct", stringResource(R.string.pb_udp_direct), stringResource(R.string.pb_udp_direct_hint)),
                 )) {
                     Row(Modifier.fillMaxWidth().clickable { ConfigStore.update { it.copy(udpMode = mode) } }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = config.udpMode == mode, onClick = { ConfigStore.update { it.copy(udpMode = mode) } })
@@ -375,32 +389,51 @@ fun SettingsScreen(
                     }
                 }
             }
-            SectionTitle(stringResource(R.string.settings_dns))
+            SectionTitle(stringResource(R.string.pb_settings_dns))
             Card {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text(stringResource(R.string.settings_dns)); Text(stringResource(R.string.settings_dns_hint), style = MaterialTheme.typography.bodySmall) }
+                Row(Modifier.clickable { ConfigStore.update { it.copy(dnsViaProxy = !it.dnsViaProxy) } }, verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) { Text(stringResource(R.string.pb_settings_dns)); Text(stringResource(R.string.pb_settings_dns_hint), style = MaterialTheme.typography.bodySmall) }
                     Switch(checked = config.dnsViaProxy, onCheckedChange = { on -> ConfigStore.update { it.copy(dnsViaProxy = on) } })
                 }
             }
-            SectionTitle(stringResource(R.string.settings_license))
+            SectionTitle(stringResource(R.string.pb_settings_autoconnect))
+            Card {
+                Row(Modifier.clickable { ConfigStore.update { it.copy(autoConnect = !it.autoConnect) } }, verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) { Text(stringResource(R.string.pb_settings_autoconnect)); Text(stringResource(R.string.pb_settings_autoconnect_hint), style = MaterialTheme.typography.bodySmall) }
+                    Switch(checked = config.autoConnect, onCheckedChange = { on -> ConfigStore.update { it.copy(autoConnect = on) } })
+                }
+            }
+            SectionTitle(stringResource(R.string.pb_settings_license))
             Card {
                 val l = config.license
                 if (LicenseApi.isValid(l)) {
-                    Text(stringResource(R.string.license_active_fmt, planText(l)), color = Pb.ok)
+                    Text(stringResource(R.string.pb_license_active_fmt, planText(l)), color = Pb.ok)
                     Text(l.key, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(top = 4.dp))
-                    OutlinedButton(onClick = onDeactivate, enabled = !licenseBusy, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.license_deactivate)) }
+                    OutlinedButton(onClick = onDeactivate, enabled = !licenseBusy, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.pb_license_deactivate)) }
                 } else {
-                    Text(stringResource(R.string.license_none), style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(key, { key = it.uppercase() }, placeholder = { Text(stringResource(R.string.license_key_hint), color = Pb.muted) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                    Button(onClick = { onActivate(key) }, enabled = !licenseBusy && key.length >= 10, modifier = Modifier.padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = Pb.blue)) { Text(stringResource(R.string.license_activate)) }
+                    Text(stringResource(R.string.pb_license_none), style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(key, { key = it.uppercase() }, placeholder = { Text(stringResource(R.string.pb_license_key_hint), color = Pb.muted) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    Button(onClick = { onActivate(key) }, enabled = !licenseBusy && key.length >= 10, modifier = Modifier.padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = Pb.blue)) { Text(stringResource(R.string.pb_license_activate)) }
                 }
                 if (licenseNote.isNotBlank()) Text(licenseNote, color = Pb.danger, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
             }
-            SectionTitle(stringResource(R.string.settings_about))
+            SectionTitle(stringResource(R.string.pb_settings_updates))
             Card {
-                Text(stringResource(R.string.version_fmt, appVersion, coreVersion))
-                Text(stringResource(R.string.site), color = Pb.cyan, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-                TextButton(onClick = onLogs, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text(stringResource(R.string.logs)) }
+                if (config.updateVersion.isNotBlank()) {
+                    Text(stringResource(R.string.pb_update_available_fmt, config.updateVersion), color = Pb.cyan)
+                    Button(onClick = onDownloadUpdate, modifier = Modifier.padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = Pb.blue)) { Text(stringResource(R.string.pb_update_download)) }
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(updateNote.ifBlank { stringResource(R.string.pb_version_fmt, appVersion, coreVersion) }, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick = onCheckUpdate, enabled = !updateBusy) { Text(if (updateBusy) stringResource(R.string.pb_update_checking) else stringResource(R.string.pb_update_check)) }
+                    }
+                }
+            }
+            SectionTitle(stringResource(R.string.pb_settings_about))
+            Card {
+                Text(stringResource(R.string.pb_version_fmt, appVersion, coreVersion))
+                Text(stringResource(R.string.pb_site), color = Pb.cyan, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+                TextButton(onClick = onLogs, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text(stringResource(R.string.pb_logs)) }
             }
         }
     }
@@ -408,17 +441,17 @@ fun SettingsScreen(
 
 @Composable
 fun planText(l: LicenseState): String {
-    if (l.expiresAt.isBlank()) return stringResource(R.string.license_plan_lifetime)
+    if (l.expiresAt.isBlank()) return stringResource(R.string.pb_license_plan_lifetime)
     val date = runCatching { DateTimeFormatter.ofPattern("d.MM.yyyy").format(Instant.parse(l.expiresAt).atZone(ZoneId.systemDefault())) }.getOrDefault(l.expiresAt)
-    return stringResource(R.string.license_until_fmt, date)
+    return stringResource(R.string.pb_license_until_fmt, date)
 }
 
 @Composable
 fun LogDialog(text: String, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) } },
-        title = { Text(stringResource(R.string.logs)) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.pb_ok)) } },
+        title = { Text(stringResource(R.string.pb_logs)) },
         text = {
             LazyColumn(Modifier.fillMaxWidth().height(420.dp)) {
                 item { Text(text.ifBlank { "…" }, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color(0xFFB8C0D8)) }
