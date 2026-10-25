@@ -389,3 +389,81 @@ workflows:
       - out/*.pkg
       - out/*.zip
       - out/*.log
+
+  ios-testflight:
+    name: iOS build and TestFlight upload
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      groups:
+        - appstore_credentials
+      xcode: latest
+      vars:
+        VERSION: "3.7.0"
+        BUNDLE_ID: org.proxybridge.ios
+        TUNNEL_BUNDLE_ID: org.proxybridge.ios.tunnel
+    scripts:
+      - name: Install Go
+        script: |
+          set -e
+          GO_VER=$(awk '/^go /{print $2}' core-go/go.mod)
+          mkdir -p "$HOME/go-sdk"
+          curl -sSL "https://go.dev/dl/go${GO_VER}.darwin-arm64.tar.gz" | tar -xz -C "$HOME/go-sdk"
+          echo "PATH=$HOME/go-sdk/go/bin:$PATH" >> "$CM_ENV"
+          "$HOME/go-sdk/go/bin/go" version
+
+      - name: Build libpbcore.a for iOS
+        script: |
+          set -eo pipefail
+          cd core-go/apple
+          make PLATFORM_NAME=iphoneos ARCHS=arm64 \
+            SDKROOT="$(xcrun --sdk iphoneos --show-sdk-path)" \
+            DEPLOYMENT_TARGET_CLANG_FLAG_NAME=miphoneos-version-min \
+            DEPLOYMENT_TARGET_CLANG_ENV_NAME=IPHONEOS_DEPLOYMENT_TARGET \
+            IPHONEOS_DEPLOYMENT_TARGET=16.0 \
+            VERSION="$VERSION" DESTDIR="$PWD/out"
+          ls -la out
+
+      - name: Generate the Xcode project
+        script: |
+          set -eo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          cd apple/ios
+          sed -i '' "s/CURRENT_PROJECT_VERSION: .*/CURRENT_PROJECT_VERSION: \"$BUILD_NUMBER\"/" project.yml
+          sed -i '' "s/MARKETING_VERSION: .*/MARKETING_VERSION: \"$VERSION\"/" project.yml
+          xcodegen generate
+
+      - name: Signing (bundle ids, Network Extension capability, profiles)
+        script: |
+          set -eo pipefail
+          for v in APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_KEY_IDENTIFIER APP_STORE_CONNECT_PRIVATE_KEY CERTIFICATE_PRIVATE_KEY; do
+            [ -n "${!v}" ] && echo "$v: set" || { echo "ERROR: $v is empty, add it to the appstore_credentials group"; exit 1; }
+          done
+          keychain initialize
+          create_bid() {
+            app-store-connect bundle-ids create "$1" --name "$2" --platform IOS >/dev/null 2>&1 || true
+            RID=$(app-store-connect bundle-ids list --bundle-id-identifier "$1" --strict-match-identifier --json | python3 -c 'import sys,json; print(json.load(sys.stdin)[0]["id"])')
+            echo "$1 -> $RID"
+            app-store-connect bundle-ids enable-capabilities "$RID" --capability NETWORK_EXTENSIONS || echo "capability already on, or the error above"
+          }
+          create_bid "$BUNDLE_ID" "ProxyBridge"
+          create_bid "$TUNNEL_BUNDLE_ID" "ProxyBridge Tunnel"
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles --project apple/ios/ProxyBridge.xcodeproj
+
+      - name: Build the ipa
+        script: |
+          set -eo pipefail
+          xcode-project build-ipa --project apple/ios/ProxyBridge.xcodeproj --scheme ProxyBridge
+
+      - name: Upload to TestFlight
+        script: |
+          set -eo pipefail
+          app-store-connect publish --path build/ios/ipa/ProxyBridge.ipa --testflight
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log

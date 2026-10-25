@@ -1,0 +1,81 @@
+# XcodeGen description (xcodegen generate -> ProxyBridge.xcodeproj). Built in Codemagic, see codemagic.yaml.
+name: ProxyBridge
+options:
+  bundleIdPrefix: org.proxybridge
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  developmentLanguage: ru
+settings:
+  base:
+    MARKETING_VERSION: "3.7.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_STYLE: Manual
+    ENABLE_BITCODE: NO
+    TARGETED_DEVICE_FAMILY: "1"
+    SWIFT_OBJC_BRIDGING_HEADER: Shared/Bridging-Header.h
+    HEADER_SEARCH_PATHS: ["$(PROJECT_DIR)/../../core-go/apple"]
+    LIBRARY_SEARCH_PATHS: ["$(PROJECT_DIR)/../../core-go/apple/out"]
+    OTHER_LDFLAGS: ["-lpbcore", "-lresolv"]
+targets:
+  ProxyBridge:
+    type: application
+    platform: iOS
+    sources:
+      - path: ProxyBridge
+      - path: Shared
+    scheme: {}
+    info:
+      path: ProxyBridge/Info.plist
+      properties:
+        CFBundleDisplayName: ProxyBridge
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: ru
+        CFBundleLocalizations: [ru, en]
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: LaunchBg
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIRequiresFullScreen: true
+        ITSAppUsesNonExemptEncryption: false
+        UIUserInterfaceStyle: Dark
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+    entitlements:
+      path: ProxyBridge/ProxyBridge.entitlements
+      properties:
+        com.apple.developer.networking.networkextension: [packet-tunnel-provider]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.proxybridge.ios
+        PRODUCT_NAME: ProxyBridge
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - target: PacketTunnel
+  PacketTunnel:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: PacketTunnel
+      - path: Shared
+    info:
+      path: PacketTunnel/Info.plist
+      properties:
+        CFBundleDisplayName: ProxyBridge
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).PacketTunnelProvider
+    entitlements:
+      path: PacketTunnel/PacketTunnel.entitlements
+      properties:
+        com.apple.developer.networking.networkextension: [packet-tunnel-provider]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.proxybridge.ios.tunnel
+        PRODUCT_NAME: PacketTunnel
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES

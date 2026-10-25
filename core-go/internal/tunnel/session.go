@@ -24,20 +24,23 @@ import (
 // Config is everything one tunnel session needs.
 type Config struct {
 	Set *rules.Set
-	// Device is a TUN the host already opened (Android: the VpnService file descriptor).
-	// When set, the platform owns addresses and routes: nothing is configured here and
-	// the proxies are not pinned to a gateway.
-	Device     tun.Device
-	TunName    string
-	TunAddr    netip.Prefix
-	Peer       netip.Addr
-	MTU        int
-	DNS        netip.Addr // invalid: DNS over UDP is dropped
-	RouteMode  netcfg.RouteMode
-	Exempt     []int
-	ParentPID  int
-	StatsEvery time.Duration
-	UDP        UDPOptions
+	// Device is a TUN the host already opened (Android: the VpnService file descriptor,
+	// iOS: the packet tunnel's utun). When set, the platform owns addresses and routes:
+	// nothing is configured here and the proxies are not pinned to a gateway.
+	Device tun.Device
+	// BindInterface scopes the core's own sockets to this interface (iOS: the physical
+	// interface, en0 or pdp_ip0), so they do not loop back into the tunnel. Empty: unbound.
+	BindInterface string
+	TunName       string
+	TunAddr       netip.Prefix
+	Peer          netip.Addr
+	MTU           int
+	DNS           netip.Addr // invalid: DNS over UDP is dropped
+	RouteMode     netcfg.RouteMode
+	Exempt        []int
+	ParentPID     int
+	StatsEvery    time.Duration
+	UDP           UDPOptions
 }
 
 // session is one running tunnel: TUN, routes, engine. It ends when Stop is
@@ -82,7 +85,8 @@ func (s *Session) setup() error {
 	external := cfg.Device != nil
 	var gw netcfg.Gateway
 	if external {
-		s.log.Infof("tunnel device supplied by the host: addresses and routes are managed by the platform")
+		gw.Interface = cfg.BindInterface
+		s.log.Infof("tunnel device supplied by the host: addresses and routes are managed by the platform (own sockets bound to %q)", cfg.BindInterface)
 	} else {
 		var err error
 		gw, err = netcfg.DefaultGateway()

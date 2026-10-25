@@ -57,3 +57,10 @@ site/
 # Vendor adapters of the proxy store: deployed to the server only, never published
 server/app/store/traffic.py
 server/app/store/dedicated.py
+
+# iOS build outputs
+core-go/apple/out/
+core-go/apple/.tmp/
+apple/ios/*.xcodeproj/
+apple/ios/**/Info.plist
+!apple/ios/**/*.json
