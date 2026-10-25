@@ -1,6 +1,6 @@
 //go:build darwin || linux
 
-package main
+package tunnel
 
 import (
 	"context"
@@ -20,24 +20,24 @@ import (
 
 // UDP policy for programs whose rule says proxy (the GUI setting "UDP and WebRTC").
 const (
-	udpDirect = "direct" // leave UDP alone: WebRTC and QUIC reveal the real IP
-	udpProxy  = "proxy"  // via SOCKS5 UDP ASSOCIATE; blocked when the proxy refuses UDP
-	udpBlock  = "block"  // always dropped: no leaks, applications fall back to TCP
+	UDPDirect = "direct" // leave UDP alone: WebRTC and QUIC reveal the real IP
+	UDPProxy  = "proxy"  // via SOCKS5 UDP ASSOCIATE; blocked when the proxy refuses UDP
+	UDPBlock  = "block"  // always dropped: no leaks, applications fall back to TCP
 )
 
-// udpOptions is the per-session UDP and DNS policy.
-type udpOptions struct {
+// UDPOptions is the per-session UDP and DNS policy.
+type UDPOptions struct {
 	Mode        string
 	DNSViaProxy bool
 	DNSProxy    int            // proxy id for DNS queries (0: automatic)
 	DNSServer   netip.AddrPort // replaces private resolvers when DNS goes via proxy; also the direct resolver
 }
 
-func (o *udpOptions) normalize() error {
+func (o *UDPOptions) Normalize() error {
 	switch o.Mode {
-	case "", udpDirect:
-		o.Mode = udpDirect
-	case udpProxy, udpBlock:
+	case "", UDPDirect:
+		o.Mode = UDPDirect
+	case UDPProxy, UDPBlock:
 	default:
 		return fmt.Errorf("udp mode %q: want direct, proxy or block", o.Mode)
 	}
@@ -79,8 +79,8 @@ func (r *router) DecideUDP(src, dst netip.AddrPort) engine.UDPDecision {
 		if id == 0 {
 			id = t.dnsProxyChoice(r.udp.DNSProxy)
 		}
-		d := t.dialers[id]
-		if d == nil {
+		res := t.dns[id]
+		if res == nil {
 			r.log.Debugf("udp %s -> %s: dns via proxy: no proxy registered: direct", src, dst)
 			return r.directDNS(dst)
 		}
@@ -90,7 +90,7 @@ func (r *router) DecideUDP(src, dst netip.AddrPort) engine.UDPDecision {
 		}
 		r.log.Debugf("udp %s -> %s: pid %d %q: dns via proxy %d -> %s", src, dst, pid, exe, id, resolver)
 		return engine.UDPDecision{Label: "dns via proxy " + strconv.Itoa(id), Open: func(ctx context.Context) (engine.UDPSession, error) {
-			return newDNSSession(d, resolver), nil
+			return newDNSSession(res, resolver), nil
 		}}
 	}
 
@@ -107,10 +107,10 @@ func (r *router) DecideUDP(src, dst netip.AddrPort) engine.UDPDecision {
 		return r.directUDP(dst)
 	}
 	switch r.udp.Mode {
-	case udpBlock:
+	case UDPBlock:
 		r.log.Debugf("udp %s -> %s: pid %d %q: rule %q: blocked (udp mode block)", src, dst, pid, exe, rule.Process)
 		return engine.UDPDecision{Block: true, Label: "block"}
-	case udpDirect:
+	case UDPDirect:
 		r.log.Debugf("udp %s -> %s: pid %d %q: rule %q: direct (udp mode direct)", src, dst, pid, exe, rule.Process)
 		return r.directUDP(dst)
 	}
@@ -186,15 +186,15 @@ func isPrivate(a netip.Addr) bool {
 // ---------------------------------------------------------------------------
 
 type dnsSession struct {
-	dialer   *proxy.Dialer
+	res      *proxyResolver
 	resolver netip.AddrPort
 	answers  chan []byte
 	done     chan struct{}
 	once     sync.Once
 }
 
-func newDNSSession(d *proxy.Dialer, resolver netip.AddrPort) *dnsSession {
-	return &dnsSession{dialer: d, resolver: resolver, answers: make(chan []byte, 16), done: make(chan struct{})}
+func newDNSSession(res *proxyResolver, resolver netip.AddrPort) *dnsSession {
+	return &dnsSession{res: res, resolver: resolver, answers: make(chan []byte, 16), done: make(chan struct{})}
 }
 
 func (s *dnsSession) Write(query []byte) error {
@@ -206,7 +206,7 @@ func (s *dnsSession) Write(query []byte) error {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		answer, err := dnsOverTCP(ctx, s.dialer, s.resolver, q)
+		answer, err := s.res.Exchange(ctx, s.resolver, q)
 		if err != nil {
 			return
 		}
@@ -269,7 +269,7 @@ func dnsOverTCP(ctx context.Context, d *proxy.Dialer, resolver netip.AddrPort, q
 
 type udpPool struct {
 	dialer *proxy.Dialer
-	log    logger
+	log    Logger
 	id     int
 
 	mu       sync.Mutex
@@ -277,7 +277,7 @@ type udpPool struct {
 	noUDPTil time.Time
 }
 
-func newUDPPool(id int, d *proxy.Dialer, log logger) *udpPool {
+func newUDPPool(id int, d *proxy.Dialer, log Logger) *udpPool {
 	return &udpPool{dialer: d, log: log, id: id, assocs: make(map[netip.AddrPort]*udpAssoc)}
 }
 

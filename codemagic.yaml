@@ -224,7 +224,7 @@ workflows:
           import base64, json, os, sys
           s = json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}],
                           "rules": [{"process": "curl", "action": "direct"}, {"process": "*", "action": "proxy", "proxy": 1}],
-                          "dns": "1.1.1.1", "parent_pid": os.getppid()})
+                          "dns": "1.1.1.1", "dns_via_proxy": True, "parent_pid": os.getppid()})
           print(base64.b64encode(s.encode()).decode())
           PY
           )
@@ -281,7 +281,7 @@ workflows:
           import base64, json, os, sys
           s = json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}],
                           "rules": [{"process": "curl", "action": "direct"}, {"process": "*", "action": "proxy", "proxy": 1}],
-                          "dns": "1.1.1.1", "parent_pid": os.getppid()})
+                          "dns": "1.1.1.1", "dns_via_proxy": True, "parent_pid": os.getppid()})
           print(base64.b64encode(s.encode()).decode())
           PY
           )

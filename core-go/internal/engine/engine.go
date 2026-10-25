@@ -412,8 +412,10 @@ func (e *Engine) handleUDP(r *udp.ForwarderRequest) bool {
 		}}
 	}
 	if dec.Block || dec.Open == nil {
+		e.opts.Logf("udp %s -> %s: %s", src, dst, map[bool]string{true: "blocked", false: "no route"}[dec.Block])
 		return false
 	}
+	e.opts.Logf("udp %s -> %s: %s", src, dst, dec.Label)
 	var wq waiter.Queue
 	ep, err := r.CreateEndpoint(&wq)
 	if err != nil {
@@ -440,17 +442,24 @@ func (e *Engine) forwardUDP(client *gonet.UDPConn, dec UDPDecision, dst netip.Ad
 		idle = dnsIdle
 	}
 
+	var up, down int64
+	defer func() { e.opts.Logf("udp %s (%s): closed, %d bytes up, %d down", dst, dec.Label, up, down) }()
 	go func() {
 		buf := make([]byte, 65535)
 		for {
 			n, err := sess.Read(buf)
 			if err != nil {
+				if !errors.Is(err, net.ErrClosed) && !isTimeout(err) {
+					e.opts.Logf("udp %s (%s): read from upstream: %v", dst, dec.Label, err)
+				}
 				client.Close()
 				return
 			}
 			if _, err := client.Write(buf[:n]); err != nil {
+				e.opts.Logf("udp %s (%s): write to app: %v", dst, dec.Label, err)
 				return
 			}
+			down += int64(n)
 			e.opts.Stats.Down.Add(int64(n))
 		}
 	}()
@@ -463,10 +472,17 @@ func (e *Engine) forwardUDP(client *gonet.UDPConn, dec UDPDecision, dst netip.Ad
 			return
 		}
 		if err := sess.Write(buf[:n]); err != nil {
+			e.opts.Logf("udp %s (%s): write upstream: %v", dst, dec.Label, err)
 			return
 		}
+		up += int64(n)
 		e.opts.Stats.Up.Add(int64(n))
 	}
+}
+
+func isTimeout(err error) bool {
+	var ne net.Error
+	return errors.As(err, &ne) && ne.Timeout()
 }
 
 func toAddr(b []byte) netip.Addr {

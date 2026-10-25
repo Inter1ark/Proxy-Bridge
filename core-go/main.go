@@ -30,6 +30,7 @@ import (
 	"proxybridge/core/internal/netcfg"
 	"proxybridge/core/internal/rules"
 	"proxybridge/core/internal/status"
+	"proxybridge/core/internal/tunnel"
 )
 
 // version is set at build time: -ldflags "-X main.version=X.Y.Z"
@@ -151,7 +152,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	defaults := sessionConfig{
+	defaults := tunnel.Config{
 		TunName:    *tunName,
 		TunAddr:    localPrefix,
 		Peer:       peer,
@@ -196,13 +197,13 @@ func main() {
 }
 
 // runOnce brings one session up and exits when it ends.
-func runOnce(log logger, rep *status.Reporter, port int, token string, cfg sessionConfig) int {
+func runOnce(log logger, rep *status.Reporter, port int, token string, cfg tunnel.Config) int {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	var (
 		mu  sync.Mutex
-		cur *session
+		cur *tunnel.Session
 	)
 	// The control socket comes up first so a supervisor can watch every event.
 	if port > 0 {
@@ -235,7 +236,7 @@ func runOnce(log logger, rep *status.Reporter, port int, token string, cfg sessi
 		log.Infof("control socket on %s", srv.Addr())
 	}
 
-	s, err := bringUp(log, rep, cfg)
+	s, err := tunnel.BringUp(log, rep, cfg)
 	if err != nil {
 		return 1
 	}
@@ -261,10 +262,10 @@ func runOnce(log logger, rep *status.Reporter, port int, token string, cfg sessi
 
 // runDaemon keeps the process alive without a tunnel; "start" and "stop" over
 // the control socket bring sessions up and down. launchd keeps it running.
-func runDaemon(log logger, rep *status.Reporter, port int, sock, token string, defaults sessionConfig) int {
+func runDaemon(log logger, rep *status.Reporter, port int, sock, token string, defaults tunnel.Config) int {
 	var (
 		mu  sync.Mutex
-		cur *session
+		cur *tunnel.Session
 	)
 	stopCurrent := func() {
 		mu.Lock()
@@ -298,13 +299,13 @@ func runDaemon(log logger, rep *status.Reporter, port int, sock, token string, d
 			return s.Reload(newSet)
 		},
 		OnStart: func(payload []byte) error {
-			cfg, err := parseStartRequest(payload, defaults)
+			cfg, err := tunnel.ParseRequest(payload, defaults)
 			if err != nil {
 				return err
 			}
 			stopCurrent()
 			log.Infof("start requested: %d rules, %d proxies, parent pid %d", len(cfg.Set.Rules), len(cfg.Set.Proxies), cfg.ParentPID)
-			s, err := bringUp(log, rep, cfg)
+			s, err := tunnel.BringUp(log, rep, cfg)
 			if err != nil {
 				return err
 			}
@@ -376,19 +377,19 @@ func randomToken() (string, error) {
 // loadRules builds the initial session: from --rules-file (the same JSON as the
 // daemon's "start" request: rules plus udp/dns options), or from a single proxy
 // (--proxy / --proxy-file) as "everything through this proxy".
-func loadRules(rulesFile, proxyFile, proxyURL string, defaults sessionConfig) (sessionConfig, error) {
+func loadRules(rulesFile, proxyFile, proxyURL string, defaults tunnel.Config) (tunnel.Config, error) {
 	if rulesFile != "" {
 		b, err := os.ReadFile(rulesFile)
 		if err != nil {
 			return defaults, fmt.Errorf("read --rules-file: %w", err)
 		}
 		_ = os.Remove(rulesFile)
-		cfg, err := parseStartRequest(b, defaults)
+		cfg, err := tunnel.ParseRequest(b, defaults)
 		if err != nil {
 			return defaults, err
 		}
 		if cfg.UDP.DNSServer.IsValid() {
-			// parseStartRequest does not know the resolver flag; bringUp fills it from cfg.DNS
+			// tunnel.ParseRequest does not know the resolver flag; tunnel.BringUp fills it from cfg.DNS
 			cfg.UDP.DNSServer = netip.AddrPort{}
 		}
 		return cfg, nil
@@ -411,9 +412,4 @@ func loadRules(rulesFile, proxyFile, proxyURL string, defaults sessionConfig) (s
 	cfg := defaults
 	cfg.Set = set
 	return cfg, set.Validate()
-}
-
-func processAlive(pid int) bool {
-	err := syscall.Kill(pid, 0)
-	return err == nil || err == syscall.EPERM
 }

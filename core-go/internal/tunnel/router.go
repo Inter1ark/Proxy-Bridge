@@ -1,6 +1,6 @@
 //go:build darwin || linux
 
-package main
+package tunnel
 
 import (
 	"context"
@@ -23,14 +23,14 @@ import (
 // directly, or nowhere. It owns the current rule set (replaceable while
 // running) and one dialer per proxy.
 type router struct {
-	log     logger
+	log     Logger
 	procs   *procmap.Resolver
 	direct  *net.Dialer
 	base    *net.Dialer
 	gateway netcfg.Gateway
 	undo    *netcfg.Undo
 	exempt  map[int]bool
-	udp     udpOptions
+	udp     UDPOptions
 
 	mu      sync.Mutex
 	routed  map[netip.Addr]bool // proxy IPs that already have a host route
@@ -44,12 +44,13 @@ type router struct {
 type ruleTable struct {
 	set     *rules.Set
 	dialers map[int]*proxy.Dialer
-	udp     map[int]*udpPool // SOCKS5 UDP associations per proxy id
+	udp     map[int]*udpPool       // SOCKS5 UDP associations per proxy id
+	dns     map[int]*proxyResolver // DNS through each proxy (DoH on 443, else TCP/53)
 	// summary is shown in the "up" status line: the catch-all proxy or "direct".
 	summary string
 }
 
-func newRouter(log logger, gw netcfg.Gateway, undo *netcfg.Undo, exempt []int, udp udpOptions) *router {
+func newRouter(log Logger, gw netcfg.Gateway, undo *netcfg.Undo, exempt []int, udp UDPOptions) *router {
 	base := boundDialer(gw.Interface)
 	r := &router{
 		log:     log,
@@ -79,7 +80,7 @@ func (r *router) Load(set *rules.Set) error {
 	if err := set.Validate(); err != nil {
 		return err
 	}
-	t := &ruleTable{set: set, dialers: make(map[int]*proxy.Dialer, len(set.Proxies)), udp: make(map[int]*udpPool), summary: "direct"}
+	t := &ruleTable{set: set, dialers: make(map[int]*proxy.Dialer, len(set.Proxies)), udp: make(map[int]*udpPool), dns: make(map[int]*proxyResolver), summary: "direct"}
 	for _, p := range set.Proxies {
 		cfg, err := proxy.Parse(p.URL)
 		if err != nil {
@@ -95,6 +96,7 @@ func (r *router) Load(set *rules.Set) error {
 		serverAddr := net.JoinHostPort(ip.String(), strconv.Itoa(cfg.Port))
 		t.dialers[p.ID] = proxy.NewDialerWith(cfg, serverAddr, 15*time.Second, r.base)
 		t.udp[p.ID] = newUDPPool(p.ID, t.dialers[p.ID], r.log)
+		t.dns[p.ID] = newProxyResolver(p.ID, t.dialers[p.ID], r.log)
 		r.log.Infof("proxy %d: %s -> %s", p.ID, cfg.Redacted(), serverAddr)
 	}
 	for _, rule := range set.Rules {
@@ -110,6 +112,9 @@ func (r *router) Load(set *rules.Set) error {
 	if old := r.current.Swap(t); old != nil {
 		for _, pool := range old.udp {
 			pool.closeAll()
+		}
+		for _, res := range old.dns {
+			res.Close()
 		}
 	}
 	for i, rule := range set.Rules {
@@ -130,6 +135,9 @@ func (r *router) Close() {
 	if t := r.current.Load(); t != nil {
 		for _, pool := range t.udp {
 			pool.closeAll()
+		}
+		for _, res := range t.dns {
+			res.Close()
 		}
 	}
 }
@@ -188,8 +196,8 @@ func (r *router) directDial(ctx context.Context, target string) (net.Conn, error
 func (r *router) pin(ip netip.Addr) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.routed[ip] {
-		return nil
+	if r.routed[ip] || r.undo == nil {
+		return nil // routes are managed by the platform (Android VpnService)
 	}
 	if err := netcfg.AddHostRoute(ip, r.gateway, r.undo); err != nil {
 		return err

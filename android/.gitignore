@@ -1,0 +1,7 @@
+*.iml
+.gradle/
+local.properties
+build/
+app/libs/pbcore-sources.jar
+.kotlin/
+app/libs/pbcore.aar
