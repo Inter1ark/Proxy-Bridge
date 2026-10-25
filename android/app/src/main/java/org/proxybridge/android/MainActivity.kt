@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
                 var logs by remember { mutableStateOf(false) }
                 val licensed = LicenseApi.isValid(config.license)
                 val homeHint = when {
+                    Build.VERSION.SDK_INT < 29 && config.rules.isNotEmpty() -> stringResource(R.string.status_old_android)
                     state.phase != TunnelState.Phase.Off -> ""
                     hint.isNotBlank() -> hint
                     config.proxies.isEmpty() -> stringResource(R.string.status_no_proxy)

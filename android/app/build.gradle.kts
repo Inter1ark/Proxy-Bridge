@@ -20,7 +20,7 @@ android {
 
     defaultConfig {
         applicationId = "org.proxybridge.android"
-        minSdk = 29
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "3.7.0"

@@ -56,6 +56,8 @@ class PbVpnService : VpnService() {
         }
 
         override fun ownerUid(proto: Long, srcIP: String, srcPort: Long, dstIP: String, dstPort: Long): Long {
+            // Android 10 added the owner lookup; before it only the "all other apps" row can apply.
+            if (Build.VERSION.SDK_INT < 29) return -1
             val cm = getSystemService(ConnectivityManager::class.java) ?: return -1
             return try {
                 val uid = cm.getConnectionOwnerUid(

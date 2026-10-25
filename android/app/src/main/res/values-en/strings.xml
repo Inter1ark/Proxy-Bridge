@@ -84,4 +84,5 @@
     <string name="whole_via_fmt">The whole phone via %1$s.</string>
     <string name="apps_via_fmt">%1$s via proxy, everything else direct.</string>
     <string name="apps_via_rest_fmt">%1$s via their proxies, everything else via %2$s.</string>
+    <string name="status_old_android">On Android 9 and older per-app rules do not work: the system does not tell which app opened a connection. Only the “All other apps” row applies, that is the whole phone through one proxy.</string>
 </resources>
