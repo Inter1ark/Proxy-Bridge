@@ -119,8 +119,8 @@ struct ActivationView: View {
                     .padding(.top, 40)
                     Text(tr("Введи ключ лицензии", "Enter your license key"))
                         .font(.system(size: 20, weight: .semibold)).foregroundColor(.pbText)
-                    Text(tr("Один ключ ProxyBridge работает на ПК, Mac, Android и iPhone.",
-                            "One ProxyBridge key works on PC, Mac, Android and iPhone."))
+                    Text(tr("Один ключ работает на ПК, Mac, Android и iPhone. Ключ приходит на почту после покупки.",
+                            "One key works on PC, Mac, Android and iPhone. The key comes by email after purchase."))
                         .font(.system(size: 14)).foregroundColor(.pbMuted)
                     TextField("PB-XXXX-XXXX-XXXX-XXXX", text: $key)
                         .font(.system(size: 17, design: .monospaced))
@@ -147,6 +147,8 @@ struct ActivationView: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(state.licenseBusy || key.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Button(tr("Купить ключ на proxybridge.org", "Buy a key at proxybridge.org")) { openURL(siteURL + "/#pricing") }
+                        .buttonStyle(SecondaryButtonStyle())
                 }
                 .padding(24)
             }
@@ -298,6 +300,7 @@ struct ProxiesView: View {
                                 "Paste a SOCKS5 or HTTP proxy in any usual form, for example host:port:login:password."))
                             .font(.system(size: 14)).foregroundColor(.pbMuted).multilineTextAlignment(.center)
                         Button(tr("Добавить прокси", "Add a proxy")) { adding = true }.buttonStyle(PrimaryButtonStyle())
+                        Button(tr("Купить прокси", "Buy proxies")) { openURL(siteURL + "/kupit-proksi/") }.buttonStyle(SecondaryButtonStyle())
                     }
                     .padding(28)
                 } else {
@@ -455,7 +458,7 @@ struct SettingsView: View {
                             .autocorrectionDisabled()
                         Button(tr("Активировать", "Activate")) { Task { await state.activate(key) } }
                             .disabled(state.licenseBusy || key.trimmingCharacters(in: .whitespaces).isEmpty)
-                        Text(tr("Ключ не введён.", "No key yet."))
+                        Text(tr("Ключ не введён. Купить можно на proxybridge.org.", "No key yet. You can buy one at proxybridge.org."))
                             .font(.system(size: 13)).foregroundColor(.pbMuted)
                     } else {
                         Text(state.license.key).font(.system(size: 15, design: .monospaced))
@@ -490,7 +493,7 @@ struct SettingsView: View {
                 Section(tr("О программе", "About")) {
                     LabeledContent(tr("Версия", "Version"), value: LicenseAPI.appVersion)
                     LabeledContent(tr("Ядро", "Core"), value: coreVersion)
-                    Button(tr("Написать в поддержку", "Contact support")) { openURL("mailto:support@proxybridge.org") }
+                    Button("proxybridge.org") { openURL(siteURL) }
                 }
             }
             .scrollContentBackground(.hidden)
