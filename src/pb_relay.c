@@ -69,13 +69,100 @@ BOOL pb_dns_tcp_exchange(const PROXY_CONFIG *cfg, UINT32 resolver_ip, const unsi
     return ok;
 }
 
+// Proxies that accept a CONNECT to port 53 and then drop every byte (several datacenter
+// vendors do) would leave every name unresolved. After such a failure the proxy is marked
+// for DNS_BROKEN_MS and queries go straight to the resolver meanwhile (the resolver then
+// sees the real address; a proxy that passes port 53 keeps full privacy).
+#define DNS_BROKEN_SLOTS 64
+#define DNS_BROKEN_MS    (2 * 60 * 1000)
+static struct { UINT32 id; ULONGLONG until; } g_dns_broken[DNS_BROKEN_SLOTS];
+static SRWLOCK g_dns_broken_lock = SRWLOCK_INIT;
+
+BOOL pb_dns_proxy_broken(UINT32 config_id, ULONGLONG now_ms)
+{
+    BOOL broken = FALSE;
+    AcquireSRWLockShared(&g_dns_broken_lock);
+    for (int i = 0; i < DNS_BROKEN_SLOTS; i++)
+        if (g_dns_broken[i].id == config_id && g_dns_broken[i].until > now_ms) { broken = TRUE; break; }
+    ReleaseSRWLockShared(&g_dns_broken_lock);
+    return broken;
+}
+
+void pb_dns_proxy_mark_broken(UINT32 config_id, ULONGLONG now_ms)
+{
+    AcquireSRWLockExclusive(&g_dns_broken_lock);
+    int slot = -1;
+    for (int i = 0; i < DNS_BROKEN_SLOTS; i++)
+    {
+        if (g_dns_broken[i].id == config_id) { slot = i; break; }
+        if (slot < 0 && g_dns_broken[i].until <= now_ms) slot = i;
+    }
+    if (slot < 0) slot = 0;
+    g_dns_broken[slot].id = config_id;
+    g_dns_broken[slot].until = now_ms + DNS_BROKEN_MS;
+    ReleaseSRWLockExclusive(&g_dns_broken_lock);
+}
+
+void pb_dns_proxy_clear_broken(void)
+{
+    AcquireSRWLockExclusive(&g_dns_broken_lock);
+    memset(g_dns_broken, 0, sizeof(g_dns_broken));
+    ReleaseSRWLockExclusive(&g_dns_broken_lock);
+}
+
+// One plain UDP query from the core's own socket (never intercepted) to resolver:53.
+static BOOL dns_udp_exchange(UINT32 resolver_ip, const unsigned char *query, int query_len,
+                             unsigned char *answer, int answer_cap, int *answer_len)
+{
+    SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (s == INVALID_SOCKET)
+        return FALSE;
+    DWORD tmo = 3000;
+    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tmo, sizeof(tmo));
+    struct sockaddr_in ra;
+    memset(&ra, 0, sizeof(ra));
+    ra.sin_family = AF_INET;
+    ra.sin_addr.s_addr = resolver_ip;
+    ra.sin_port = htons(53);
+    BOOL ok = FALSE;
+    if (sendto(s, (const char *)query, query_len, 0, (struct sockaddr *)&ra, sizeof(ra)) == query_len)
+    {
+        int n = recv(s, (char *)answer, answer_cap, 0);
+        if (n > 12 && answer[0] == query[0] && answer[1] == query[1])
+        {
+            *answer_len = n;
+            ok = TRUE;
+        }
+    }
+    closesocket(s);
+    return ok;
+}
+
 static DWORD WINAPI dns_proxy_worker(LPVOID arg)
 {
     DNS_JOB *job = (DNS_JOB *)arg;
     unsigned char answer[4096];
     int n = 0;
     UINT32 resolver = pb_is_private_ipv4(job->resolver_ip) ? g_dns_server_ip : job->resolver_ip;
-    if (pb_dns_tcp_exchange(&job->cfg, resolver, job->query, job->query_len, answer, sizeof(answer), &n))
+    const char *how = "via proxy";
+    BOOL ok = FALSE;
+    if (!pb_dns_proxy_broken(job->cfg.config_id, GetTickCount64()))
+    {
+        ok = pb_dns_tcp_exchange(&job->cfg, resolver, job->query, job->query_len, answer, sizeof(answer), &n);
+        if (!ok)
+        {
+            pb_dns_proxy_mark_broken(job->cfg.config_id, GetTickCount64());
+            log_message("[DNS] proxy #%u does not answer DNS over TCP on port 53: for the next %d s queries go directly to %u.%u.%u.%u (the resolver sees the real address)",
+                job->cfg.config_id, DNS_BROKEN_MS / 1000,
+                resolver & 0xff, (resolver >> 8) & 0xff, (resolver >> 16) & 0xff, (resolver >> 24) & 0xff);
+        }
+    }
+    if (!ok)
+    {
+        how = "directly (proxy skips port 53)";
+        ok = dns_udp_exchange(resolver, job->query, job->query_len, answer, sizeof(answer), &n);
+    }
+    if (ok)
     {
         snoop_dns_response(answer, n);
         int sent = -1;
@@ -83,14 +170,14 @@ static DWORD WINAPI dns_proxy_worker(LPVOID arg)
             sent = sendto(udp_relay_socket, (const char *)answer, n, 0, (struct sockaddr *)&job->client, sizeof(job->client));
         char key[64];
         snprintf(key, sizeof(key), "dnsok:%u", job->cfg.config_id);
-        pb_log_ratelimited(key, "[DNS] answered %d bytes via proxy #%u to client port %u (sendto %d, WSA %d)",
-            n, job->cfg.config_id, ntohs(job->client.sin_port), sent, sent == SOCKET_ERROR ? WSAGetLastError() : 0);
+        pb_log_ratelimited(key, "[DNS] answered %d bytes %s (proxy #%u) to client port %u (sendto %d, WSA %d)",
+            n, how, job->cfg.config_id, ntohs(job->client.sin_port), sent, sent == SOCKET_ERROR ? WSAGetLastError() : 0);
     }
     else
     {
         char key[64];
         snprintf(key, sizeof(key), "dnsfail:%u", job->cfg.config_id);
-        pb_log_ratelimited(key, "[DNS] query via proxy #%u failed (DNS over TCP to the resolver)", job->cfg.config_id);
+        pb_log_ratelimited(key, "[DNS] query for proxy #%u failed both through the proxy and directly", job->cfg.config_id);
     }
     SecureZeroMemory(job->cfg.password, sizeof(job->cfg.password));
     free(job);

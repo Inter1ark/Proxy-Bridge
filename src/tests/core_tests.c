@@ -917,6 +917,25 @@ static void test_udp_dns_exports(void)
     flush_to_all_log();
 }
 
+static void test_dns_proxy_broken(void)
+{
+    printf("dns via proxy: broken proxies are skipped for a while\n");
+    pb_dns_proxy_clear_broken();
+    CHECK(!pb_dns_proxy_broken(1, 1000), "unknown proxy is not broken");
+    pb_dns_proxy_mark_broken(1, 1000);
+    CHECK(pb_dns_proxy_broken(1, 1000), "marked proxy is broken now");
+    CHECK(pb_dns_proxy_broken(1, 1000 + 119000), "still broken before the window ends");
+    CHECK(!pb_dns_proxy_broken(1, 1000 + 120000), "forgotten after two minutes");
+    CHECK(!pb_dns_proxy_broken(2, 1000), "other proxies are not affected");
+    pb_dns_proxy_mark_broken(1, 5000);
+    pb_dns_proxy_mark_broken(1, 9000);
+    CHECK(pb_dns_proxy_broken(1, 9000 + 119000), "re-marking extends the window");
+    for (UINT32 id = 10; id < 10 + 70; id++) pb_dns_proxy_mark_broken(id, 20000);
+    CHECK(pb_dns_proxy_broken(79, 20000), "the table holds the newest entries");
+    pb_dns_proxy_clear_broken();
+    CHECK(!pb_dns_proxy_broken(1, 9000), "cleared at start");
+}
+
 static void test_windivert_repair_plan(void)
 {
     printf("windivert repair plan\n");
@@ -1125,6 +1144,7 @@ int main(void)
     test_filter();
     test_testconnection();
     test_udp_dns_exports();
+    test_dns_proxy_broken();
     test_windivert_repair_plan();
     test_udp_policy();
     test_udp_cache();

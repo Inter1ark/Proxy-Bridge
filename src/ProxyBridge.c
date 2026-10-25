@@ -1100,6 +1100,7 @@ static HANDLE open_windivert(const char *filter, INT16 priority)
 PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
 {
     g_last_error[0] = 0;
+    pb_dns_proxy_clear_broken();
     char filter[FILTER_BUFFER_SIZE];
     INT16 priority = 123;
 
