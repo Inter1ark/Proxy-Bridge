@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ProxyBridge</string>
+    <string name="tab_home">Home</string>
+    <string name="tab_proxies">Proxies</string>
+    <string name="tab_settings">Settings</string>
+
+    <string name="home_title">Which apps through which proxy</string>
+    <string name="home_subtitle">Changes are saved at once. While connected they apply automatically.</string>
+    <string name="rules_empty">No app rules yet. Every app follows the “All other apps” row. Tap “Add app” to route an app through its own proxy.</string>
+    <string name="rest_title">All other apps</string>
+    <string name="rest_subtitle">everything not listed above</string>
+    <string name="add_app">Add app</string>
+    <string name="action_direct">Direct</string>
+    <string name="action_block">Block</string>
+    <string name="pick_app">Choose an app</string>
+    <string name="search">Search</string>
+
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="cancel">Cancel</string>
+    <string name="state_off">Disconnected</string>
+    <string name="state_connecting">Connecting…</string>
+    <string name="state_on">Connected</string>
+    <string name="state_error">Error</string>
+    <string name="traffic_fmt">Received %1$s · Sent %2$s</string>
+    <string name="status_no_proxy">Add a proxy on the Proxies tab, then pick it for an app or for all other apps.</string>
+    <string name="status_nothing">No app goes through a proxy: pick a proxy in a rule or in the “All other apps” row.</string>
+    <string name="status_consent">Allow ProxyBridge to create a VPN connection: that is how Android hands app traffic to the app.</string>
+    <string name="status_license">A key is needed. Enter it in Settings: one key works on PC, Mac and phone.</string>
+
+    <string name="proxies_title">Proxies</string>
+    <string name="proxies_hint">socks5://user:pass@host:port, http://user:pass@host:port, host:port:user:pass</string>
+    <string name="proxies_add">Add</string>
+    <string name="proxies_paste">Paste</string>
+    <string name="proxies_empty">No proxies yet. Paste an address above: any HTTP or SOCKS5 proxy works.</string>
+    <string name="proxies_bad">Proxy format not recognized.</string>
+    <string name="proxies_dup">This proxy is already in the list.</string>
+    <string name="check">Check</string>
+    <string name="check_all">Check all</string>
+    <string name="checking">Checking…</string>
+    <string name="check_failed">No answer</string>
+    <string name="not_checked">not checked</string>
+    <string name="udp_yes">UDP</string>
+    <string name="udp_no">no UDP</string>
+    <string name="rename">Rename</string>
+    <string name="delete">Delete</string>
+    <string name="label">Name</string>
+    <string name="ok">Done</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_udp">UDP and WebRTC</string>
+    <string name="udp_auto">Via proxy or block</string>
+    <string name="udp_auto_hint">UDP of proxied apps goes through SOCKS5 UDP; when the proxy cannot, it is blocked. No IP leaks via WebRTC.</string>
+    <string name="udp_block">Always block</string>
+    <string name="udp_direct">Direct</string>
+    <string name="udp_direct_hint">UDP bypasses the proxy: calls and games work, but WebRTC and QUIC may reveal the real IP.</string>
+    <string name="settings_dns">DNS via proxy</string>
+    <string name="settings_dns_hint">Site names are resolved through the proxy (DNS over HTTPS); the ISP does not see them.</string>
+    <string name="settings_license">License</string>
+    <string name="license_key_hint">PB-XXXX-XXXX-XXXX-XXXX</string>
+    <string name="license_activate">Activate</string>
+    <string name="license_deactivate">Free this device</string>
+    <string name="license_active_fmt">Active: %1$s</string>
+    <string name="license_plan_lifetime">lifetime</string>
+    <string name="license_until_fmt">until %1$s</string>
+    <string name="license_none">No key entered. Buy one at proxybridge.org.</string>
+    <string name="license_err_not_found">No such key.</string>
+    <string name="license_err_expired">The key has expired.</string>
+    <string name="license_err_device_limit">The key is already active on the maximum number of devices.</string>
+    <string name="license_err_revoked">The key was revoked.</string>
+    <string name="license_err_network">Cannot reach the server. Check the internet connection and try again.</string>
+    <string name="license_err_other">Activation failed: %1$s</string>
+    <string name="settings_about">About</string>
+    <string name="version_fmt">ProxyBridge %1$s, core %2$s</string>
+    <string name="logs">Log</string>
+    <string name="site">proxybridge.org</string>
+
+    <string name="notif_channel">Connection</string>
+    <string name="notif_connected">Connected</string>
+    <string name="notif_text_fmt">%1$s</string>
+    <string name="via_fmt">via %1$s</string>
+    <string name="all_direct">All apps go direct, no proxy in use.</string>
+    <string name="whole_via_fmt">The whole phone via %1$s.</string>
+    <string name="apps_via_fmt">%1$s via proxy, everything else direct.</string>
+    <string name="apps_via_rest_fmt">%1$s via their proxies, everything else via %2$s.</string>
+</resources>

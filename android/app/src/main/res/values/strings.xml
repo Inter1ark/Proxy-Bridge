@@ -1,7 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ProxyBridge</string>
-    <string name="start">Подключить</string>
-    <string name="stop">Отключить</string>
-    <string name="request_hint">Запрос: proxies, rules (process = имя пакета), udp, dns_via_proxy</string>
+    <string name="tab_home">Главная</string>
+    <string name="tab_proxies">Прокси</string>
+    <string name="tab_settings">Настройки</string>
+
+    <string name="home_title">Какие программы через какой прокси</string>
+    <string name="home_subtitle">Изменения сохраняются сразу. Во время подключения они применяются автоматически.</string>
+    <string name="rules_empty">Отдельных правил пока нет. Все программы идут по строке «Все остальные программы». Нажми «Добавить программу», чтобы направить нужную программу через свой прокси.</string>
+    <string name="rest_title">Все остальные программы</string>
+    <string name="rest_subtitle">всё, что не указано выше</string>
+    <string name="add_app">Добавить программу</string>
+    <string name="action_direct">Напрямую</string>
+    <string name="action_block">Блокировать</string>
+    <string name="pick_app">Выбери программу</string>
+    <string name="search">Поиск</string>
+
+    <string name="connect">Подключить</string>
+    <string name="disconnect">Отключить</string>
+    <string name="cancel">Отменить</string>
+    <string name="state_off">Отключено</string>
+    <string name="state_connecting">Подключение…</string>
+    <string name="state_on">Подключено</string>
+    <string name="state_error">Ошибка</string>
+    <string name="traffic_fmt">Получено %1$s · Отправлено %2$s</string>
+    <string name="status_no_proxy">Добавь прокси на вкладке «Прокси», затем выбери его для программы или для всех остальных.</string>
+    <string name="status_nothing">Ни одна программа не идёт через прокси: выбери прокси в правиле или в строке «Все остальные программы».</string>
+    <string name="status_consent">Разреши ProxyBridge создавать VPN-подключение: так Android передаёт трафик программ в приложение.</string>
+    <string name="status_license">Нужен ключ. Введи его в настройках: один ключ работает на ПК, Mac и телефоне.</string>
+
+    <string name="proxies_title">Прокси</string>
+    <string name="proxies_hint">socks5://user:pass@host:port, http://user:pass@host:port, host:port:user:pass</string>
+    <string name="proxies_add">Добавить</string>
+    <string name="proxies_paste">Вставить</string>
+    <string name="proxies_empty">Прокси пока нет. Вставь адрес выше: подойдёт любой HTTP или SOCKS5 прокси.</string>
+    <string name="proxies_bad">Не распознал формат прокси.</string>
+    <string name="proxies_dup">Такой прокси уже есть.</string>
+    <string name="check">Проверить</string>
+    <string name="check_all">Проверить все</string>
+    <string name="checking">Проверка…</string>
+    <string name="check_failed">Не отвечает</string>
+    <string name="not_checked">не проверен</string>
+    <string name="udp_yes">UDP</string>
+    <string name="udp_no">без UDP</string>
+    <string name="rename">Переименовать</string>
+    <string name="delete">Удалить</string>
+    <string name="label">Название</string>
+    <string name="ok">Готово</string>
+
+    <string name="settings_title">Настройки</string>
+    <string name="settings_udp">UDP и WebRTC</string>
+    <string name="udp_auto">Через прокси или блокировать</string>
+    <string name="udp_auto_hint">UDP программ, идущих через прокси, уходит по SOCKS5 UDP; если прокси его не умеет, блокируется. Утечек IP через WebRTC нет.</string>
+    <string name="udp_block">Всегда блокировать</string>
+    <string name="udp_direct">Напрямую</string>
+    <string name="udp_direct_hint">UDP идёт мимо прокси: звонки и игры работают, но WebRTC и QUIC могут раскрыть реальный IP.</string>
+    <string name="settings_dns">DNS через прокси</string>
+    <string name="settings_dns_hint">Имена сайтов резолвятся через прокси (DNS over HTTPS), провайдер их не видит.</string>
+    <string name="settings_license">Лицензия</string>
+    <string name="license_key_hint">PB-XXXX-XXXX-XXXX-XXXX</string>
+    <string name="license_activate">Активировать</string>
+    <string name="license_deactivate">Освободить устройство</string>
+    <string name="license_active_fmt">Активна: %1$s</string>
+    <string name="license_plan_lifetime">навсегда</string>
+    <string name="license_until_fmt">до %1$s</string>
+    <string name="license_none">Ключ не введён. Купить можно на proxybridge.org.</string>
+    <string name="license_err_not_found">Такого ключа нет.</string>
+    <string name="license_err_expired">Срок ключа истёк.</string>
+    <string name="license_err_device_limit">Ключ уже активирован на максимальном числе устройств.</string>
+    <string name="license_err_revoked">Ключ отозван.</string>
+    <string name="license_err_network">Нет связи с сервером. Проверь интернет и попробуй ещё раз.</string>
+    <string name="license_err_other">Не удалось активировать: %1$s</string>
+    <string name="settings_about">О программе</string>
+    <string name="version_fmt">ProxyBridge %1$s, ядро %2$s</string>
+    <string name="logs">Журнал</string>
+    <string name="site">proxybridge.org</string>
+
+    <string name="notif_channel">Подключение</string>
+    <string name="notif_connected">Подключено</string>
+    <string name="notif_text_fmt">%1$s</string>
+    <string name="via_fmt">через %1$s</string>
+    <string name="all_direct">Все программы идут напрямую, прокси не используется.</string>
+    <string name="whole_via_fmt">Весь телефон через %1$s.</string>
+    <string name="apps_via_fmt">%1$s через прокси, остальное напрямую.</string>
+    <string name="apps_via_rest_fmt">%1$s через свои прокси, остальное через %2$s.</string>
 </resources>
