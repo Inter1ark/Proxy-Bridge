@@ -6,6 +6,12 @@ import NetworkExtension
 enum TunnelError: LocalizedError {
     case config, settings(String), tunDevice, engine(String)
 
+    /// The app receives the error through the system, which keeps only NSError fields:
+    /// the text goes into NSLocalizedDescriptionKey so it arrives intact.
+    var nsError: NSError {
+        NSError(domain: "org.proxybridge.tunnel", code: 1, userInfo: [NSLocalizedDescriptionKey: errorDescription ?? "error"])
+    }
+
     var errorDescription: String? {
         let ru = (Locale.preferredLanguages.first ?? "ru").hasPrefix("ru")
         switch self {
@@ -83,7 +89,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
               let request = cfg.requestJSON(),
               let proxy = cfg.active else {
             tlog.add("E no configuration in the VPN profile", now: true)
-            completionHandler(TunnelError.config)
+            completionHandler(TunnelError.config.nsError)
             return
         }
         tlog.add("I proxy \(proxy.kind) \(proxy.hostPort), udp \(cfg.udpMode), dns via proxy \(cfg.dnsViaProxy)")
@@ -96,9 +102,16 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                     tlog.add(String(format: "I connected, memory %.1f MB", footprintMB()), now: true)
                     self.startMemoryLog()
                 }
-                completionHandler(err)
+                if let te = err as? TunnelError {
+                    completionHandler(te.nsError)
+                } else {
+                    completionHandler(err)
+                }
             }
-            if let err = self.applySettings(remote: proxy.host) {
+            // iOS wants an IP address here, not a name: resolve the proxy host first.
+            let remote = Self.resolveIPv4(proxy.host)
+            tlog.add("I proxy address \(remote ?? "not resolved")")
+            if let err = self.applySettings(remote: remote) {
                 finish(TunnelError.settings(err))
                 return
             }
@@ -184,12 +197,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     /// Network settings: the tunnel owns the default route and DNS. Returns an error text or nil.
-    private func applySettings(remote: String) -> String? {
-        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: remote.isEmpty ? "127.0.0.1" : remote)
+    private func applySettings(remote: String?) -> String? {
+        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: remote ?? "127.0.0.1")
         let v4 = NEIPv4Settings(addresses: ["10.255.0.2"], subnetMasks: ["255.255.255.255"])
         v4.includedRoutes = [NEIPv4Route.default()]
         // the proxy itself stays outside, so the app's own proxy checks do not loop through it
-        if IPv4Address(remote) != nil {
+        if let remote = remote {
             v4.excludedRoutes = [NEIPv4Route(destinationAddress: remote, subnetMask: "255.255.255.255")]
         }
         settings.ipv4Settings = v4
@@ -209,6 +222,28 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         }
         if done.wait(timeout: .now() + 15) != .success { return "timeout" }
         return failure
+    }
+
+    /// The first IPv4 address of a host name (an IPv4 literal is returned as is).
+    static func resolveIPv4(_ host: String) -> String? {
+        if host.isEmpty { return nil }
+        if IPv4Address(host) != nil { return host }
+        var hints = addrinfo()
+        hints.ai_family = AF_INET
+        hints.ai_socktype = SOCK_STREAM
+        var res: UnsafeMutablePointer<addrinfo>?
+        guard getaddrinfo(host, nil, &hints, &res) == 0, let first = res else { return nil }
+        defer { freeaddrinfo(res) }
+        var ptr: UnsafeMutablePointer<addrinfo>? = first
+        while let ai = ptr {
+            if ai.pointee.ai_family == AF_INET, let sa = ai.pointee.ai_addr {
+                var addr = sa.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee.sin_addr }
+                var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                if inet_ntop(AF_INET, &addr, &buf, socklen_t(INET_ADDRSTRLEN)) != nil { return String(cString: buf) }
+            }
+            ptr = ai.pointee.ai_next
+        }
+        return nil
     }
 
     /// The utun descriptor the system created for this extension.
