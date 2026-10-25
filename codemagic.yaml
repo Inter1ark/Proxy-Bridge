@@ -463,7 +463,7 @@ workflows:
       - name: Upload to TestFlight
         script: |
           set -eo pipefail
-          app-store-connect publish --path build/ios/ipa/ProxyBridge.ipa --testflight
+          app-store-connect publish --path build/ios/ipa/ProxyBridge.ipa --testflight --beta-group "ProxyBridge public"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
