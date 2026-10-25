@@ -5,6 +5,15 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+import java.util.Properties
+
+// Release signing: ~/.proxybridge-android.properties (storeFile, storePassword, keyAlias, keyPassword),
+// kept outside the repository. Without it the release build is unsigned.
+val signingProps = Properties().apply {
+    val f = File(System.getProperty("user.home"), ".proxybridge-android.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 android {
     namespace = "org.proxybridge.android"
     compileSdk = 35
@@ -16,9 +25,22 @@ android {
         versionCode = 1
         versionName = "3.7.0"
     }
+    signingConfigs {
+        if (signingProps.containsKey("storeFile")) {
+            create("release") {
+                storeFile = File(signingProps.getProperty("storeFile"))
+                storePassword = signingProps.getProperty("storePassword")
+                keyAlias = signingProps.getProperty("keyAlias")
+                keyPassword = signingProps.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (signingProps.containsKey("storeFile")) signingConfig = signingConfigs.getByName("release")
         }
     }
     buildFeatures {
