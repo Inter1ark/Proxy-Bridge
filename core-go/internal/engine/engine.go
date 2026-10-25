@@ -82,6 +82,9 @@ type Options struct {
 	Logf func(format string, args ...any)
 	// Stats receives byte counters.
 	Stats *Counters
+	// LowMemory keeps TCP buffers and queues small (the iOS packet tunnel
+	// extension is killed by the system above roughly 50 MB).
+	LowMemory bool
 }
 
 // Engine is a running stack.
@@ -116,7 +119,11 @@ func New(dev tun.Device, opts Options) (*Engine, error) {
 		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol},
 	})
 
-	ep := channel.New(1024, opts.MTU, "")
+	queue, bufDefault, bufMax, inFlight := 1024, 1<<20, 8<<20, 4096
+	if opts.LowMemory {
+		queue, bufDefault, bufMax, inFlight = 256, 64<<10, 512<<10, 256
+	}
+	ep := channel.New(queue, opts.MTU, "")
 	if err := s.CreateNIC(nicID, ep); err != nil {
 		return nil, fmt.Errorf("engine: create nic: %v", err)
 	}
@@ -141,11 +148,11 @@ func New(dev tun.Device, opts Options) (*Engine, error) {
 	if err := s.SetTransportProtocolOption(tcp.ProtocolNumber, &moderate); err != nil {
 		opts.Logf("engine: set moderate rcv buffer: %v", err)
 	}
-	rcv := tcpip.TCPReceiveBufferSizeRangeOption{Min: 4096, Default: 1 << 20, Max: 8 << 20}
+	rcv := tcpip.TCPReceiveBufferSizeRangeOption{Min: 4096, Default: bufDefault, Max: bufMax}
 	if err := s.SetTransportProtocolOption(tcp.ProtocolNumber, &rcv); err != nil {
 		opts.Logf("engine: set rcv buffer range: %v", err)
 	}
-	snd := tcpip.TCPSendBufferSizeRangeOption{Min: 4096, Default: 1 << 20, Max: 8 << 20}
+	snd := tcpip.TCPSendBufferSizeRangeOption{Min: 4096, Default: bufDefault, Max: bufMax}
 	if err := s.SetTransportProtocolOption(tcp.ProtocolNumber, &snd); err != nil {
 		opts.Logf("engine: set snd buffer range: %v", err)
 	}
@@ -153,7 +160,7 @@ func New(dev tun.Device, opts Options) (*Engine, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	e := &Engine{opts: opts, dev: dev, stack: s, ep: ep, ctx: ctx, cancel: cancel}
 
-	tcpFwd := tcp.NewForwarder(s, 0, 4096, e.handleTCP)
+	tcpFwd := tcp.NewForwarder(s, 0, inFlight, e.handleTCP)
 	s.SetTransportProtocolHandler(tcp.ProtocolNumber, tcpFwd.HandlePacket)
 	udpFwd := udp.NewForwarder(s, e.handleUDP)
 	s.SetTransportProtocolHandler(udp.ProtocolNumber, udpFwd.HandlePacket)

@@ -21,6 +21,9 @@ final class AppState: ObservableObject {
     private var observer: NSObjectProtocol?
     private var lastSample: (date: Date, up: Int64, down: Int64)?
     private var expectConnect = false
+    private var sawConnecting = false
+    private var userStopped = false
+    private let applog = SharedLog.app
 
     init() {
         config = ConfigStore.load()
@@ -31,6 +34,7 @@ final class AppState: ObservableObject {
     var isOn: Bool { status == .connected }
     var isBusy: Bool { busy || status == .connecting || status == .reasserting || status == .disconnecting }
     var licensed: Bool { license.isValid || LicenseAPI.allowUnlicensed }
+    var needsKey: Bool { license.isEmpty && !LicenseAPI.allowUnlicensed }
 
     private func setup() async {
         await vpn.load()
@@ -44,21 +48,48 @@ final class AppState: ObservableObject {
     func refreshStatus() {
         let old = status
         status = vpn.status
+        if status != old { applog.add("status \(old.name) -> \(status.name)") }
         connectedSince = status == .connected ? (vpn.connection?.connectedDate ?? connectedSince ?? Date()) : nil
         if status != .connected {
             upRate = 0
             downRate = 0
             lastSample = nil
         }
-        if expectConnect && old == .connecting && status == .disconnected {
-            expectConnect = false
-            message = tr("Не удалось подключиться через прокси. Проверь прокси во вкладке «Прокси».",
-                         "Could not connect through the proxy. Check it on the Proxies tab.")
-        }
+        if expectConnect && (status == .connecting || status == .reasserting) { sawConnecting = true }
         if status == .connected {
             expectConnect = false
+            sawConnecting = false
             message = nil
         }
+        if status == .disconnected && old != .disconnected {
+            if expectConnect && sawConnecting {
+                expectConnect = false
+                sawConnecting = false
+                Task { await explainDisconnect(tr("Не удалось подключиться.", "Could not connect.")) }
+            } else if old == .connected || old == .reasserting, !userStopped {
+                Task { await explainDisconnect(tr("Соединение прервалось.", "The connection dropped.")) }
+            }
+            userStopped = false
+        }
+    }
+
+    /// Shows why iOS stopped the tunnel (the extension's error comes back through the system).
+    private func explainDisconnect(_ head: String) async {
+        var reason = ""
+        if let conn = vpn.connection {
+            let err: Error? = await withCheckedContinuation { (c: CheckedContinuation<Error?, Never>) in
+                conn.fetchLastDisconnectError { c.resume(returning: $0) }
+            }
+            if let e = err as NSError? {
+                let under = e.userInfo[NSUnderlyingErrorKey] as? NSError
+                reason = under?.localizedDescription ?? e.localizedDescription
+                applog.add("disconnect error: \(e.domain) \(e.code) \(e.localizedDescription)" + (under.map { " / \($0.domain) \($0.code) \($0.localizedDescription)" } ?? ""), now: true)
+            } else {
+                applog.add("disconnect without an error from the system", now: true)
+            }
+        }
+        message = head + (reason.isEmpty ? "" : " " + reason) + " " +
+            tr("Подробности в Настройках, раздел «Журнал».", "Details: Settings, Log.")
     }
 
     /// Traffic counters from the extension, turned into speeds.
@@ -202,6 +233,8 @@ final class AppState: ObservableObject {
     func toggle() async {
         if status == .connected || status == .connecting || status == .reasserting {
             expectConnect = false
+            userStopped = true
+            applog.add("stop pressed")
             vpn.stop()
         } else {
             await connect()
@@ -211,8 +244,11 @@ final class AppState: ObservableObject {
     func connect() async {
         message = nil
         guard licensed else {
-            message = tr("Нужен ключ. Введи его в настройках: один ключ работает на ПК, Mac и телефоне.",
-                         "A key is required. Enter it in Settings: one key works on PC, Mac and phone.")
+            message = license.isEmpty
+                ? tr("Нужен ключ. Введи его в настройках: один ключ работает на ПК, Mac и телефоне.",
+                     "A key is required. Enter it in Settings: one key works on PC, Mac and phone.")
+                : tr("Ключ не подтверждён. Подключись к интернету без VPN и открой приложение снова, или проверь срок ключа в настройках.",
+                     "The key is not confirmed. Connect to the internet without VPN and reopen the app, or check the key in Settings.")
             tab = 2
             return
         }
@@ -223,22 +259,43 @@ final class AppState: ObservableObject {
         }
         busy = true
         defer { busy = false }
+        applog.add("connect: \(config.active?.kind ?? "?") \(config.active?.hostPort ?? "?"), udp \(config.udpMode)")
         do {
             try await vpn.install(config)
+            applog.add("VPN profile saved")
             expectConnect = true
+            sawConnecting = false
+            userStopped = false
             try vpn.start()
+            applog.add("start requested")
         } catch {
+            applog.add("connect failed: \(error.localizedDescription)", now: true)
             message = tr("Не удалось включить: ", "Could not turn on: ") + error.localizedDescription
         }
         refreshStatus()
     }
 
     private func reconnect() async {
+        userStopped = true
         vpn.stop()
         for _ in 0..<30 {
             if vpn.status == .disconnected || vpn.status == .invalid { break }
             try? await Task.sleep(nanoseconds: 200_000_000)
         }
         await connect()
+    }
+}
+
+extension NEVPNStatus {
+    var name: String {
+        switch self {
+        case .invalid: return "invalid"
+        case .disconnected: return "disconnected"
+        case .connecting: return "connecting"
+        case .connected: return "connected"
+        case .reasserting: return "reasserting"
+        case .disconnecting: return "disconnecting"
+        @unknown default: return "unknown"
+        }
     }
 }

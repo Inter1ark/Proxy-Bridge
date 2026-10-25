@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -83,7 +84,17 @@ func main() {}
 //export pbSetLogger
 func pbSetLogger(fn uintptr) {
 	logFunc = unsafe.Pointer(fn)
+	// A Go crash would otherwise vanish with the extension; the extension reads this
+	// file on its next start and puts it into the shared log.
+	crashOnce.Do(func() {
+		if f, err := os.OpenFile(filepath.Join(os.TempDir(), "pbcore-crash.txt"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600); err == nil {
+			_ = debug.SetCrashOutput(f, debug.CrashOptions{})
+			f.Close()
+		}
+	})
 }
+
+var crashOnce sync.Once
 
 //export pbVersion
 func pbVersion() *C.char { return C.CString(version) }
@@ -101,7 +112,7 @@ func pbStart(request *C.char, tunFd C.int, bindIf *C.char) C.int {
 	}
 	// Keep the extension well inside the memory limit of network extensions.
 	debug.SetGCPercent(20)
-	debug.SetMemoryLimit(40 << 20)
+	debug.SetMemoryLimit(30 << 20)
 	netcfg.Logf = hostLogger{}.Debugf
 
 	dupFd, err := unix.Dup(int(tunFd))
@@ -136,6 +147,7 @@ func pbStart(request *C.char, tunFd C.int, bindIf *C.char) C.int {
 		return -1
 	}
 	cfg.Device = dev
+	cfg.LowMemory = true
 	cfg.TunName = "utun"
 	cfg.ParentPID = 0
 	rep := status.New()

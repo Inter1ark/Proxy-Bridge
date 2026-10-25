@@ -77,6 +77,14 @@ struct RootView: View {
     @EnvironmentObject var state: AppState
 
     var body: some View {
+        if state.needsKey {
+            ActivationView().preferredColorScheme(.dark)
+        } else {
+            tabs
+        }
+    }
+
+    private var tabs: some View {
         TabView(selection: $state.tab) {
             HomeView()
                 .tabItem { Label(tr("Главная", "Home"), systemImage: "power") }
@@ -90,6 +98,61 @@ struct RootView: View {
         }
         .tint(.pbCyan)
         .preferredColorScheme(.dark)
+    }
+}
+
+// MARK: - first start: the key
+
+struct ActivationView: View {
+    @EnvironmentObject var state: AppState
+    @State private var key = ""
+
+    var body: some View {
+        ZStack {
+            Color.pbBg.ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(spacing: 10) {
+                        Image("Logo").resizable().frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 10))
+                        Text("ProxyBridge").font(.system(size: 26, weight: .bold)).foregroundColor(.pbText)
+                    }
+                    .padding(.top, 40)
+                    Text(tr("Введи ключ лицензии", "Enter your license key"))
+                        .font(.system(size: 20, weight: .semibold)).foregroundColor(.pbText)
+                    Text(tr("Один ключ работает на ПК, Mac, Android и iPhone. Ключ приходит на почту после покупки.",
+                            "One key works on PC, Mac, Android and iPhone. The key comes by email after purchase."))
+                        .font(.system(size: 14)).foregroundColor(.pbMuted)
+                    TextField("PB-XXXX-XXXX-XXXX-XXXX", text: $key)
+                        .font(.system(size: 17, design: .monospaced))
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .padding(14)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.pbSurface))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.pbLine, lineWidth: 1))
+                        .foregroundColor(.pbText)
+                    HStack {
+                        Button(tr("Вставить", "Paste")) {
+                            if let s = UIPasteboard.general.string { key = s.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        }
+                        .buttonStyle(SecondaryButtonStyle())
+                        Spacer()
+                    }
+                    if let n = state.licenseNote {
+                        Text(n).font(.system(size: 14)).foregroundColor(.pbDanger)
+                    }
+                    Button {
+                        Task { await state.activate(key) }
+                    } label: {
+                        if state.licenseBusy { ProgressView().tint(.white) } else { Text(tr("Активировать", "Activate")) }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(state.licenseBusy || key.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Button(tr("Купить ключ на proxybridge.org", "Buy a key at proxybridge.org")) { openURL(siteURL + "/#pricing") }
+                        .buttonStyle(SecondaryButtonStyle())
+                }
+                .padding(24)
+            }
+        }
     }
 }
 
@@ -420,6 +483,13 @@ struct SettingsView: View {
                             "UDP is used by calls and games. When the proxy has no UDP support, UDP is blocked so nothing leaks."))
                 }
 
+                Section {
+                    NavigationLink(tr("Журнал", "Log")) { LogView() }
+                } footer: {
+                    Text(tr("Если не подключается, открой журнал и отправь его в поддержку.",
+                            "If it does not connect, open the log and send it to support."))
+                }
+
                 Section(tr("О программе", "About")) {
                     LabeledContent(tr("Версия", "Version"), value: LicenseAPI.appVersion)
                     LabeledContent(tr("Ядро", "Core"), value: coreVersion)
@@ -440,5 +510,43 @@ struct SettingsView: View {
         f.locale = Locale(identifier: isRussian ? "ru_RU" : "en_US")
         f.dateStyle = .long
         return tr("Активна до ", "Active until ") + f.string(from: d)
+    }
+}
+
+// MARK: - log
+
+struct LogView: View {
+    @State private var text = ""
+
+    private func load() {
+        let tunnel = SharedLog.tunnel.read()
+        let app = SharedLog.app.read()
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        var out = "ProxyBridge \(LicenseAPI.appVersion) (\(build)), iOS \(UIDevice.current.systemVersion), \(UIDevice.current.model)\n\n"
+        out += "--- tunnel ---\n" + (tunnel.isEmpty ? "(empty)" : tunnel)
+        out += "\n\n--- app ---\n" + (app.isEmpty ? "(empty)" : String(app.suffix(12_000)))
+        text = out
+    }
+
+    var body: some View {
+        ScrollView {
+            Text(text)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.pbText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+                .padding(12)
+        }
+        .background(Color.pbBg.ignoresSafeArea())
+        .navigationTitle(tr("Журнал", "Log"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button { UIPasteboard.general.string = text } label: { Image(systemName: "doc.on.doc") }
+                ShareLink(item: text) { Image(systemName: "square.and.arrow.up") }
+                Button { load() } label: { Image(systemName: "arrow.clockwise") }
+            }
+        }
+        .onAppear { load() }
     }
 }

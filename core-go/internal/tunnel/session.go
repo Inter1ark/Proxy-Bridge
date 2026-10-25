@@ -31,16 +31,18 @@ type Config struct {
 	// BindInterface scopes the core's own sockets to this interface (iOS: the physical
 	// interface, en0 or pdp_ip0), so they do not loop back into the tunnel. Empty: unbound.
 	BindInterface string
-	TunName       string
-	TunAddr       netip.Prefix
-	Peer          netip.Addr
-	MTU           int
-	DNS           netip.Addr // invalid: DNS over UDP is dropped
-	RouteMode     netcfg.RouteMode
-	Exempt        []int
-	ParentPID     int
-	StatsEvery    time.Duration
-	UDP           UDPOptions
+	// LowMemory makes the engine keep small buffers (iOS extension memory limit).
+	LowMemory  bool
+	TunName    string
+	TunAddr    netip.Prefix
+	Peer       netip.Addr
+	MTU        int
+	DNS        netip.Addr // invalid: DNS over UDP is dropped
+	RouteMode  netcfg.RouteMode
+	Exempt     []int
+	ParentPID  int
+	StatsEvery time.Duration
+	UDP        UDPOptions
 }
 
 // session is one running tunnel: TUN, routes, engine. It ends when Stop is
@@ -156,13 +158,14 @@ func (s *Session) setup() error {
 	}
 
 	eng, err := engine.New(dev, engine.Options{
-		MTU:      uint32(cfg.MTU),
-		Dial:     s.rt.directDial,
-		Route:    s.rt.Decide,
-		RouteUDP: s.rt.DecideUDP,
-		DNS:      dnsHostPort(cfg.DNS),
-		Logf:     s.log.Debugf,
-		Stats:    s.stats,
+		MTU:       uint32(cfg.MTU),
+		Dial:      s.rt.directDial,
+		Route:     s.rt.Decide,
+		RouteUDP:  s.rt.DecideUDP,
+		DNS:       dnsHostPort(cfg.DNS),
+		Logf:      s.log.Debugf,
+		Stats:     s.stats,
+		LowMemory: cfg.LowMemory,
 	})
 	if err != nil {
 		return err

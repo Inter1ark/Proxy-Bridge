@@ -80,8 +80,8 @@ struct LicenseState: Codable {
 enum LicenseAPI {
     static let base = "https://www.proxybridge.org"
 
-    /// Beta builds connect without a key; the release build requires one.
-    static let allowUnlicensed = true
+    /// Connecting needs an activated key.
+    static let allowUnlicensed = false
 
     enum Outcome {
         case ok(plan: String, expiresAt: String)

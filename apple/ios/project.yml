@@ -32,6 +32,7 @@ targets:
         CFBundleDisplayName: ProxyBridge
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        AppIdentifierPrefix: $(AppIdentifierPrefix)
         CFBundleDevelopmentRegion: ru
         CFBundleLocalizations: [ru, en]
         LSRequiresIPhoneOS: true
@@ -47,6 +48,7 @@ targets:
       path: ProxyBridge/ProxyBridge.entitlements
       properties:
         com.apple.developer.networking.networkextension: [packet-tunnel-provider]
+        keychain-access-groups: ["$(AppIdentifierPrefix)org.proxybridge.ios", "$(AppIdentifierPrefix)org.proxybridge.shared"]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.proxybridge.ios
@@ -66,6 +68,7 @@ targets:
         CFBundleDisplayName: ProxyBridge
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        AppIdentifierPrefix: $(AppIdentifierPrefix)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).PacketTunnelProvider
@@ -73,6 +76,7 @@ targets:
       path: PacketTunnel/PacketTunnel.entitlements
       properties:
         com.apple.developer.networking.networkextension: [packet-tunnel-provider]
+        keychain-access-groups: ["$(AppIdentifierPrefix)org.proxybridge.ios", "$(AppIdentifierPrefix)org.proxybridge.shared"]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.proxybridge.ios.tunnel
