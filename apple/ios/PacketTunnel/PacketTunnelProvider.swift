@@ -86,7 +86,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         guard let proto = protocolConfiguration as? NETunnelProviderProtocol,
               let data = proto.providerConfiguration?[TunnelConfig.providerKey] as? Data,
               let cfg = TunnelConfig.decode(data),
-              let request = cfg.requestJSON(),
+              cfg.requestJSON() != nil,
               let proxy = cfg.active else {
             tlog.add("E no configuration in the VPN profile", now: true)
             completionHandler(TunnelError.config.nsError)
@@ -111,6 +111,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             // iOS wants an IP address here, not a name: resolve the proxy host first.
             let remote = Self.resolveIPv4(proxy.host)
             tlog.add("I proxy address \(remote ?? "not resolved")")
+            guard let request = cfg.requestJSON(proxyIP: remote) else {
+                finish(TunnelError.config)
+                return
+            }
             if let err = self.applySettings(remote: remote) {
                 finish(TunnelError.settings(err))
                 return

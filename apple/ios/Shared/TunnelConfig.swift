@@ -45,11 +45,18 @@ struct TunnelConfig: Codable {
     static func decode(_ data: Data) -> TunnelConfig? { try? JSONDecoder().decode(TunnelConfig.self, from: data) }
 
     /// The start request of the core (core-go/session.go): one catch-all rule to the active proxy.
-    func requestJSON() -> String? {
+    /// proxyIP replaces the proxy host name: the extension resolves it before the tunnel takes
+    /// over DNS, so the core never has to look it up itself.
+    func requestJSON(proxyIP: String? = nil) -> String? {
         guard let p = active else { return nil }
+        var url = p.url
+        if let ip = proxyIP, var c = URLComponents(string: p.url) {
+            c.host = ip
+            url = c.string ?? p.url
+        }
         let udp = udpMode == "block" ? "block" : (udpMode == "direct" ? "direct" : "proxy")
         let req: [String: Any] = [
-            "proxies": [["id": p.id, "url": p.url]],
+            "proxies": [["id": p.id, "url": url]],
             "rules": [["process": "*", "action": "proxy", "proxy": p.id]],
             "udp": udp,
             "dns_via_proxy": dnsViaProxy,

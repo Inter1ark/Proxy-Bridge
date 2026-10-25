@@ -42,7 +42,7 @@ $(BUILDDIR)/libpbcore-$(1).a: export CGO_LDFLAGS := $(CFLAGS_PREFIX) $(ARCH)
 $(BUILDDIR)/libpbcore-$(1).a: export GOOS := $(GOOS_$(PLATFORM_NAME))
 $(BUILDDIR)/libpbcore-$(1).a: export GOARCH := $(GOARCH_$(1))
 $(BUILDDIR)/libpbcore-$(1).a: $(GOROOT)/.prepared ../go.mod
-	go build -ldflags="-w -X main.version=$(VERSION)" -trimpath -v -o "$(BUILDDIR)/libpbcore-$(1).a" -buildmode c-archive .
+	go build -tags netcgo -ldflags="-w -X main.version=$(VERSION)" -trimpath -v -o "$(BUILDDIR)/libpbcore-$(1).a" -buildmode c-archive .
 	rm -f "$(BUILDDIR)/libpbcore-$(1).h"
 endef
 $(foreach ARCH,$(ARCHS),$(eval $(call libpbcore-a,$(ARCH))))
