@@ -463,7 +463,16 @@ workflows:
       - name: Upload to TestFlight
         script: |
           set -eo pipefail
-          app-store-connect publish --path build/ios/ipa/ProxyBridge.ipa --testflight --beta-group "ProxyBridge public"
+          # A build already waiting for beta review blocks the submission of the next one; the upload
+          # itself has succeeded by then and testers of the internal group get the new build anyway.
+          set +e
+          app-store-connect publish --path build/ios/ipa/ProxyBridge.ipa --testflight --beta-group "ProxyBridge public" 2>&1 | tee /tmp/publish.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ] && grep -q "Another build is in review" /tmp/publish.log; then
+            echo "Uploaded; beta review submission skipped: another build is still in review"
+            rc=0
+          fi
+          exit $rc
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
