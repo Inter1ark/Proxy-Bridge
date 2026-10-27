@@ -109,10 +109,18 @@ def license_state(lic: License, now: datetime | None = None) -> str:
     return "active"
 
 
+PLATFORM_TITLES = {"windows": "Windows", "macos": "macOS", "android": "Android", "ios": "iPhone",
+                   "": "Компьютер, старая версия"}
+
+
 def device_dict(d: Device) -> dict:
     return {
         "hwid": short_hwid(d.hwid),
         "app_version": d.app_version,
+        "platform": d.platform or "",
+        "platform_title": PLATFORM_TITLES.get(d.platform or "", d.platform),
+        "os": d.os_version or "",
+        "model": d.device_model or "",
         "activated_at": iso_z(d.activated_at),
         "last_seen": iso_z(d.last_seen),
     }
@@ -333,9 +341,26 @@ def compute_stats(db: Session, exclude_test: bool = False, now: datetime | None 
         .join(License, License.id == Device.license_id)
         .where(*lic_conds, Device.activated_at >= to_db(now - timedelta(hours=24)))) or 0
 
+    # Devices by platform: all, and seen by the license check in the last 7 and 30 days.
+    dev_rows = db.execute(
+        select(Device.platform, Device.last_seen).join(License, License.id == Device.license_id).where(*lic_conds)).all()
+    by_platform = {}
+    for platform, last_seen in dev_rows:
+        key = platform or ""
+        b = by_platform.setdefault(key, {"platform": key, "title": PLATFORM_TITLES.get(key, key),
+                                         "total": 0, "active_7d": 0, "active_30d": 0})
+        b["total"] += 1
+        if last_seen is not None and last_seen >= to_db(now - timedelta(days=7)):
+            b["active_7d"] += 1
+        if last_seen is not None and last_seen >= to_db(now - timedelta(days=30)):
+            b["active_30d"] += 1
+    order = {"windows": 0, "macos": 1, "android": 2, "ios": 3, "": 9}
+    devices = sorted(by_platform.values(), key=lambda b: (order.get(b["platform"], 5), -b["total"]))
+
     return {
         "now": iso_z(now),
         "today_msk": today.isoformat(),
+        "devices": devices,
         "exclude_test": bool(exclude_test),
         "test_emails": sorted(settings.test_emails),
         "periods": buckets,

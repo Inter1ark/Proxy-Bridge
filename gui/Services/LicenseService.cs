@@ -72,6 +72,40 @@ public class LicenseActivateRequest
     [JsonPropertyName("key")] public string Key { get; set; } = "";
     [JsonPropertyName("hwid")] public string Hwid { get; set; } = "";
     [JsonPropertyName("app_version")] public string AppVersion { get; set; } = "";
+    [JsonPropertyName("platform")] public string Platform { get; set; } = DeviceInfo.Platform;
+    [JsonPropertyName("os")] public string Os { get; set; } = DeviceInfo.Os;
+    [JsonPropertyName("model")] public string Model { get; set; } = DeviceInfo.Model;
+}
+
+/// <summary>What the license server records about the device: platform, OS version, CPU architecture.</summary>
+public static class DeviceInfo
+{
+    public static string Platform => OperatingSystem.IsMacOS() ? "macos" : "windows";
+
+    public static string Os
+    {
+        get
+        {
+            try
+            {
+                var v = Environment.OSVersion.Version;
+                if (OperatingSystem.IsMacOS()) return $"macOS {v.Major}.{v.Minor}";
+                // Windows 11 still reports 10.0; the build number tells them apart.
+                return v.Build >= 22000 ? $"Windows 11 ({v.Build})" : $"Windows {v.Major} ({v.Build})";
+            }
+            catch
+            {
+                return "";
+            }
+        }
+    }
+
+    public static string Model => System.Runtime.InteropServices.RuntimeInformation.OSArchitecture switch
+    {
+        System.Runtime.InteropServices.Architecture.Arm64 => OperatingSystem.IsMacOS() ? "Apple Silicon" : "ARM64",
+        System.Runtime.InteropServices.Architecture.X64 => OperatingSystem.IsMacOS() ? "Intel" : "x64",
+        var a => a.ToString(),
+    };
 }
 
 public class LicenseDeactivateRequest

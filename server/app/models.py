@@ -164,6 +164,10 @@ class Device(Base):
     license_id: Mapped[int] = mapped_column(ForeignKey("licenses.id"), nullable=False, index=True)
     hwid: Mapped[str] = mapped_column(String(64), nullable=False)
     app_version: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    # windows | macos | android | ios, "" when an old client did not say
+    platform: Mapped[str | None] = mapped_column(String(16), nullable=True, default="")
+    os_version: Mapped[str | None] = mapped_column(String(64), nullable=True, default="")
+    device_model: Mapped[str | None] = mapped_column(String(64), nullable=True, default="")
     activated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now_db)
     last_seen: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now_db)
 

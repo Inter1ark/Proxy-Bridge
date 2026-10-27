@@ -101,6 +101,16 @@ enum LicenseAPI {
 
     static var appVersion: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
 
+    /// Hardware identifier such as iPhone16,2 (the marketing name is not available to apps).
+    static var deviceModel: String {
+        var info = utsname()
+        uname(&info)
+        let machine = withUnsafeBytes(of: &info.machine) { raw in
+            String(decoding: raw.prefix(while: { $0 != 0 }), as: UTF8.self)
+        }
+        return machine.isEmpty ? UIDevice.current.model : machine
+    }
+
     static func activate(_ key: String) async -> Outcome { await call("activate", key) }
     static func verify(_ key: String) async -> Outcome { await call("verify", key) }
 
@@ -109,7 +119,8 @@ enum LicenseAPI {
     }
 
     private static func call(_ op: String, _ key: String) async -> Outcome {
-        let body: [String: Any] = ["key": key.trimmingCharacters(in: .whitespaces).uppercased(), "hwid": hwid, "app_version": appVersion]
+        let body: [String: Any] = ["key": key.trimmingCharacters(in: .whitespaces).uppercased(), "hwid": hwid, "app_version": appVersion,
+                                   "platform": "ios", "os": "iOS " + UIDevice.current.systemVersion, "model": deviceModel]
         guard let (code, json) = await post("/api/license/\(op)", body) else { return .error("network") }
         if code == 200, json["ok"] as? Bool == true {
             return .ok(plan: json["plan"] as? String ?? "", expiresAt: json["expires_at"] as? String ?? "")

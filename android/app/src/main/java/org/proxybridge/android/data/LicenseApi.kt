@@ -1,6 +1,7 @@
 package org.proxybridge.android.data
 
 import android.content.Context
+import android.os.Build
 import android.provider.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -51,7 +52,11 @@ object LicenseApi {
 
     private suspend fun call(context: Context, op: String, key: String, version: String): Result = withContext(Dispatchers.IO) {
         try {
-            val body = JSONObject().put("key", key.trim().uppercase()).put("hwid", hwid(context)).put("app_version", version).toString()
+            val body = JSONObject().put("key", key.trim().uppercase()).put("hwid", hwid(context)).put("app_version", version)
+                .put("platform", "android")
+                .put("os", "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+                .put("model", "${Build.MANUFACTURER} ${Build.MODEL}".trim().take(64))
+                .toString()
             val (status, json) = post("$BASE/api/license/$op", body)
             if (status == 200 && json.optBoolean("ok")) {
                 Result.Ok(json.optString("plan"), json.optString("expires_at").takeIf { it != "null" } ?: "")

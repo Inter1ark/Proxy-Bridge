@@ -335,6 +335,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
       </div>
     </section>
 
+    <section class="card" style="margin-bottom:14px">
+      <div class="card-head"><h2>Устройства</h2><span class="muted">по последней проверке ключа</span></div>
+      <div id="devicesStats"></div>
+    </section>
+
     <div class="tabs" role="tablist">
       <button role="tab" id="tabOrders" data-tab="orders" aria-selected="true">Заказы<span class="count" id="ordersCount"></span></button>
       <button role="tab" id="tabKeys" data-tab="keys" aria-selected="false">Ключи<span class="count" id="keysCount"></span></button>
@@ -664,9 +669,27 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
       kpi("Активных ключей", num(L.active), "с устройствами: " + num(L.with_devices) + " из " + num(L.total)) +
       kpi("Активаций за 24 ч", num(L.activations_24h), "новые устройства");
     $("#kpis").innerHTML = html;
+    renderDevices(st.devices || []);
     renderChart();
     renderBreakdown(p);
     $("#bkPeriod").textContent = PERIOD_TEXT[S.period];
+  }
+
+  function renderDevices(list) {
+    var box = $("#devicesStats"); if (!box) return;
+    if (!list.length) { box.innerHTML = '<div class="dim" style="font-size:14px">Активаций пока нет</div>'; return; }
+    var max = Math.max.apply(null, list.map(function (d) { return d.total; })) || 1;
+    box.innerHTML = '<div class="bk-list">' + list.map(function (d) {
+      return '<div class="bk-row"><div class="top"><span>' + esc(d.title) + "</span><span>" + num(d.total) + " всего, активны за 7 дней: " +
+        num(d.active_7d) + ", за 30 дней: " + num(d.active_30d) + '</span></div><div class="bk-bar"><i style="width:' +
+        Math.round(d.total * 100 / max) + '%"></i></div></div>';
+    }).join("") + '</div><div class="dim" style="font-size:12px;margin-top:10px">Платформа видна с версии 3.7. Телефоны определяются сразу, компьютеры после обновления программы.</div>';
+  }
+  function devLabel(d) {
+    var parts = [d.platform_title || ""];
+    if (d.os) parts.push(d.os);
+    if (d.model) parts.push(d.model);
+    return parts.filter(Boolean).join(", ");
   }
 
   // ---------- chart ----------
@@ -884,7 +907,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
   function devicesBlock(devs) {
     if (!devs.length) return '<div class="dim" style="font-size:14px">Ключ ещё не активирован ни на одном устройстве</div>';
     return devs.map(function (d) {
-      return '<div class="dev-card"><span class="mono">' + esc(d.hwid) + "</span>" + (d.app_version ? ' <span class="dim">v' + esc(d.app_version) + "</span>" : "") +
+      return '<div class="dev-card"><b>' + esc(devLabel(d)) + '</b><br><span class="mono">' + esc(d.hwid) + "</span>" + (d.app_version ? ' <span class="dim">v' + esc(d.app_version) + "</span>" : "") +
         '<div class="muted" style="margin-top:4px">Активировано ' + esc(fmtFull(d.activated_at)) + "<br>Последний вход " + esc(fmtFull(d.last_seen)) + " (" + esc(ago(d.last_seen)) + ")</div></div>";
     }).join("");
   }
@@ -918,7 +941,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
     }
     var rows = data.items.map(function (k) {
       var devs = k.devices.length ? '<div class="devs">' + k.devices.map(function (d) {
-        return '<div><span class="mono">' + esc(d.hwid) + '</span> <span class="dim">' + (d.app_version ? "v" + esc(d.app_version) + ", " : "") + esc(ago(d.last_seen)) + "</span></div>";
+        return '<div>' + esc(d.platform_title || "") + ' <span class="mono">' + esc(d.hwid) + '</span> <span class="dim">' + (d.app_version ? "v" + esc(d.app_version) + ", " : "") + esc(ago(d.last_seen)) + "</span></div>";
       }).join("") + "</div>" : '<span class="dim">нет</span>';
       var acts = (k.revoked ? '<button class="btn sm" data-act="restore">Восстановить</button>' : '<button class="btn sm danger" data-act="revoke">Отозвать</button>') +
         '<button class="btn sm" data-act="reset"' + (k.devices.length ? "" : " disabled") + ">Сбросить устройства</button>" +

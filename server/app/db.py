@@ -34,6 +34,11 @@ def configure(url: str | None = None):
 # Columns added to existing tables after the first release: name -> SQL type.
 # create_all() never alters existing tables, so they are added by migrate_sqlite().
 ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    "devices": {
+        "platform": "VARCHAR(16) DEFAULT ''",
+        "os_version": "VARCHAR(64) DEFAULT ''",
+        "device_model": "VARCHAR(64) DEFAULT ''",
+    },
     "orders": {
         "fail_reason": "VARCHAR(64)",
         "pay_type": "VARCHAR(32)",

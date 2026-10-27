@@ -90,3 +90,22 @@ def test_revoked(client, issue_key, admin_headers):
     assert r.status_code == 403 and r.json() == {"ok": False, "error": "revoked"}
     r = _act(client, key, HWID_B)
     assert r.status_code == 403 and r.json()["error"] == "revoked"
+
+
+def test_device_platform_from_fields_and_user_agent(client, issue_key, admin_headers):
+    key = issue_key("month")
+    r = client.post("/api/license/activate", json={"key": key, "hwid": HWID_A, "app_version": "3.7.0",
+                                                   "platform": "Windows", "os": "Windows 11 (26100)", "model": "X64"})
+    assert r.status_code == 200, r.text
+    # an Android build that sends no fields is recognised by its User-Agent
+    r = client.post("/api/license/activate", json={"key": key, "hwid": HWID_B, "app_version": "3.7.0"},
+                    headers={"User-Agent": "ProxyBridge-Android"})
+    assert r.status_code == 200, r.text
+    lic = client.get(f"/api/admin/licenses?q={key}", headers=admin_headers).json()["items"][0]
+    devs = {d["platform"]: d for d in lic["devices"]}
+    assert devs["windows"]["os"] == "Windows 11 (26100)" and devs["windows"]["model"] == "X64"
+    assert devs["android"]["platform_title"] == "Android"
+    stats = client.get("/api/admin/stats", headers=admin_headers).json()
+    by = {d["platform"]: d for d in stats["devices"]}
+    assert by["windows"]["total"] == 1 and by["windows"]["active_7d"] == 1
+    assert by["android"]["total"] == 1

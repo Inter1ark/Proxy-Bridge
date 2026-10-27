@@ -17,10 +17,9 @@ def test_key_email_has_key_links_and_both_formats():
     for body in (text, html):
         assert "PB-AAAA-BBBB-CCCC-DDDD" in body
         assert "Навсегда" in body
-        assert mailer.WINDOWS_URL in body
-        assert mailer.MAC_ARM_URL in body
-        assert mailer.MAC_X64_URL in body
-        assert "/skachat/" in body
+        for anchor in ("#windows", "#macos", "#android", "#ios"):
+            assert "/skachat/" + anchor in body
+        assert "Больше писем" not in body
     assert "<html" in html and "<html" not in text
     assert "—" not in text and "—" not in html
 
@@ -37,3 +36,15 @@ def test_key_email_escapes_html():
     msg = mailer.build_message("x@example.com", "<b>key</b>", "month")
     _, html = _parts(msg)
     assert "<b>key</b>" not in html and "&lt;b&gt;key&lt;/b&gt;" in html
+
+
+def test_recovery_email():
+    msg = mailer.build_message("r@example.com", "PB-5555-6666-7777-8888", "trial", kind="recovery")
+    assert "без оплаты" in msg["Subject"]
+    text, html = _parts(msg)
+    for body in (text, html):
+        assert "PB-5555-6666-7777-8888" in body
+        assert "оплата не завершилась" in body
+        assert "/cena/" in body
+        assert "один раз" in body
+        assert "—" not in body and "–" not in body
