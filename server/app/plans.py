@@ -1,4 +1,4 @@
-"""Subscription plans (prices in RUB, duration in days, None = lifetime)."""
+"""Subscription plans (prices in RUB and in Telegram Stars, duration in days, None = lifetime)."""
 
 from dataclasses import dataclass
 
@@ -9,15 +9,18 @@ class Plan:
     title: str
     price_rub: int
     days: int | None
+    price_stars: int = 0  # Telegram Stars (XTR); priced above the RUB price
+    title_en: str = ""
 
     def to_dict(self) -> dict:
-        return {"id": self.id, "title": self.title, "price_rub": self.price_rub, "days": self.days}
+        return {"id": self.id, "title": self.title, "price_rub": self.price_rub, "days": self.days,
+                "price_stars": self.price_stars}
 
 
 PLANS: dict[str, Plan] = {
-    "month": Plan("month", "1 месяц", 99, 30),
-    "3months": Plan("3months", "3 месяца", 249, 90),
-    "lifetime": Plan("lifetime", "Навсегда", 699, None),
+    "month": Plan("month", "1 месяц", 99, 30, 150, "1 month"),
+    "3months": Plan("3months", "3 месяца", 249, 90, 375, "3 months"),
+    "lifetime": Plan("lifetime", "Навсегда", 699, None, 1000, "Lifetime"),
 }
 
 

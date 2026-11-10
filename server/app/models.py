@@ -53,6 +53,7 @@ class Order(Base):
     method: Mapped[str] = mapped_column(String(16), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     amount_rub: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount_stars: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Telegram Stars orders only
     provider_payment_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
     key: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now_db)
@@ -62,6 +63,8 @@ class Order(Base):
     pay_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     income_rub: Mapped[float | None] = mapped_column(Float, nullable=True)
     checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Set when the order extends an existing key instead of issuing a new one.
+    renew_key: Mapped[str | None] = mapped_column(String(32), index=True, nullable=True)
 
     license: Mapped["License | None"] = relationship(back_populates="order", uselist=False)
 
@@ -88,6 +91,24 @@ class License(Base):
             return False
         now = now or utcnow()
         return from_db(self.expires_at) <= now
+
+
+class LicenseMail(Base):
+    """A reminder or help message already sent for a license, so each one goes out once.
+
+    period is the license end date the reminder was about (ISO), so a renewed key gets
+    reminders again for its new end date; "" for messages sent once per license.
+    """
+
+    __tablename__ = "license_mails"
+    __table_args__ = (UniqueConstraint("license_id", "kind", "period", name="uq_license_mail"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    license_id: Mapped[int] = mapped_column(ForeignKey("licenses.id"), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)       # before3 | before1 | help
+    period: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    channel: Mapped[str] = mapped_column(String(16), nullable=False, default="email")  # email | telegram | skipped
+    sent_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now_db)
 
 
 class StoreProxy(Base):

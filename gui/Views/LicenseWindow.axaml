@@ -102,6 +102,14 @@
                            Classes.cyan="{Binding Status.IsSuccess}"
                            Classes.danger="{Binding Status.IsError}"
                            Text="{Binding Status.Text}"/>
+                <Button Classes="pb ghost caps" Height="42" HorizontalAlignment="Stretch"
+                        IsVisible="{Binding IsRenewVisible}"
+                        Command="{Binding RenewCommand}">
+                    <StackPanel>
+                        <TextBlock Text="{i:Tr license.renew_caps}"/>
+                        <c:Icon Data="{StaticResource IcoArrowUpRight}" Width="14" Height="14" StrokeThickness="1.6"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
 
             <!-- buy -->

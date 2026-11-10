@@ -19,7 +19,7 @@
 
     <Border x:Name="Root" Background="{StaticResource PbWindowBgBrush}"
             BorderBrush="{StaticResource PbLineBrush}" BorderThickness="1">
-        <Grid RowDefinitions="64,*,32">
+        <Grid RowDefinitions="64,Auto,*,32">
 
             <!-- ================= Title bar ================= -->
             <Border Grid.Row="0" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,0,0,1">
@@ -63,8 +63,29 @@
                 </Grid>
             </Border>
 
+            <!-- ================= Renew banner (last 3 days of the key) ================= -->
+            <Border Grid.Row="1" IsVisible="{Binding IsRenewBannerVisible}"
+                    Background="#1AF5A524" BorderBrush="#66F5A524" BorderThickness="0,0,0,1" Padding="28,10">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                    <Ellipse Grid.Column="0" Width="8" Height="8" Fill="#F5A524" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock Grid.Column="1" Text="{Binding RenewBannerText}" TextWrapping="Wrap"
+                               VerticalAlignment="Center" FontSize="13.5" Foreground="{StaticResource PbText2Brush}"/>
+                    <Button Grid.Column="2" Classes="pb primary caps" Height="34" Margin="16,0,0,0" Padding="16,0"
+                            Command="{Binding RenewLicenseCommand}">
+                        <StackPanel>
+                            <TextBlock Text="{i:Tr renew.button_caps}"/>
+                            <c:Icon Data="{StaticResource IcoArrowUpRight}" Width="14" Height="14" StrokeThickness="1.6"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="3" Classes="pb ghost" Height="34" Width="34" Padding="0" Margin="8,0,0,0"
+                            Command="{Binding DismissRenewBannerCommand}" ToolTip.Tip="{i:Tr renew.hide}">
+                        <TextBlock Text="✕" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
+                </Grid>
+            </Border>
+
             <!-- ================= Pages ================= -->
-            <Panel Grid.Row="1">
+            <Panel Grid.Row="2">
                 <p:HomePage IsVisible="{Binding IsHomePage}"/>
                 <p:ProxiesPage IsVisible="{Binding IsProxiesPage}"/>
                 <p:StorePage IsVisible="{Binding IsStorePage}"/>
@@ -72,7 +93,7 @@
             </Panel>
 
             <!-- ================= Footer ================= -->
-            <Border Grid.Row="2" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,1,0,0">
+            <Border Grid.Row="3" BorderBrush="{StaticResource PbLineBrush}" BorderThickness="0,1,0,0">
                 <Grid ColumnDefinitions="Auto,*,Auto" Margin="28,0">
                     <Button Grid.Column="0" Classes="pb ghost" Height="31" Padding="0" Background="Transparent"
                             Command="{Binding ShowSettingsCommand}"

@@ -358,7 +358,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
           </div>
         </div>
         <div class="field f-sel"><label for="fMethod">Платёжка</label>
-          <select class="input" id="fMethod"><option value="">Все</option><option value="yookassa">ЮKassa</option><option value="cryptobot">CryptoBot</option></select></div>
+          <select class="input" id="fMethod"><option value="">Все</option><option value="yookassa">ЮKassa</option><option value="cryptobot">CryptoBot</option><option value="stars">Telegram Stars</option></select></div>
         <div class="field f-sel"><label for="fPlan">Тариф</label>
           <select class="input" id="fPlan"><option value="">Все</option><option value="month">1 месяц</option><option value="3months">3 месяца</option><option value="lifetime">Навсегда</option></select></div>
         <div class="field f-date"><label for="fFrom">С даты</label><input class="input" type="date" id="fFrom"></div>
@@ -811,13 +811,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
     }
     var rows = data.items.map(function (o) {
       var pay = esc(o.method_title) + (o.pay_type_text ? '<span class="sub">' + esc(o.pay_type_text) + "</span>" : "");
-      var sum = esc(rub(o.amount_rub)) + (o.income_rub != null && o.status === "paid" ? '<span class="sub">' + esc(rub(o.income_rub)) + " к зачисл.</span>" : "");
+      var sum = (o.amount_stars ? esc(o.amount_stars + " ⭐") + '<span class="sub">≈ ' + esc(rub(o.amount_rub)) + "</span>" : esc(rub(o.amount_rub))) + (o.income_rub != null && o.status === "paid" && !o.amount_stars ? '<span class="sub">' + esc(rub(o.income_rub)) + " к зачисл.</span>" : "");
       var reason = o.status === "paid" ? "" : (o.fail_reason_text ? esc(o.fail_reason_text) : '<span class="dim">нет данных</span>');
       var dev = o.key ? (o.device_count + (o.last_seen ? '<span class="sub">' + esc(ago(o.last_seen)) + "</span>" : "")) : "";
       return '<tr class="click" data-id="' + o.id + '">' +
         td("Статус", "<span>" + badge(o.status) + (o.is_test ? ' <span class="badge test">тест</span>' : "") + '</span> <span class="dim mono">№' + o.id + "</span>", "c-head") +
         td("Создан", esc(fmtShort(o.created_at)), "nowrap") +
-        td("Тариф", esc(o.plan_title), "nowrap") +
+        td("Тариф", esc(o.plan_title) + (o.renew_key ? '<span class="sub">продление</span>' : ""), "nowrap") +
         td("Сумма", sum, "num") +
         td("Оплата", pay) +
         td("Email", '<div class="email" title="' + esc(o.email) + '">' + esc(o.email) + "</div>") +
@@ -872,8 +872,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
     var h = '<dl class="dl">' +
       row("Создан (МСК)", esc(fmtFull(o.created_at))) +
       row("Оплачен (МСК)", esc(fmtFull(o.paid_at))) +
-      row("Тариф", esc(o.plan_title)) +
-      row("Сумма", esc(rub(o.amount_rub))) +
+      row("Тариф", esc(o.plan_title) + (o.renew_key ? " (продление ключа " + esc(o.renew_key) + ")" : "")) +
+      row("Сумма", o.amount_stars ? esc(o.amount_stars + " ⭐ (≈ " + rub(o.amount_rub) + ")") : esc(rub(o.amount_rub))) +
       row("К зачислению", o.income_rub != null ? esc(rub(o.income_rub)) : '<span class="dim">нет данных</span>') +
       row("Платёжка", esc(o.method_title)) +
       row("Чем платили", o.pay_type_text ? esc(o.pay_type_text) : '<span class="dim">нет данных</span>') +

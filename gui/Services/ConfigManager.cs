@@ -58,6 +58,8 @@ public class AppConfig
     public string LicenseLastCheckUtc { get; set; } = "";
     /// <summary>SHA-256 hex hardware id (64 chars).</summary>
     public string LicenseHwid { get; set; } = "";
+    /// <summary>The key the server reported as expired: kept so the activation window can offer to renew it.</summary>
+    public string LicenseExpiredKey { get; set; } = "";
 }
 
 /// <summary>Per-application proxy assignment used by Split Tunnel (Apps page).</summary>

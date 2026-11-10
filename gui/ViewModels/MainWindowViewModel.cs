@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -30,6 +31,8 @@ public class MainWindowViewModel : ViewModelBase
     private readonly DispatcherTimer _statsTimer;
     private readonly DispatcherTimer _latencyTimer;
     private readonly DispatcherTimer _applyTimer;
+    private readonly DispatcherTimer _licenseTimer;
+    private bool _renewBannerDismissed;
 
     // Connection state
     private bool _isConnected;
@@ -112,6 +115,8 @@ public class MainWindowViewModel : ViewModelBase
         CheckUpdatesCommand = new RelayCommand(() => (Avalonia.Application.Current as App)?.ShowUpdateWindow(checkNow: true));
         OpenLinkCommand = new RelayCommand<string>(OpenUrl);
         OpenTelegramCommand = new RelayCommand(() => OpenUrl("https://t.me/inter1ark"));
+        RenewLicenseCommand = new RelayCommand(() => OpenUrl(LicenseService.RenewUrl(_license.Key, _license.Plan)));
+        DismissRenewBannerCommand = new RelayCommand(() => { _renewBannerDismissed = true; OnPropertyChanged(nameof(IsRenewBannerVisible)); });
         OpenLogsCommand = new RelayCommand(OpenLogsFolder);
         OpenNoticesCommand = new RelayCommand(OpenNotices);
         UnlinkDeviceCommand = new RelayCommand(async () => await UnlinkDevice());
@@ -123,6 +128,11 @@ public class MainWindowViewModel : ViewModelBase
         _statsTimer.Tick += UpdateStats;
         _latencyTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         _latencyTimer.Tick += async (_, _) => await MeasureLatencyAsync();
+        // Near the end of the key: every 30 min re-read it from the server, so a renewal made on the site
+        // hides the banner without a restart, and the banner text follows the clock (tomorrow -> today).
+        _licenseTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(30) };
+        _licenseTimer.Tick += async (_, _) => await RefreshLicenseNearEndAsync();
+        _licenseTimer.Start();
         _applyTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
         _applyTimer.Tick += async (_, _) =>
         {
@@ -180,6 +190,8 @@ public class MainWindowViewModel : ViewModelBase
     public ICommand CheckUpdatesCommand { get; }
     public ICommand OpenLinkCommand { get; }
     public ICommand OpenTelegramCommand { get; }
+    public ICommand RenewLicenseCommand { get; }
+    public ICommand DismissRenewBannerCommand { get; }
     public ICommand OpenLogsCommand { get; }
     public ICommand OpenNoticesCommand { get; }
     public ICommand UnlinkDeviceCommand { get; }
@@ -1685,6 +1697,44 @@ public class MainWindowViewModel : ViewModelBase
 
     public string LicenseMaskedKey => _license.MaskedKey;
 
+    private bool IsLicenseNearEnd => _license.HasKey && _license.ExpiresAt.HasValue
+                                     && _license.ExpiresAt.Value - DateTime.UtcNow <= LicenseService.RenewWarning;
+
+    /// <summary>Banner above the pages in the last 3 days of the key (and after its end, until the restart).</summary>
+    public bool IsRenewBannerVisible => IsLicenseNearEnd && !_renewBannerDismissed;
+
+    public string RenewBannerText
+    {
+        get
+        {
+            if (!IsLicenseNearEnd) return "";
+            var end = _license.ExpiresAt!.Value.ToLocalTime();
+            if (end <= DateTime.Now) return I18n.T("renew.banner_ended");
+            var day = end.Date == DateTime.Today ? I18n.T("renew.today")
+                : end.Date == DateTime.Today.AddDays(1) ? I18n.T("renew.tomorrow")
+                : end.ToString("d MMMM", I18n.Instance.Culture);
+            return I18n.T("renew.banner", day, end.ToString("HH:mm", CultureInfo.InvariantCulture));
+        }
+    }
+
+    private async Task RefreshLicenseNearEndAsync()
+    {
+        try
+        {
+            if (IsLicenseNearEnd)
+            {
+                var result = await LicenseService.Instance.RefreshQuietAsync();
+                if (result.Ok) RefreshLicenseInfo();
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("License refresh failed", ex);
+        }
+        OnPropertyChanged(nameof(IsRenewBannerVisible));
+        OnPropertyChanged(nameof(RenewBannerText));
+    }
+
     /// <summary>Footer: "ЛИЦЕНЗИЯ  НАВСЕГДА  /  PB-TEST-••••" or "НЕТ ЛИЦЕНЗИИ".</summary>
     public string LicenseFooterText
     {
@@ -1723,6 +1773,8 @@ public class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(LicenseExpiresText));
         OnPropertyChanged(nameof(LicenseMaskedKey));
         OnPropertyChanged(nameof(LicenseFooterText));
+        OnPropertyChanged(nameof(IsRenewBannerVisible));
+        OnPropertyChanged(nameof(RenewBannerText));
     }
 
     private async Task UnlinkDevice()

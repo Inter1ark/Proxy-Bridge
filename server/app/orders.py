@@ -7,12 +7,13 @@ import logging
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from . import mailer
-from .keys import generate_key
+from .errors import ApiError
+from .keys import generate_key, normalize_key
 from .models import License, Order, iso_z, to_db, utcnow
 from .plans import get_plan
 from .providers import cryptopay, yookassa
@@ -39,8 +40,65 @@ def issue_license(db: Session, plan_id: str, email: str | None, order: Order | N
     return lic
 
 
+def renewable_license(db: Session, raw_key: object) -> License:
+    """The license a renewal order may extend. Lifetime keys need no renewal."""
+    key = normalize_key(raw_key)
+    lic = db.scalar(select(License).where(License.key == key)) if key else None
+    if lic is None:
+        raise ApiError(404, "key_not_found")
+    if lic.revoked:
+        raise ApiError(403, "revoked")
+    if lic.expires_at is None and lic.plan_id != "trial":
+        raise ApiError(400, "lifetime")
+    return lic
+
+
+def extend_license(lic: License, plan_id: str) -> None:
+    """Add the plan to the key: days on top of the current end (or from now when it has ended),
+    or no end at all for the lifetime plan (not committed)."""
+    plan = get_plan(plan_id)
+    if plan is None:
+        raise ValueError(f"unknown plan {plan_id}")
+    if plan.days is None:
+        lic.expires_at = None
+    else:
+        now = to_db(utcnow())
+        base = lic.expires_at if lic.expires_at and lic.expires_at > now else now
+        lic.expires_at = base + timedelta(days=plan.days)
+    lic.plan_id = plan.id
+
+
+def _mark_renewal_paid(db: Session, order: Order, provider_payment_id: str | None) -> License:
+    lic = db.scalar(select(License).where(License.key == order.renew_key))
+    if lic is None:
+        raise ValueError(f"order {order.id} renews a missing key")
+    if order.status == "paid":
+        return lic
+    if provider_payment_id and not order.provider_payment_id:
+        order.provider_payment_id = provider_payment_id
+    db.flush()
+    # Claim the order in one statement, so two concurrent checks cannot extend the key twice.
+    claimed = db.execute(update(Order).where(Order.id == order.id, Order.status != "paid")
+                         .values(status="paid", paid_at=to_db(utcnow()), key=lic.key)
+                         .execution_options(synchronize_session=False)).rowcount
+    if claimed != 1:
+        db.rollback()
+        db.refresh(order)
+        return lic
+    extend_license(lic, order.plan_id)
+    db.commit()
+    db.refresh(order)
+    logger.info("Order %s paid, key %s renewed (plan %s)", order.token, lic.key, order.plan_id)
+    mailer.send_renewal_email(order.email or lic.email, lic.key, lic.plan_id, lic.expires_at)
+    notify.notify_paid_order(order, lic.key)
+    return lic
+
+
 def mark_order_paid(db: Session, order: Order, provider_payment_id: str | None = None) -> License:
-    """Idempotently mark the order paid, issue exactly one key and email it."""
+    """Idempotently mark the order paid, issue exactly one key and email it.
+    A renewal order extends its key instead."""
+    if order.renew_key:
+        return _mark_renewal_paid(db, order, provider_payment_id)
     existing = db.scalar(select(License).where(License.order_id == order.id))
     if order.status == "paid" and existing is not None:
         return existing
@@ -143,6 +201,12 @@ def apply_yookassa_payment(db: Session, order: Order, payment: dict) -> bool:
     return False
 
 
+def is_late_crypto(order) -> bool:
+    """A CryptoBot order canceled because its invoice expired. CryptoBot still accepts a payment
+    that was started before the expiry and later reports the invoice as paid."""
+    return order.method == "cryptobot" and order.status == "canceled" and order.fail_reason == "expired"
+
+
 def check_order_with_provider(db: Session, order: Order, any_status: bool = False) -> Order:
     """Ask the provider for the current status and update the order.
 
@@ -152,9 +216,10 @@ def check_order_with_provider(db: Session, order: Order, any_status: bool = Fals
     """
     if not order.provider_payment_id:
         return order
-    if order.status != "pending" and not any_status:
+    late = is_late_crypto(order)
+    if order.status != "pending" and not any_status and not late:
         return order
-    may_change_status = order.status == "pending"
+    may_change_status = order.status == "pending" or late
     try:
         if order.method == "yookassa":
             payment = yookassa.get_payment(order.provider_payment_id)
@@ -222,7 +287,7 @@ def backfill_provider_details(limit: int = 500, db: Session | None = None) -> di
     return counts
 
 
-def order_to_dict(order: Order, admin: bool = False) -> dict:
+def order_to_dict(order: Order, admin: bool = False, db: Session | None = None) -> dict:
     data = {
         "status": order.status,
         "plan_id": order.plan_id,
@@ -230,6 +295,15 @@ def order_to_dict(order: Order, admin: bool = False) -> dict:
         "key": order.key if order.status == "paid" else None,
         "method": order.method,
     }
+    if order.renew_key:
+        data["renew"] = True
+        lic = db.scalar(select(License).where(License.key == order.renew_key)) if db is not None else None
+        if lic is not None:
+            data["expires_at"] = iso_z(lic.expires_at)
+    if order.method == "stars":
+        from .stars import bot_link
+        data["amount_stars"] = order.amount_stars
+        data["tg_url"] = bot_link(order.token) if order.status == "pending" else None
     if admin:
         data.update({
             "token": order.token,

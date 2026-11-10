@@ -44,6 +44,8 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "pay_type": "VARCHAR(32)",
         "income_rub": "FLOAT",
         "checked_at": "DATETIME",
+        "amount_stars": "INTEGER",
+        "renew_key": "VARCHAR(32)",
     },
 }
 

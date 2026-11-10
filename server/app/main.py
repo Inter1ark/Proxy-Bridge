@@ -19,7 +19,9 @@ from fastapi.staticfiles import StaticFiles
 from . import db
 from .config import SERVER_DIR, settings
 from .errors import ApiError
-from .routers import admin, checkout, license, store, webhook
+from . import reminders
+from . import stars as stars_sales
+from .routers import admin, checkout, license, stars, store, webhook
 from .store import service as store_service
 from .models import Order
 from .orders import backfill_provider_details, check_order_with_provider  # noqa: F401
@@ -33,6 +35,7 @@ ADMIN_UI_HEADERS = {"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-st
 
 POLL_INTERVAL_SEC = 60
 POLL_MAX_AGE_HOURS = 24 * 7
+LATE_CRYPTO_HOURS = 6  # expired CryptoBot orders are watched this long for a late payment
 
 
 def pending_order_poller(stop: threading.Event) -> None:
@@ -46,11 +49,21 @@ def pending_order_poller(stop: threading.Event) -> None:
         try:
             cutoff = datetime.utcnow() - timedelta(hours=POLL_MAX_AGE_HOURS)
             with db.SessionLocal() as session:
+                stars_sales.expire_stale(session)
                 pending = (session.query(Order)
                            .filter(Order.status == "pending",
+                                   Order.method != "stars",  # paid through the bot webhook only
                                    Order.provider_payment_id.isnot(None),
                                    Order.created_at >= cutoff)
                            .all())
+                late_cutoff = datetime.utcnow() - timedelta(hours=LATE_CRYPTO_HOURS)
+                pending += (session.query(Order)
+                            .filter(Order.method == "cryptobot",
+                                    Order.status == "canceled",
+                                    Order.fail_reason == "expired",
+                                    Order.provider_payment_id.isnot(None),
+                                    Order.created_at >= late_cutoff)
+                            .all())
                 for order in pending:
                     try:
                         check_order_with_provider(session, order)
@@ -70,6 +83,10 @@ async def lifespan(app: FastAPI):
     thread.start()
     store_thread = threading.Thread(target=store_service.worker, args=(stop,), name="store-worker", daemon=True)
     store_thread.start()
+    if settings.REMINDERS_ENABLED:
+        threading.Thread(target=reminders.worker, args=(stop,), name="license-letters", daemon=True).start()
+    if settings.STARS_BOT_TOKEN:
+        threading.Thread(target=stars_sales.poller, args=(stop,), name="stars-bot", daemon=True).start()
     yield
     stop.set()
 
@@ -104,6 +121,7 @@ def create_app() -> FastAPI:
     app.include_router(license.router)
     app.include_router(checkout.router)
     app.include_router(webhook.router)
+    app.include_router(stars.router)
     app.include_router(admin.router)
     app.include_router(store.router)
 

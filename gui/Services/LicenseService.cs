@@ -140,6 +140,17 @@ public class LicenseService
 {
     public const string DefaultApiBase = "https://www.proxybridge.org/api/license";
     public const string BuyUrl = "https://www.proxybridge.org/buy.html";
+
+    /// <summary>The site page that extends this same key (the paid days are added to it).</summary>
+    public static string RenewUrl(string key, string? plan = null)
+    {
+        var p = plan == "3months" ? "3months" : "month";
+        return $"{BuyUrl}?renew={Uri.EscapeDataString(NormalizeKey(key))}&plan={p}"
+               + (I18n.Instance.IsRussian ? "" : "&lang=en");
+    }
+
+    /// <summary>Days before the end when the app starts offering to renew.</summary>
+    public static readonly TimeSpan RenewWarning = TimeSpan.FromDays(3);
     public static readonly TimeSpan CacheLifetime = TimeSpan.FromDays(7);
 
     private static readonly Lazy<LicenseService> _instance = new(() => new LicenseService());
@@ -207,12 +218,17 @@ public class LicenseService
         return LicenseStartupDecision.NeedsOnlineVerify;
     }
 
-    /// <summary>Removes the license from the local cache (the HWID is kept).</summary>
-    public void ClearLicense()
+    /// <summary>The key that ended (see VerifyAsync), or "" when there is none.</summary>
+    public string GetExpiredKey() => ConfigManager.LoadConfig().LicenseExpiredKey ?? "";
+
+    /// <summary>Removes the license from the local cache (the HWID is kept).
+    /// With expired the key is remembered, so the activation window can offer to renew it.</summary>
+    public void ClearLicense(bool expired = false)
     {
         lock (_lock)
         {
             var config = ConfigManager.LoadConfig();
+            config.LicenseExpiredKey = expired ? config.LicenseKey ?? "" : "";
             config.LicenseKey = "";
             config.LicensePlan = "";
             config.LicenseExpiresAt = "";
@@ -233,6 +249,7 @@ public class LicenseService
                 : "";
             config.LicenseLastCheckUtc = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
             config.LicenseHwid = GetHwid();
+            config.LicenseExpiredKey = "";
             ConfigManager.SaveConfig(config);
         }
     }
@@ -267,7 +284,22 @@ public class LicenseService
         if (result.Ok)
             SaveLicense(state.Key, result);
         else if (!result.IsNetworkError)
-            ClearLicense();
+            ClearLicense(expired: result.Error == "expired");
+        return result;
+    }
+
+    /// <summary>
+    /// Re-reads the end date while the app runs (picks up a renewal made on the site).
+    /// Saves on success and never clears the cache: the app keeps running until its next start.
+    /// </summary>
+    public async Task<LicenseResult> RefreshQuietAsync()
+    {
+        var state = GetCachedState();
+        if (!state.HasKey)
+            return Fail("not_found");
+        var result = await PostLicenseAsync("verify", state.Key);
+        if (result.Ok)
+            SaveLicense(state.Key, result);
         return result;
     }
 

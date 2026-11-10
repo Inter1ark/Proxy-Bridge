@@ -31,12 +31,15 @@ def notify_paid_order(order, key: str) -> None:
     plan = get_plan(order.plan_id)
     title = plan.title if plan else order.plan_id
     price = f"{plan.price_rub} ₽" if plan else ""
-    method = {"yookassa": "ЮKassa", "cryptobot": "CryptoBot"}.get(order.method, order.method)
+    if getattr(order, "amount_stars", None):
+        price = f"{order.amount_stars} ⭐"
+    method = {"yookassa": "ЮKassa", "cryptobot": "CryptoBot", "stars": "Telegram Stars"}.get(order.method, order.method)
+    head = "🟩 ProxyBridge: продление ключа" if getattr(order, "renew_key", None) else "🟦 ProxyBridge: новая оплата"
     text = (
-        "🟦 ProxyBridge: новая оплата\n"
+        f"{head}\n"
         f"Тариф: {title} {price}\n"
         f"Способ: {method}\n"
-        f"Email: {order.email}\n"
+        f"Email: {order.email or 'нет, покупка в боте'}\n"
         f"Ключ: {key}\n"
         f"Заказ: {order.id}"
     )

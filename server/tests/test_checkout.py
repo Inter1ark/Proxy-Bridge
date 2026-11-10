@@ -7,7 +7,7 @@ def test_plans_list(client):
     assert r.status_code == 200
     plans = r.json()
     assert [p["id"] for p in plans] == ["month", "3months", "lifetime"]
-    assert plans[0] == {"id": "month", "title": "1 месяц", "price_rub": 99, "days": 30}
+    assert plans[0] == {"id": "month", "title": "1 месяц", "price_rub": 99, "days": 30, "price_stars": 150}
     assert plans[1]["price_rub"] == 249 and plans[1]["days"] == 90
     assert plans[2]["price_rub"] == 699 and plans[2]["days"] is None
 
@@ -88,3 +88,17 @@ def test_cryptobot_check_expired_invoice_cancels(client, mock_cryptopay):
     mock_cryptopay["invoices"][invoice_id]["status"] = "expired"
     r = client.post(f"/api/order/{token}/check")
     assert r.json()["status"] == "canceled" and r.json()["key"] is None
+
+
+def test_cryptobot_paid_after_expiry_issues_key(client, mock_cryptopay, db_session):
+    # CryptoBot confirms a payment started before the invoice expired after the order was canceled.
+    r = client.post("/api/checkout", json={"plan_id": "month", "email": "a@b.co", "method": "cryptobot"})
+    token = r.json()["order_token"]
+    invoice_id = next(iter(mock_cryptopay["invoices"]))
+    mock_cryptopay["invoices"][invoice_id]["status"] = "expired"
+    assert client.post(f"/api/order/{token}/check").json()["status"] == "canceled"
+
+    mock_cryptopay["invoices"][invoice_id].update(status="paid", paid_asset="BTC")
+    data = client.post(f"/api/order/{token}/check").json()
+    assert data["status"] == "paid" and normalize_key(data["key"]) == data["key"]
+    assert db_session.query(License).count() == 1

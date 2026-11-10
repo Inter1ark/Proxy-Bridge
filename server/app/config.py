@@ -56,9 +56,17 @@ class Settings:
         self.TELEGRAM_BOT_TOKEN: str = env.get("TELEGRAM_BOT_TOKEN", "")
         self.TELEGRAM_ADMIN_IDS: str = env.get("TELEGRAM_ADMIN_IDS", "")
         self.TELEGRAM_PROXY: str = env.get("TELEGRAM_PROXY", "")
+        # Telegram Stars: a separate bot sells keys; the webhook secret guards /webhook/telegram-stars.
+        self.STARS_BOT_TOKEN: str = env.get("STARS_BOT_TOKEN", "")
+        self.STARS_BOT_USERNAME: str = env.get("STARS_BOT_USERNAME", "")
+        self.STARS_WEBHOOK_SECRET: str = env.get("STARS_WEBHOOK_SECRET", "")
+        # What one Star brings after the withdrawal, in RUB (for the revenue numbers only).
+        self.STARS_RUB_RATE: float = float(env.get("STARS_RUB_RATE", "1.0") or 1.0)
         self.SMTP_USER: str = env.get("SMTP_USER", "")
         self.SMTP_PASS: str = env.get("SMTP_PASS", "")
         self.SMTP_FROM: str = env.get("SMTP_FROM", "") or self.SMTP_USER
+        # Reminders before a key ends and the help letter after a purchase (app/reminders.py)
+        self.REMINDERS_ENABLED: bool = env.get("REMINDERS_ENABLED", "1").strip().lower() not in ("0", "false", "no", "")
         self.DATABASE_URL: str = env.get("DATABASE_URL", _default_db_url())
         self.MAX_DEVICES: int = int(env.get("MAX_DEVICES", "2") or 2)
         self.LOG_LEVEL: str = env.get("LOG_LEVEL", "INFO")

@@ -3,6 +3,7 @@
 import html
 import logging
 import smtplib
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid
 
@@ -151,7 +152,14 @@ def send_key_email(to_email: str, key: str, plan_id: str, kind: str = "purchase"
     if not settings.smtp_configured:
         logger.info("SMTP not configured; key for %s (plan %s) is %s", to_email, plan_id, key)
         return False
-    msg = build_message(to_email, key, plan_id, kind)
+    return _deliver(build_message(to_email, key, plan_id, kind), f"key email (plan {plan_id})")
+
+
+def _deliver(msg: EmailMessage, what: str) -> bool:
+    to_email = msg["To"]
+    if not settings.smtp_configured:
+        logger.info("SMTP not configured; %s for %s not sent", what, to_email)
+        return False
     try:
         if settings.SMTP_PORT == 465:
             server = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20)
@@ -168,8 +176,173 @@ def send_key_email(to_email: str, key: str, plan_id: str, kind: str = "purchase"
             if settings.SMTP_USER:
                 server.login(settings.SMTP_USER, settings.SMTP_PASS)
             server.send_message(msg)
-        logger.info("Key email sent to %s (plan %s)", to_email, plan_id)
+        logger.info("Sent %s to %s", what, to_email)
         return True
     except Exception as exc:
-        logger.error("Failed to send key email to %s: %s", to_email, exc)
+        logger.error("Failed to send %s to %s: %s", what, to_email, exc)
         return False
+
+
+# ---------------------------------------------------------------------------
+# Renewal receipt, reminders before the end and the "did it work" letter
+# ---------------------------------------------------------------------------
+
+MSK = timezone(timedelta(hours=3))
+MONTHS = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября",
+          "октября", "ноября", "декабря")
+PRICES_LINE = "1 месяц 99 ₽, 3 месяца 249 ₽, навсегда 699 ₽. Оплата картой, СБП, криптовалютой или звёздами Telegram."
+
+
+def _msk(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(MSK)
+
+
+def human_date(dt: datetime) -> str:
+    d = _msk(dt)
+    return f"{d.day} {MONTHS[d.month - 1]}"
+
+
+def when_text(end: datetime, now: datetime | None = None) -> str:
+    """"сегодня", "завтра" or "12 ноября" for the end date, by Moscow calendar days."""
+    end_day = _msk(end).date()
+    today = _msk(now or datetime.now(timezone.utc)).date()
+    if end_day == today:
+        return "сегодня"
+    if end_day == today + timedelta(days=1):
+        return "завтра"
+    return human_date(end)
+
+
+def renew_url(key: str, plan_id: str = "") -> str:
+    plan = plan_id if plan_id in ("month", "3months", "lifetime") else "month"
+    return _site(f"/buy.html?renew={key}&plan={plan}")
+
+
+def _simple_message(to_email: str, subject: str, paragraphs: list[str], button: tuple[str, str] | None,
+                    key: str | None = None, small: list[str] | None = None) -> EmailMessage:
+    """A short letter: paragraphs (plain text, escaped), an optional key box and one button."""
+    e = html.escape
+    small = small or []
+    sender = settings.SMTP_FROM or settings.SMTP_USER
+    text = "\n\n".join(paragraphs)
+    if key:
+        text += f"\n\nКлюч: {key}"
+    if button:
+        text += f"\n\n{button[0]}: {button[1]}"
+    if small:
+        text += "\n\n" + "\n".join(small)
+    text += f"\n\nВопросы: Telegram {SUPPORT_TG} или ответь на это письмо.\nProxyBridge, {_site('/')}\n"
+
+    rows = "".join(f'<tr><td style="font-size:15px;line-height:1.55;padding-bottom:14px">{e(par)}</td></tr>'
+                   for par in paragraphs)
+    if key:
+        rows += ('<tr><td style="padding:4px 0 16px"><table role="presentation" cellspacing="0" cellpadding="0" '
+                 'width="100%" style="background:#0a0e1a;border-radius:10px"><tr><td style="padding:16px 18px;'
+                 'color:#ffffff;font-family:SFMono-Regular,Menlo,Consolas,monospace;font-size:20px;font-weight:700;'
+                 f'letter-spacing:.04em">{e(key)}</td></tr></table></td></tr>')
+    if button:
+        rows += (f'<tr><td style="padding:2px 0 18px"><a href="{e(button[1])}" style="display:inline-block;'
+                 'padding:12px 20px;border-radius:8px;background:#2d5bff;color:#ffffff;font-weight:700;'
+                 f'text-decoration:none;font-size:15px">{e(button[0])}</a></td></tr>')
+    rows += "".join(f'<tr><td style="font-size:13px;line-height:1.55;color:#4b5570;padding-bottom:8px">{e(x)}</td></tr>'
+                    for x in small)
+    body = f"""<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:#f3f5fa;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0a0e1a">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f5fa;padding:24px 12px">
+<tr><td align="center">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:14px;padding:28px 28px 20px">
+<tr><td style="font-size:22px;font-weight:800;padding-bottom:12px">ProxyBridge</td></tr>
+{rows}
+<tr><td style="font-size:14px;line-height:1.6;color:#4b5570;border-top:1px solid #e6e9f2;padding-top:14px">Вопросы: <a href="{SUPPORT_TG}" style="color:#2d5bff">Telegram</a> или ответь на это письмо.<br><a href="{_site('/')}" style="color:#4b5570">proxybridge.org</a></td></tr>
+</table>
+</td></tr></table>
+</body></html>
+"""
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = formataddr((SENDER_NAME, sender))
+    msg["To"] = to_email
+    msg["Reply-To"] = sender
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid(domain=sender.split("@")[-1] if "@" in sender else "proxybridge.org")
+    msg.set_content(text)
+    msg.add_alternative(body, subtype="html")
+    return msg
+
+
+def renewal_message(to_email: str, key: str, plan_id: str, expires_at: datetime | None) -> EmailMessage:
+    if expires_at is None:
+        state = f"Оплата получена. Ключ {key} теперь бессрочный."
+    else:
+        state = f"Оплата получена. Ключ {key} продлён, теперь он действует до {human_date(expires_at)} включительно."
+    return _simple_message(
+        to_email, "Ключ ProxyBridge продлён",
+        [state,
+         "Вводить ключ заново не нужно. Если программа уже показала, что срок истёк, перезапусти её "
+         "или вставь этот же ключ в окно активации."],
+        None, key=key, small=[f"Тариф: {_plan_title(plan_id)}."])
+
+
+def send_renewal_email(to_email: str | None, key: str, plan_id: str, expires_at: datetime | None) -> bool:
+    if not to_email:
+        return False
+    return _deliver(renewal_message(to_email, key, plan_id, expires_at), f"renewal email for {key}")
+
+
+def reminder_message(to_email: str, key: str, plan_id: str, expires_at: datetime,
+                     now: datetime | None = None) -> EmailMessage:
+    when = when_text(expires_at, now)
+    end_time = _msk(expires_at).strftime("%H:%M")
+    return _simple_message(
+        to_email, f"Ключ ProxyBridge закончится {when}",
+        [f"Срок ключа ProxyBridge заканчивается {when} в {end_time} по Москве.",
+         "Чтобы программа продолжила работать, продли этот же ключ. Новый ключ вводить не придётся, "
+         "а оплаченные дни добавятся к текущему сроку, поэтому продлить можно заранее и ничего не потерять.",
+         PRICES_LINE],
+        ("Продлить ключ", renew_url(key, plan_id)), key=key,
+        small=["Автоматических списаний нет: если не продлевать, ключ просто перестанет работать.",
+               "Письмо пришло, потому что ключ куплен на этот адрес."])
+
+
+def expired_message(to_email: str, key: str, plan_id: str, expired_at: datetime) -> EmailMessage:
+    return _simple_message(
+        to_email, "Ключ ProxyBridge закончился, его можно продлить",
+        [f"Срок ключа ProxyBridge закончился {human_date(expired_at)}. Мы тогда ещё не присылали напоминаний, "
+         "поэтому пишем сейчас.",
+         "Если программа пригодилась, ключ можно продлить: это тот же ключ, вводить новый не придётся. "
+         "Новый срок начнётся с момента оплаты.",
+         PRICES_LINE],
+        ("Продлить ключ", renew_url(key, plan_id)), key=key,
+        small=["Если что-то не получилось с настройкой, ответь на это письмо или напиши в Telegram, поможем.",
+               "Это письмо отправлено один раз, больше писем об этом ключе не будет."])
+
+
+def send_expired_email(to_email: str, key: str, plan_id: str, expired_at: datetime) -> bool:
+    return _deliver(expired_message(to_email, key, plan_id, expired_at), f"expired letter for {key}")
+
+
+def send_reminder_email(to_email: str, key: str, plan_id: str, expires_at: datetime) -> bool:
+    return _deliver(reminder_message(to_email, key, plan_id, expires_at), f"renewal reminder for {key}")
+
+
+def help_message(to_email: str, key: str, activated: bool) -> EmailMessage:
+    first = ("Ты недавно купил ключ ProxyBridge, но он пока не активирован ни на одном устройстве."
+             if not activated else
+             "Ты недавно купил ключ ProxyBridge. Хотим убедиться, что всё заработало.")
+    steps = ("Как начать: скачай программу для своей системы, при первом запуске вставь ключ, "
+             "на вкладке «Прокси» добавь адрес прокси и проверь его, затем выбери программы на «Главной» "
+             "и нажми «Подключить». На телефоне выбери прокси и нажми кнопку подключения.")
+    return _simple_message(
+        to_email, "Получилось запустить ProxyBridge?",
+        [first, steps,
+         "Если что-то не получается, напиши нам в Telegram или просто ответь на это письмо: "
+         "поможем настроить. Если прокси ещё нет, его можно купить прямо в программе на вкладке «Получить прокси»."],
+        ("Скачать и инструкция", _site("/skachat/")), key=key,
+        small=["Если всё уже работает, просто не обращай внимания на это письмо. Оно отправляется один раз."])
+
+
+def send_help_email(to_email: str, key: str, activated: bool) -> bool:
+    return _deliver(help_message(to_email, key, activated), f"help email for {key}")

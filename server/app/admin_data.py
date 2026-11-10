@@ -44,7 +44,7 @@ PAY_TYPE_TEXT = {
 }
 
 STATUS_TEXT = {"paid": "Оплачен", "canceled": "Не оплачен", "pending": "Ожидает оплаты"}
-METHOD_TEXT = {"yookassa": "ЮKassa", "cryptobot": "CryptoBot"}
+METHOD_TEXT = {"yookassa": "ЮKassa", "cryptobot": "CryptoBot", "stars": "Telegram Stars"}
 PERIODS = ("today", "7d", "30d", "all")
 
 
@@ -161,9 +161,11 @@ def order_item(order: Order, lic_info: dict | None = None) -> dict:
         "status": order.status,
         "status_text": STATUS_TEXT.get(order.status, order.status),
         "amount_rub": order.amount_rub,
+        "amount_stars": order.amount_stars,
         "income_rub": order.income_rub,
         "provider_payment_id": order.provider_payment_id,
         "key": order.key,
+        "renew_key": order.renew_key,
         "created_at": iso_z(order.created_at),
         "paid_at": iso_z(order.paid_at),
         "checked_at": iso_z(order.checked_at),

@@ -23,7 +23,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.orm import Session
 
 from .. import notify
@@ -47,6 +47,7 @@ METHODS = ("yookassa", "cryptobot")
 ROTATIONS = ("static", "interval", "request")
 TTL_MAX = 1440
 PAYMENT_MAX_AGE = timedelta(days=2)
+LATE_CRYPTO_AGE = timedelta(hours=6)  # expired crypto orders are watched this long for a late payment
 PROBE_URL = "http://ip-api.com/json/?fields=status,countryCode"
 PROBE_GIVE_UP = timedelta(minutes=3)
 DEDICATED_GIVE_UP = timedelta(minutes=30)
@@ -406,9 +407,15 @@ def _amount_ok(amount: dict, order: StoreOrder) -> bool:
         return False
 
 
+def _late_crypto(order: StoreOrder) -> bool:
+    """Canceled because the CryptoBot invoice expired: a payment started in time may still confirm."""
+    return order.method != "yookassa" and order.status == "canceled" and order.fail_reason == "expired"
+
+
 def _mark_paid(db: Session, order: StoreOrder) -> None:
+    from_status = "canceled" if _late_crypto(order) else "pending"
     res = db.execute(update(StoreOrder)
-                     .where(StoreOrder.id == order.id, StoreOrder.status == "pending")
+                     .where(StoreOrder.id == order.id, StoreOrder.status == from_status)
                      .values(status="paid", paid_at=to_db(utcnow()), fulfill="queued"))
     db.commit()
     db.refresh(order)
@@ -419,8 +426,8 @@ def _mark_paid(db: Session, order: StoreOrder) -> None:
 
 
 def check_payment(db: Session, order: StoreOrder) -> StoreOrder:
-    """Ask the payment provider about a pending order. Never raises on provider errors."""
-    if order.status != "pending" or not order.provider_payment_id:
+    """Ask the payment provider about a pending order (or a late crypto one). Never raises on provider errors."""
+    if (order.status != "pending" and not _late_crypto(order)) or not order.provider_payment_id:
         return order
     try:
         if order.method == "yookassa":
@@ -453,7 +460,7 @@ def check_payment(db: Session, order: StoreOrder) -> StoreOrder:
                 db.commit()
                 _mark_paid(db, order)
                 return order
-            if invoice.get("status") == "expired":
+            if invoice.get("status") == "expired" and order.status == "pending":
                 order.status = "canceled"
                 order.fail_reason = "expired"
             db.commit()
@@ -777,8 +784,11 @@ def tick(db: Session) -> None:
     now = utcnow()
     cutoff = to_db(now - PAYMENT_MAX_AGE)
     recheck = to_db(now - timedelta(seconds=15))
-    for order in db.scalars(select(StoreOrder).where(StoreOrder.status == "pending",
-                                                     StoreOrder.created_at >= cutoff)).all():
+    late_cutoff = to_db(now - LATE_CRYPTO_AGE)
+    for order in db.scalars(select(StoreOrder).where(
+            or_(and_(StoreOrder.status == "pending", StoreOrder.created_at >= cutoff),
+                and_(StoreOrder.status == "canceled", StoreOrder.fail_reason == "expired",
+                     StoreOrder.method != "yookassa", StoreOrder.created_at >= late_cutoff)))).all():
         if order.checked_at is None or order.checked_at <= recheck:
             check_payment(db, order)
     for order in db.scalars(select(StoreOrder).where(StoreOrder.status == "paid",

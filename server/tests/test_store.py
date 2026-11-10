@@ -232,11 +232,11 @@ def test_dc_order_flow_and_unknown_outcome(client, store, db_session):
     assert post(client, "/order/status", store, token=token).json()["state"] == "processing"
     store["d_orders"]["d-1"].update(order_status="success", connection_host="194.0.2.10",
                                       connection_port=48349, connection_login="u", connection_password="p",
-                                      access_expires_at="2026-11-09T21:29:52Z")
+                                      access_expires_at="2030-11-09T21:29:52Z")
     run(db_session)
     body = post(client, "/order/status", store, token=token).json()
     assert body["state"] == "done"
-    assert body["proxy"]["host"] == "194.0.2.10" and body["proxy"]["expires_at"] == "2026-11-09T21:29:52Z"
+    assert body["proxy"]["host"] == "194.0.2.10" and body["proxy"]["expires_at"] == "2030-11-09T21:29:52Z"
     assert body["proxy"]["can_renew"] is True
 
     # A purchase whose outcome is unknown is never retried or refunded automatically.

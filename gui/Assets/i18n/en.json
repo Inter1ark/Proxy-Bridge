@@ -549,5 +549,13 @@
   "upd.installing_text_mac": "Enter the administrator password in the macOS prompt. ProxyBridge installs the update and relaunches.",
   "upd.err.install_cancelled": "Installation cancelled: no administrator password was entered. Press Retry when ready.",
   "engine.mac.helper_background_blocked": "macOS does not allow the system helper to run in the background, so the password will be asked on every connect. Open System Settings → General → Login Items & Extensions and enable ProxyBridge under “Allow in the Background”.",
-  "status.warning_detail": "{0}"
+  "status.warning_detail": "{0}",
+  "license.renew_caps": "RENEW THIS KEY",
+  "license.msg.renew_hint": "After paying on the site, come back and press Activate: the key stays the same.",
+  "renew.banner": "Your key ends {0} at {1}. Renew it ahead of time: the paid days are added to the current term, no new key to enter.",
+  "renew.banner_ended": "Your key has ended. Renew it so the app keeps working after a restart.",
+  "renew.today": "today",
+  "renew.tomorrow": "tomorrow",
+  "renew.button_caps": "RENEW",
+  "renew.hide": "Hide until the next start"
 }

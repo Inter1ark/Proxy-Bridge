@@ -27,12 +27,20 @@ public class LicenseViewModel : ViewModelBase
 
         var cached = _license.GetCachedState();
         if (cached.HasKey) _keyText = cached.Key;
+        else
+        {
+            // the key that ended stays in the field: after renewing on the site the user just presses Activate
+            var ended = _license.GetExpiredKey();
+            if (!string.IsNullOrWhiteSpace(ended)) { _keyText = ended; _isRenewVisible = true; }
+        }
 
         if (!string.IsNullOrWhiteSpace(initialMessageKey))
             Status.Set(initialMessageKey, initialMessageKey == "license.msg.unlinked" ? StatusKind.Neutral : StatusKind.Error);
+        if (initialMessageKey == "license.err.expired") _isRenewVisible = true;
 
         ActivateCommand = new RelayCommand(async () => await ActivateAsync(), () => !_isBusy);
         BuyCommand = new RelayCommand(OpenBuyPage);
+        RenewCommand = new RelayCommand(OpenRenewPage);
         SetRussianCommand = new RelayCommand(() => I18n.Instance.SetLanguageAndSave(I18n.Russian));
         SetEnglishCommand = new RelayCommand(() => I18n.Instance.SetLanguageAndSave(I18n.English));
 
@@ -62,6 +70,17 @@ public class LicenseViewModel : ViewModelBase
     }
 
     public bool IsNotBusy => !_isBusy;
+
+    private bool _isRenewVisible;
+
+    /// <summary>The key has ended: show "Renew this key" (opens the site with the key filled in).</summary>
+    public bool IsRenewVisible
+    {
+        get => _isRenewVisible;
+        set => SetProperty(ref _isRenewVisible, value);
+    }
+
+    public ICommand RenewCommand { get; }
 
     public bool IsRussian => I18n.Instance.IsRussian;
     public bool IsEnglish => !I18n.Instance.IsRussian;
@@ -101,6 +120,8 @@ public class LicenseViewModel : ViewModelBase
             }
 
             Status.Set(LicenseService.ErrorToKey(result.Error), StatusKind.Error, result.Error);
+            IsRenewVisible = result.Error == "expired";
+            if (IsRenewVisible && string.IsNullOrWhiteSpace(KeyText)) KeyText = _license.GetExpiredKey();
         }
         catch (Exception ex)
         {
@@ -142,6 +163,7 @@ public class LicenseViewModel : ViewModelBase
             }
 
             Status.Set(LicenseService.ErrorToKey(result.Error), StatusKind.Error, result.Error);
+            IsRenewVisible = result.Error == "expired";
         }
         catch (Exception ex)
         {
@@ -151,6 +173,25 @@ public class LicenseViewModel : ViewModelBase
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private void OpenRenewPage()
+    {
+        var key = LicenseService.NormalizeKey(KeyText);
+        if (!LicenseService.IsValidKeyFormat(key)) key = _license.GetExpiredKey();
+        Status.Set("license.msg.renew_hint", StatusKind.Neutral);
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = string.IsNullOrWhiteSpace(key) ? LicenseService.BuyUrl : LicenseService.RenewUrl(key),
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // browser could not be opened
         }
     }
 
