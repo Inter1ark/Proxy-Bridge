@@ -83,7 +83,9 @@ func main() {}
 
 //export pbSetLogger
 func pbSetLogger(fn uintptr) {
-	logFunc = unsafe.Pointer(fn)
+	// The same bits as unsafe.Pointer(fn) without a uintptr conversion that go vet rejects:
+	// fn is a C function pointer from the extension, not memory the Go collector manages.
+	logFunc = *(*unsafe.Pointer)(unsafe.Pointer(&fn))
 	// A Go crash would otherwise vanish with the extension; the extension reads this
 	// file on its next start and puts it into the shared log.
 	crashOnce.Do(func() {
