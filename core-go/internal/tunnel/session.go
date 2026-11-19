@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -180,6 +181,16 @@ func (s *Session) setup() error {
 		}
 		if bits := netcfg.SplitBits(); bits > 1 {
 			s.log.Infof("tunnel routes installed as /%d: another tunnel holds the shorter prefixes", bits)
+		}
+		// macOS sends name lookups to the DNS servers of the network service outside the tunnel
+		// routes, so with DNS via proxy the services point at the tunnel peer while connected:
+		// queries to it enter the engine (a private address is answered through the proxy).
+		if udp.DNSViaProxy && runtime.GOOS == "darwin" && cfg.Peer.IsValid() {
+			if err := netcfg.SetSystemDNS(cfg.Peer, &s.undo); err != nil {
+				s.log.Warnf("system dns: %v (names may be resolved outside the tunnel)", err)
+			} else {
+				s.log.Infof("system dns -> %s while connected (restored on disconnect)", cfg.Peer)
+			}
 		}
 	}
 

@@ -263,6 +263,11 @@ func runOnce(log logger, rep *status.Reporter, port int, token string, cfg tunne
 // runDaemon keeps the process alive without a tunnel; "start" and "stop" over
 // the control socket bring sessions up and down. launchd keeps it running.
 func runDaemon(log logger, rep *status.Reporter, port int, sock, token string, defaults tunnel.Config) int {
+	// A daemon that died with a tunnel up left the DNS of the network services pointing into
+	// the tunnel: put the saved servers back before anything else (no-op without a backup).
+	if err := netcfg.RestoreSystemDNS(); err != nil {
+		log.Warnf("restore dns settings from the last session: %v", err)
+	}
 	var (
 		mu  sync.Mutex
 		cur *tunnel.Session
