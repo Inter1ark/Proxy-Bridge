@@ -1134,6 +1134,7 @@ static void test_udp_policy(void)
 }
 
 static DWORD WINAPI fake_dns_proxy_server(LPVOID arg);
+static volatile LONG g_fake_dns_answers = 0;
 
 
 static void test_udp_cache(void)
@@ -1177,15 +1178,23 @@ static void test_dns_over_tcp(void)
     BOOL ok = pb_dns_tcp_exchange(&cfg, inet_addr("1.1.1.1"), query, sizeof(query), answer, sizeof(answer), &n);
     CHECK(ok && n == (int)sizeof(query) + 4, "answer received through the proxy");
     CHECK(ok && answer[0] == 0x12 && answer[1] == 0x34 && answer[2] == 0x81, "answer carries the query id and the response flag");
+    pb_dns_pool_clear();   // the kept tunnel is closed, the fake server ends
     WaitForSingleObject(srv, 3000); CloseHandle(srv);
 
     // a proxy without port 53: OpenDNS answers plain DNS over TCP on port 443
+    g_fake_dns_answers = 0;
     srv = CreateThread(NULL, 0, fake_dns_proxy_server, (LPVOID)ls, 0, NULL);
     n = 0;
     ok = pb_dns_tcp_exchange_port(&cfg, inet_addr("208.67.222.222"), 443, query, sizeof(query), answer, sizeof(answer), &n);
     CHECK(ok && n == (int)sizeof(query) + 4, "DNS over TCP to OpenDNS port 443 through the proxy");
+    // the second query reuses the kept tunnel: the fake proxy accepts only one connection
+    query[1] = 0x35;
+    ok = pb_dns_tcp_exchange_port(&cfg, inet_addr("208.67.222.222"), 443, query, sizeof(query), answer, sizeof(answer), &n);
+    CHECK(ok && answer[1] == 0x35, "second query answered on the same tunnel");
+    pb_dns_pool_clear();
     DWORD code = 99;
     WaitForSingleObject(srv, 3000); GetExitCodeThread(srv, &code); CloseHandle(srv);
+    CHECK(g_fake_dns_answers == 2, "one connection carried both queries");
     CHECK(code == 0, "the proxy saw CONNECT 208.67.222.222:443");
     closesocket(ls);
 }
@@ -1232,18 +1241,24 @@ static DWORD WINAPI fake_dns_proxy_server(LPVOID arg)
     if (strstr(buf, "CONNECT 1.1.1.1:53") == NULL && strstr(buf, "CONNECT 208.67.222.222:443") == NULL) { closesocket(c); return 2; }
     const char *okresp = "HTTP/1.1 200 Connection established\r\n\r\n";
     send(c, okresp, (int)strlen(okresp), 0);
-    unsigned char len2[2];
-    if (recv_n(c, (char *)len2, 2) != 2) { closesocket(c); return 3; }
-    int qn = (len2[0] << 8) | len2[1];
-    unsigned char q[1024];
-    if (qn <= 0 || qn > (int)sizeof(q) || recv_n(c, (char *)q, qn) != qn) { closesocket(c); return 4; }
-    // echo the query as a response: id, flags 0x8180, plus 4 bytes of fake answer
-    unsigned char resp[1030];
-    memcpy(resp, q, qn); resp[2] = 0x81; resp[3] = 0x80;
-    memset(resp + qn, 0xAB, 4);
-    unsigned char rl[2] = { (unsigned char)((qn + 4) >> 8), (unsigned char)(qn + 4) };
-    send(c, (const char *)rl, 2, 0); send(c, (const char *)resp, qn + 4, 0);
-    Sleep(50);
+    DWORD to = 3000;
+    setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, (char *)&to, sizeof(to));
+    // answer queries one after another on the same connection until the client closes it
+    for (;;)
+    {
+        unsigned char len2[2];
+        if (recv_n(c, (char *)len2, 2) != 2) break;
+        int qn = (len2[0] << 8) | len2[1];
+        unsigned char q[1024];
+        if (qn <= 0 || qn > (int)sizeof(q) || recv_n(c, (char *)q, qn) != qn) { closesocket(c); return 4; }
+        // echo the query as a response: id, flags 0x8180, plus 4 bytes of fake answer
+        unsigned char resp[1030];
+        memcpy(resp, q, qn); resp[2] = 0x81; resp[3] = 0x80;
+        memset(resp + qn, 0xAB, 4);
+        unsigned char rl[2] = { (unsigned char)((qn + 4) >> 8), (unsigned char)(qn + 4) };
+        send(c, (const char *)rl, 2, 0); send(c, (const char *)resp, qn + 4, 0);
+        InterlockedIncrement(&g_fake_dns_answers);
+    }
     closesocket(c);
     return 0;
 }

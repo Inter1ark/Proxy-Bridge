@@ -1109,6 +1109,7 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
 {
     g_last_error[0] = 0;
     pb_dns_proxy_clear_broken();
+    pb_dns_pool_clear();
     pb_proxy_ipv6_clear();
     char filter[FILTER_BUFFER_SIZE];
     INT16 priority = 123;
@@ -1270,6 +1271,7 @@ PROXYBRIDGE_API BOOL ProxyBridge_Stop(void)
     clear_logged_connections();
 
     clear_pid_cache();
+    pb_dns_pool_clear();
 
     // Release the reusable owner-PID table scratch buffer (packet thread has stopped).
     free(g_pidtbl_buf);

@@ -33,16 +33,120 @@ BOOL pb_dns_tcp_exchange(const PROXY_CONFIG *cfg, UINT32 resolver_ip, const unsi
     return pb_dns_tcp_exchange_port(cfg, resolver_ip, 53, query, query_len, answer, answer_cap, answer_len);
 }
 
+// Open DNS over TCP connections through a proxy are kept for reuse (RFC 7766: several
+// queries, one after another, on one connection). With a proxy that rotates the exit on
+// every connection, a connection per query meant a new exit per name and many of them
+// never answered; a kept connection stays on an exit that works. Each connection carries
+// one query at a time; a connection that failed is closed, never returned.
+#define DNS_POOL_SLOTS 32
+#define DNS_POOL_IDLE_MS 10000
+typedef struct { UINT32 cfg_id; UINT32 ip; UINT16 port; SOCKET s; ULONGLONG last; } DNS_POOL_ENTRY;
+static DNS_POOL_ENTRY g_dns_pool[DNS_POOL_SLOTS];
+static SRWLOCK g_dns_pool_lock = SRWLOCK_INIT;
+static BOOL g_dns_pool_ready = FALSE;
+
+static void dns_pool_init_locked(void)
+{
+    if (g_dns_pool_ready) return;
+    for (int i = 0; i < DNS_POOL_SLOTS; i++) g_dns_pool[i].s = INVALID_SOCKET;
+    g_dns_pool_ready = TRUE;
+}
+
+static SOCKET dns_pool_take(UINT32 cfg_id, UINT32 ip, UINT16 port)
+{
+    SOCKET s = INVALID_SOCKET;
+    ULONGLONG now = GetTickCount64();
+    AcquireSRWLockExclusive(&g_dns_pool_lock);
+    dns_pool_init_locked();
+    for (int i = 0; i < DNS_POOL_SLOTS; i++)
+    {
+        DNS_POOL_ENTRY *e = &g_dns_pool[i];
+        if (e->s == INVALID_SOCKET) continue;
+        if (now - e->last > DNS_POOL_IDLE_MS)
+        {
+            closesocket(e->s);   // resolvers close idle TCP sessions: do not bet a query on it
+            e->s = INVALID_SOCKET;
+            continue;
+        }
+        if (s == INVALID_SOCKET && e->cfg_id == cfg_id && e->ip == ip && e->port == port)
+        {
+            s = e->s;
+            e->s = INVALID_SOCKET;
+        }
+    }
+    ReleaseSRWLockExclusive(&g_dns_pool_lock);
+    return s;
+}
+
+static void dns_pool_put(UINT32 cfg_id, UINT32 ip, UINT16 port, SOCKET s)
+{
+    AcquireSRWLockExclusive(&g_dns_pool_lock);
+    dns_pool_init_locked();
+    int slot = -1;
+    for (int i = 0; i < DNS_POOL_SLOTS && slot < 0; i++)
+        if (g_dns_pool[i].s == INVALID_SOCKET) slot = i;
+    if (slot >= 0)
+    {
+        g_dns_pool[slot].cfg_id = cfg_id;
+        g_dns_pool[slot].ip = ip;
+        g_dns_pool[slot].port = port;
+        g_dns_pool[slot].s = s;
+        g_dns_pool[slot].last = GetTickCount64();
+        s = INVALID_SOCKET;
+    }
+    ReleaseSRWLockExclusive(&g_dns_pool_lock);
+    if (s != INVALID_SOCKET) closesocket(s);   // pool full
+}
+
+void pb_dns_pool_clear(void)
+{
+    AcquireSRWLockExclusive(&g_dns_pool_lock);
+    dns_pool_init_locked();
+    for (int i = 0; i < DNS_POOL_SLOTS; i++)
+        if (g_dns_pool[i].s != INVALID_SOCKET) { closesocket(g_dns_pool[i].s); g_dns_pool[i].s = INVALID_SOCKET; }
+    ReleaseSRWLockExclusive(&g_dns_pool_lock);
+}
+
+// One length-prefixed query and its answer on an open tunnel to the resolver.
+static BOOL dns_tcp_roundtrip(SOCKET s, const unsigned char *query, int query_len,
+                              unsigned char *answer, int answer_cap, int *answer_len)
+{
+    unsigned char len2[2] = { (unsigned char)(query_len >> 8), (unsigned char)query_len };
+    if (send_all(s, (const char *)len2, 2) == SOCKET_ERROR || send_all(s, (const char *)query, query_len) == SOCKET_ERROR)
+        return FALSE;
+    if (recv_n(s, (char *)len2, 2) != 2)
+        return FALSE;
+    int n = (len2[0] << 8) | len2[1];
+    if (n < 12 || n > answer_cap || recv_n(s, (char *)answer, n) != n)
+        return FALSE;
+    if (answer[0] != query[0] || answer[1] != query[1])
+        return FALSE;   // not the answer to this query: the stream is out of step
+    *answer_len = n;
+    return TRUE;
+}
+
 BOOL pb_dns_tcp_exchange_port(const PROXY_CONFIG *cfg, UINT32 resolver_ip, UINT16 port, const unsigned char *query, int query_len,
                               unsigned char *answer, int answer_cap, int *answer_len)
 {
     *answer_len = 0;
-    if (query_len <= 0 || query_len > 65535)
+    if (query_len < 12 || query_len > 65535)
         return FALSE;
+
+    SOCKET s = dns_pool_take(cfg->config_id, resolver_ip, port);
+    if (s != INVALID_SOCKET)
+    {
+        if (dns_tcp_roundtrip(s, query, query_len, answer, answer_cap, answer_len))
+        {
+            dns_pool_put(cfg->config_id, resolver_ip, port, s);
+            return TRUE;
+        }
+        closesocket(s);   // closed or stuck: a fresh tunnel below
+    }
+
     UINT32 proxy_ip = cfg->resolved_ip ? cfg->resolved_ip : resolve_hostname(cfg->host);
     if (proxy_ip == 0)
         return FALSE;
-    SOCKET s = socket(AF_INET, SOCK_STREAM, 0);
+    s = socket(AF_INET, SOCK_STREAM, 0);
     if (s == INVALID_SOCKET)
         return FALSE;
     configure_tcp_socket(s, 65536, 5000);
@@ -57,21 +161,12 @@ BOOL pb_dns_tcp_exchange_port(const PROXY_CONFIG *cfg, UINT32 resolver_ip, UINT1
         int rc = cfg->type == PROXY_TYPE_SOCKS5 ? socks5_connect(s, resolver_ip, port, cfg)
                                                 : http_connect(s, resolver_ip, port, cfg);
         if (rc == 0)
-        {
-            unsigned char len2[2] = { (unsigned char)(query_len >> 8), (unsigned char)query_len };
-            if (send_all(s, (const char *)len2, 2) != SOCKET_ERROR && send_all(s, (const char *)query, query_len) != SOCKET_ERROR
-                && recv_n(s, (char *)len2, 2) == 2)
-            {
-                int n = (len2[0] << 8) | len2[1];
-                if (n > 0 && n <= answer_cap && recv_n(s, (char *)answer, n) == n)
-                {
-                    *answer_len = n;
-                    ok = TRUE;
-                }
-            }
-        }
+            ok = dns_tcp_roundtrip(s, query, query_len, answer, answer_cap, answer_len);
     }
-    closesocket(s);
+    if (ok)
+        dns_pool_put(cfg->config_id, resolver_ip, port, s);
+    else
+        closesocket(s);
     return ok;
 }
 
