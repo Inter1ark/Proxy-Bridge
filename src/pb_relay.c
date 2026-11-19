@@ -117,13 +117,27 @@ void pb_dns_proxy_clear_broken(void)
 }
 
 // ---- proxies without IPv6 ------------------------------------------------------------
-#if defined(__GNUC__)
-static __thread BOOL t_connect_refused = FALSE;            // MinGW ignores __declspec(thread)
-#else
-static __declspec(thread) BOOL t_connect_refused = FALSE;
-#endif
-void pb_set_connect_refused(BOOL refused) { t_connect_refused = refused; }
-BOOL pb_last_connect_refused(void) { return t_connect_refused; }
+// Per-thread flag through the Win32 TLS API: compiler TLS (__thread) makes MinGW import
+// libgcc_s_seh-1.dll (emutls), which is not shipped, and then the DLL does not load at all.
+static DWORD g_refused_tls = TLS_OUT_OF_INDEXES;
+static INIT_ONCE g_refused_once = INIT_ONCE_STATIC_INIT;
+static BOOL CALLBACK refused_tls_init(PINIT_ONCE once, PVOID param, PVOID *ctx)
+{
+    (void)once; (void)param; (void)ctx;
+    g_refused_tls = TlsAlloc();
+    return TRUE;
+}
+void pb_set_connect_refused(BOOL refused)
+{
+    InitOnceExecuteOnce(&g_refused_once, refused_tls_init, NULL, NULL);
+    if (g_refused_tls != TLS_OUT_OF_INDEXES)
+        TlsSetValue(g_refused_tls, refused ? (LPVOID)1 : NULL);
+}
+BOOL pb_last_connect_refused(void)
+{
+    InitOnceExecuteOnce(&g_refused_once, refused_tls_init, NULL, NULL);
+    return g_refused_tls != TLS_OUT_OF_INDEXES && TlsGetValue(g_refused_tls) != NULL;
+}
 
 #define NO_V6_SLOTS 64
 static struct { UINT32 id; int refusals; BOOL no_v6; } g_v6[NO_V6_SLOTS];

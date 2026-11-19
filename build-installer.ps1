@@ -104,6 +104,22 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "✓ ProxyBridgeCore.dll скомпилирована" -ForegroundColor Green
 }
 
+# The core may import only system DLLs and WinDivert.dll: anything else (libgcc_s_seh-1.dll,
+# libwinpthread-1.dll) is not shipped, the DLL then fails to load and the app does not start.
+$objdump = Get-Command objdump -ErrorAction SilentlyContinue
+if ($objdump) {
+    $allowed = @("ADVAPI32.dll", "IPHLPAPI.DLL", "KERNEL32.dll", "msvcrt.dll", "WS2_32.dll", "WinDivert.dll", "PSAPI.DLL", "USER32.dll")
+    $imports = & $objdump.Source -p ProxyBridgeCore.dll | Select-String "DLL Name: (.+)$" | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() }
+    $bad = $imports | Where-Object { $allowed -notcontains $_ }
+    if ($bad) {
+        Write-Host "ОШИБКА: ProxyBridgeCore.dll зависит от неподставляемых DLL: $($bad -join ', ')" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "✓ Импорты ядра: $($imports -join ', ')" -ForegroundColor Green
+} else {
+    Write-Host "ВНИМАНИЕ: objdump не найден, импорты ProxyBridgeCore.dll не проверены" -ForegroundColor Yellow
+}
+
 # Копируем WinDivert64.sys в корень проекта (csproj ссылается на него)
 $destSysFile = "$projectRoot\WinDivert64.sys"
 if ($sysFile -ne $destSysFile) {
