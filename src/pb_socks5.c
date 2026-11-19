@@ -161,6 +161,9 @@ static int socks5_send_connect_and_check(SOCKET s, const unsigned char *req, int
     int reply = -1;
     if (socks5_read_connect_reply(s, &reply) != 0)
     {
+        // general failure, network/host unreachable, address type not supported: what a
+        // proxy without IPv6 answers for an IPv6 destination
+        pb_set_connect_refused(reply == 0x01 || reply == 0x03 || reply == 0x04 || reply == 0x08);
         log_message("SOCKS5: CONNECT to %s failed, reply code %d (%s)", what, reply, socks5_reply_name(reply));
         return -1;
     }

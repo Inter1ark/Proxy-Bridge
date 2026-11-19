@@ -443,6 +443,14 @@ DWORD WINAPI packet_processor(LPVOID arg)
                 }
                 else if (action6 == RULE_ACTION_PROXY)
                 {
+                    PROXY_CONFIG *pc6 = find_proxy_config(proxy_config_id6);
+                    if (pc6 != NULL && pb_proxy_no_ipv6(pc6->config_id))
+                    {
+                        // The proxy has no IPv6: refuse at once so the program uses IPv4.
+                        if (pb_tcp_reject_syn_v6(packet, &packet_len, ipv6_header, tcp_header, &addr))
+                            goto ipv6_send;
+                        continue;   // stray segment of a refused flow: drop
+                    }
                     add_connection_v6(sp, FALSE, (const UINT8*)ipv6_header->SrcAddr, (const UINT8*)ipv6_header->DstAddr, dp, proxy_config_id6);
                     port_set_decided(sp);
                     tcp_header->DstPort = htons(g_local_relay_port);
@@ -1101,6 +1109,7 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
 {
     g_last_error[0] = 0;
     pb_dns_proxy_clear_broken();
+    pb_proxy_ipv6_clear();
     char filter[FILTER_BUFFER_SIZE];
     INT16 priority = 123;
 
@@ -1226,6 +1235,7 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
         }
     }
 
+    pb_proxy_ipv6_probe_async();
     log_message("Interception started (relay port %u, UDP of proxied programs: %s, DNS: %s)", g_local_relay_port,
         g_udp_mode == PB_UDP_PROXY ? "via SOCKS5 UDP, blocked when the proxy cannot" :
         g_udp_mode == PB_UDP_BLOCK ? "blocked (no leaks)" : "direct",

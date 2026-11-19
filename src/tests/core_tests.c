@@ -157,7 +157,7 @@ static int recv_all_n(SOCKET s, char *buf, int n)
 // ---------------------------------------------------------------------------------------
 enum {
     S5_OK_AUTH, S5_REFUSED, S5_AUTH_FAIL, S5_V6_IPV4_BND, S5_DOMAIN, S5_NO_ACCEPTABLE,
-    HT_OK_SPLIT, HT_407, HT_GARBAGE, S5_TESTCONN
+    HT_OK_SPLIT, HT_407, HT_GARBAGE, S5_TESTCONN, S5_V6_GENFAIL, HT_502
 };
 
 typedef struct {
@@ -177,7 +177,7 @@ static DWORD WINAPI fake_server(LPVOID arg)
     setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, (char *)&to, sizeof(to));
     unsigned char b[1024];
 
-    if (f->scenario >= HT_OK_SPLIT && f->scenario <= HT_GARBAGE)
+    if ((f->scenario >= HT_OK_SPLIT && f->scenario <= HT_GARBAGE) || f->scenario == HT_502)
     {
         int len = 0;
         while (len < (int)sizeof(b) - 1)
@@ -196,6 +196,11 @@ static DWORD WINAPI fake_server(LPVOID arg)
             Sleep(60);
             const char *rest = "Proxy-Agent: fake\r\n\r\nHELLO";
             send(c, rest, (int)strlen(rest), 0);
+        }
+        else if (f->scenario == HT_502)
+        {
+            const char *r = "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n";
+            send(c, r, (int)strlen(r), 0);
         }
         else if (f->scenario == HT_407)
         {
@@ -268,6 +273,10 @@ static DWORD WINAPI fake_server(LPVOID arg)
     if (f->scenario == S5_REFUSED)
     {
         send(c, "\x05\x05\x00\x01\x00\x00\x00\x00\x00\x00", 10, 0);
+    }
+    else if (f->scenario == S5_V6_GENFAIL)
+    {
+        send(c, "\x05\x01\x00\x01\x00\x00\x00\x00\x00\x00", 10, 0);   // what a proxy without IPv6 answers
     }
     else
     {
@@ -936,6 +945,108 @@ static void test_dns_proxy_broken(void)
     CHECK(!pb_dns_proxy_broken(1, 9000), "cleared at start");
 }
 
+static void test_no_ipv6(void)
+{
+    printf("[ipv6] proxies without IPv6 are detected and IPv6 SYNs get a RST\n");
+    log_clear();
+
+    // bookkeeping
+    pb_proxy_ipv6_clear();
+    CHECK(!pb_proxy_no_ipv6(7), "unknown proxy passes IPv6");
+    CHECK(!pb_proxy_note_ipv6(7, TRUE), "one refusal is not enough");
+    CHECK(!pb_proxy_no_ipv6(7), "still passes after one refusal");
+    CHECK(!pb_proxy_note_ipv6(7, FALSE), "success is noted");
+    CHECK(!pb_proxy_note_ipv6(7, TRUE), "count restarted after a success");
+    CHECK(pb_proxy_note_ipv6(7, TRUE), "second refusal in a row marks the proxy");
+    CHECK(pb_proxy_no_ipv6(7), "marked proxy has no IPv6");
+    CHECK(!pb_proxy_note_ipv6(7, TRUE), "marking is reported once");
+    CHECK(!pb_proxy_no_ipv6(8), "other proxies are not affected");
+    CHECK(!pb_proxy_no_ipv6(0) && !pb_proxy_note_ipv6(0, TRUE), "id 0 is never marked");
+    pb_proxy_ipv6_clear();
+    CHECK(!pb_proxy_no_ipv6(7), "cleared at start");
+
+    // SOCKS5 reply 1 for an IPv6 destination counts as a refusal, reply 5 does not
+    FAKE_RUN fr;
+    UINT8 d6[16];
+    inet_pton(AF_INET6, "2001:db8::1", d6);
+    PROXY_CONFIG cfg = make_cfg(PROXY_TYPE_SOCKS5, NULL, NULL);
+    fake_start(&fr, S5_V6_GENFAIL);
+    SOCKET s = connect_local(fr.port);
+    pb_set_connect_refused(FALSE);
+    CHECK(socks5_connect_v6(s, d6, 443, &cfg) != 0 && pb_last_connect_refused(), "SOCKS5 reply 1 is a refusal");
+    closesocket(s);
+    fake_finish(&fr);
+    fake_start(&fr, S5_REFUSED);
+    s = connect_local(fr.port);
+    pb_set_connect_refused(FALSE);
+    CHECK(socks5_connect(s, ip4("1.2.3.4"), 443, &cfg) != 0 && !pb_last_connect_refused(), "SOCKS5 reply 5 (closed port) is not");
+    closesocket(s);
+    fake_finish(&fr);
+    // HTTP: 502 is a refusal, 407 is an auth problem
+    PROXY_CONFIG hc = make_cfg(PROXY_TYPE_HTTP, NULL, NULL);
+    fake_start(&fr, HT_502);
+    s = connect_local(fr.port);
+    pb_set_connect_refused(FALSE);
+    CHECK(http_connect_v6(s, d6, 443, &hc) != 0 && pb_last_connect_refused(), "HTTP 502 is a refusal");
+    closesocket(s);
+    fake_finish(&fr);
+    fake_start(&fr, HT_407);
+    s = connect_local(fr.port);
+    pb_set_connect_refused(FALSE);
+    CHECK(http_connect(s, ip4("1.2.3.4"), 443, &hc) != 0 && !pb_last_connect_refused(), "HTTP 407 is not");
+    closesocket(s);
+    fake_finish(&fr);
+
+    // the probe at start marks a proxy that refuses IPv6
+    clear_all_rules();
+    clear_all_proxies();
+    pb_proxy_ipv6_clear();
+    fake_start(&fr, S5_V6_GENFAIL);
+    UINT32 id = ProxyBridge_AddProxy(PROXY_TYPE_SOCKS5, "127.0.0.1", fr.port, NULL, NULL);
+    ProxyBridge_AddRuleEx("*", "*", "*", RULE_PROTOCOL_TCP, RULE_ACTION_PROXY, id);
+    pb_proxy_ipv6_probe_async();
+    for (int i = 0; i < 50 && !pb_proxy_no_ipv6(id); i++) Sleep(100);
+    CHECK(pb_proxy_no_ipv6(id), "probe marks a proxy without IPv6");
+    CHECK(log_has("has no IPv6 (checked at connect)"), "probe result logged");
+    fake_finish(&fr);
+    clear_all_rules();
+    clear_all_proxies();
+    pb_proxy_ipv6_clear();
+
+    // RST for an outbound IPv6 SYN with options
+    unsigned char pkt[128];
+    memset(pkt, 0, sizeof(pkt));
+    PWINDIVERT_IPV6HDR ip6 = (PWINDIVERT_IPV6HDR)pkt;
+    PWINDIVERT_TCPHDR tcp = (PWINDIVERT_TCPHDR)(pkt + sizeof(WINDIVERT_IPV6HDR));
+    ip6->Version = 6;
+    ip6->NextHdr = IPPROTO_TCP;
+    ip6->HopLimit = 64;
+    ip6->Length = htons(32);
+    inet_pton(AF_INET6, "2001:db8::10", ip6->SrcAddr);
+    inet_pton(AF_INET6, "2a00:1450::5e", ip6->DstAddr);
+    tcp->SrcPort = htons(51000);
+    tcp->DstPort = htons(443);
+    tcp->SeqNum = htonl(0x11223344);
+    tcp->HdrLength = 8;
+    tcp->Syn = 1;
+    tcp->Window = htons(64240);
+    UINT len = sizeof(WINDIVERT_IPV6HDR) + 32;
+    WINDIVERT_ADDRESS addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.Outbound = 1;
+    CHECK(pb_tcp_reject_syn_v6(pkt, &len, ip6, tcp, &addr), "SYN turned into a RST");
+    UINT8 a6[16], b6[16];
+    inet_pton(AF_INET6, "2001:db8::10", a6);
+    inet_pton(AF_INET6, "2a00:1450::5e", b6);
+    CHECK(memcmp(ip6->DstAddr, a6, 16) == 0 && memcmp(ip6->SrcAddr, b6, 16) == 0, "addresses swapped");
+    CHECK(ntohs(tcp->SrcPort) == 443 && ntohs(tcp->DstPort) == 51000, "ports swapped");
+    CHECK(tcp->Rst && tcp->Ack && !tcp->Syn && ntohl(tcp->AckNum) == 0x11223345 && tcp->SeqNum == 0, "RST+ACK acknowledges the SYN");
+    CHECK(tcp->HdrLength == 5 && ntohs(ip6->Length) == 20 && len == sizeof(WINDIVERT_IPV6HDR) + 20, "options dropped, lengths fixed");
+    CHECK(addr.Outbound == 0, "sent inbound, to the program");
+    CHECK(!pb_tcp_reject_syn_v6(pkt, &len, ip6, tcp, &addr), "only a SYN is rejected");
+    flush_to_all_log();
+}
+
 static void test_windivert_repair_plan(void)
 {
     printf("windivert repair plan\n");
@@ -1145,6 +1256,7 @@ int main(void)
     test_testconnection();
     test_udp_dns_exports();
     test_dns_proxy_broken();
+    test_no_ipv6();
     test_windivert_repair_plan();
     test_udp_policy();
     test_udp_cache();

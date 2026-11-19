@@ -110,6 +110,7 @@ static int http_connect_host(SOCKET s, const char *host_part, UINT16 dest_port, 
     }
     if (status_code < 200 || status_code > 299)
     {
+        pb_set_connect_refused(status_code != 407);
         log_message("HTTP: CONNECT to %s:%u failed with status %d%s", host_part, dest_port, status_code,
             status_code == 407 ? " (proxy authentication required or rejected)" :
             status_code == 403 ? " (forbidden by proxy)" :

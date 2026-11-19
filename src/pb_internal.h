@@ -468,5 +468,18 @@ BOOL pb_windivert_repair(DWORD open_err, char *detail, size_t detail_size);
 BOOL pb_dns_proxy_broken(UINT32 config_id, ULONGLONG now_ms);
 void pb_dns_proxy_mark_broken(UINT32 config_id, ULONGLONG now_ms);
 void pb_dns_proxy_clear_broken(void);
+
+// Proxies without IPv6: after PB_NO_V6_AFTER refusals of IPv6 destinations in a row (or a
+// refused probe at start) IPv6 connections through that proxy are answered with a TCP RST
+// in the packet loop, so browsers fall back to IPv4 at once instead of getting a tunnel
+// that closes right after it opened.
+#define PB_NO_V6_AFTER 2
+BOOL pb_proxy_no_ipv6(UINT32 config_id);
+BOOL pb_proxy_note_ipv6(UINT32 config_id, BOOL refused);   // TRUE when this call marked it
+void pb_proxy_ipv6_clear(void);
+void pb_proxy_ipv6_probe_async(void);                       // one CONNECT to a public IPv6 address per used proxy
+BOOL pb_tcp_reject_syn_v6(unsigned char *packet, UINT *packet_len, PWINDIVERT_IPV6HDR ip6, PWINDIVERT_TCPHDR tcp, WINDIVERT_ADDRESS *addr);
+void pb_set_connect_refused(BOOL refused);                  // set by the SOCKS5/HTTP handshakes (thread local)
+BOOL pb_last_connect_refused(void);                         // the proxy answered and refused the destination
 BOOL pb_dns_tcp_exchange(const PROXY_CONFIG *cfg, UINT32 resolver_ip, const unsigned char *query, int query_len,
                          unsigned char *answer, int answer_cap, int *answer_len);

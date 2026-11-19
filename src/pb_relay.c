@@ -110,6 +110,166 @@ void pb_dns_proxy_clear_broken(void)
     ReleaseSRWLockExclusive(&g_dns_broken_lock);
 }
 
+// ---- proxies without IPv6 ------------------------------------------------------------
+static __declspec(thread) BOOL t_connect_refused = FALSE;
+void pb_set_connect_refused(BOOL refused) { t_connect_refused = refused; }
+BOOL pb_last_connect_refused(void) { return t_connect_refused; }
+
+#define NO_V6_SLOTS 64
+static struct { UINT32 id; int refusals; BOOL no_v6; } g_v6[NO_V6_SLOTS];
+static SRWLOCK g_v6_lock = SRWLOCK_INIT;
+static volatile LONG g_v6_gen = 0;   // bumped on clear: a probe from an older session is ignored
+
+BOOL pb_proxy_no_ipv6(UINT32 config_id)
+{
+    BOOL no = FALSE;
+    AcquireSRWLockShared(&g_v6_lock);
+    for (int i = 0; i < NO_V6_SLOTS; i++)
+        if (g_v6[i].id == config_id && config_id != 0) { no = g_v6[i].no_v6; break; }
+    ReleaseSRWLockShared(&g_v6_lock);
+    return no;
+}
+
+static BOOL note_ipv6_locked(UINT32 config_id, BOOL refused, int weight)
+{
+    int slot = -1;
+    for (int i = 0; i < NO_V6_SLOTS; i++)
+    {
+        if (g_v6[i].id == config_id) { slot = i; break; }
+        if (slot < 0 && g_v6[i].id == 0) slot = i;
+    }
+    if (slot < 0)
+    {
+        if (!refused) return FALSE;
+        slot = 0;
+        memset(&g_v6[0], 0, sizeof(g_v6[0]));
+    }
+    if (g_v6[slot].id != config_id)
+    {
+        if (!refused) return FALSE;
+        g_v6[slot].id = config_id;
+        g_v6[slot].refusals = 0;
+        g_v6[slot].no_v6 = FALSE;
+    }
+    if (!refused)
+    {
+        g_v6[slot].refusals = 0;   // an IPv6 tunnel worked: the proxy has IPv6
+        return FALSE;
+    }
+    if (g_v6[slot].no_v6) return FALSE;
+    g_v6[slot].refusals += weight;
+    if (g_v6[slot].refusals < PB_NO_V6_AFTER) return FALSE;
+    g_v6[slot].no_v6 = TRUE;
+    return TRUE;
+}
+
+BOOL pb_proxy_note_ipv6(UINT32 config_id, BOOL refused)
+{
+    if (config_id == 0) return FALSE;
+    AcquireSRWLockExclusive(&g_v6_lock);
+    BOOL marked = note_ipv6_locked(config_id, refused, 1);
+    ReleaseSRWLockExclusive(&g_v6_lock);
+    return marked;
+}
+
+void pb_proxy_ipv6_clear(void)
+{
+    AcquireSRWLockExclusive(&g_v6_lock);
+    memset(g_v6, 0, sizeof(g_v6));
+    InterlockedIncrement(&g_v6_gen);
+    ReleaseSRWLockExclusive(&g_v6_lock);
+}
+
+static void log_no_ipv6(const PROXY_CONFIG *p, const char *how)
+{
+    log_message("Proxy #%u %s:%u has no IPv6 (%s): IPv6 connections through it are refused at once from now on, so programs use IPv4",
+        p->config_id, p->host, p->port, how);
+}
+
+// Google Public DNS over IPv6, port 443: answers wherever IPv6 works.
+static const UINT8 k_probe_v6[16] = {0x20,0x01,0x48,0x60,0x48,0x60,0,0,0,0,0,0,0,0,0x88,0x88};
+
+static DWORD WINAPI ipv6_probe_thread(LPVOID arg)
+{
+    LONG gen = (LONG)(LONG_PTR)arg;
+    UINT32 ids[MAX_PROXY_CONFIGS];
+    int n = 0;
+    AcquireSRWLockShared(&g_proxy_lock);
+    for (int i = 0; i < g_proxy_config_count && n < MAX_PROXY_CONFIGS; i++)
+        ids[n++] = g_proxy_configs[i].config_id;
+    ReleaseSRWLockShared(&g_proxy_lock);
+
+    for (int i = 0; i < n; i++)
+    {
+        if (!is_proxy_config_referenced(ids[i])) continue;
+        PROXY_CONFIG p;
+        if (!pb_proxy_snapshot(ids[i], &p) || p.host[0] == '\0' || p.port == 0) continue;
+        UINT32 ip = p.resolved_ip ? p.resolved_ip : resolve_hostname(p.host);
+        SOCKET s = ip ? socket(AF_INET, SOCK_STREAM, 0) : INVALID_SOCKET;
+        if (s == INVALID_SOCKET) { SecureZeroMemory(p.password, sizeof(p.password)); continue; }
+        configure_tcp_socket(s, 65536, 8000);
+        struct sockaddr_in a;
+        memset(&a, 0, sizeof(a));
+        a.sin_family = AF_INET;
+        a.sin_addr.s_addr = ip;
+        a.sin_port = htons(p.port);
+        int rc = -1;
+        BOOL answered = FALSE;
+        if (connect_with_timeout(s, (struct sockaddr *)&a, sizeof(a), 8000) != SOCKET_ERROR)
+        {
+            pb_set_connect_refused(FALSE);
+            rc = p.type == PROXY_TYPE_HTTP ? http_connect_v6(s, k_probe_v6, 443, &p) : socks5_connect_v6(s, k_probe_v6, 443, &p);
+            answered = rc == 0 || pb_last_connect_refused();
+        }
+        closesocket(s);
+        SecureZeroMemory(p.password, sizeof(p.password));
+        if (!answered) continue;   // dead or slow proxy: real traffic decides later
+
+        AcquireSRWLockExclusive(&g_v6_lock);
+        BOOL marked = FALSE;
+        if (gen == g_v6_gen)
+            marked = note_ipv6_locked(p.config_id, rc != 0, PB_NO_V6_AFTER);
+        ReleaseSRWLockExclusive(&g_v6_lock);
+        if (marked)
+            log_no_ipv6(&p, "checked at connect");
+        else if (rc == 0)
+            log_message("Proxy #%u %s:%u passes IPv6", p.config_id, p.host, p.port);
+    }
+    return 0;
+}
+
+void pb_proxy_ipv6_probe_async(void)
+{
+    HANDLE th = CreateThread(NULL, 0, ipv6_probe_thread, (LPVOID)(LONG_PTR)g_v6_gen, 0, NULL);
+    if (th) CloseHandle(th);
+}
+
+// Turns an outbound IPv6 SYN into the RST+ACK the destination would send for a closed
+// port and points it back at the program, which then sees "connection refused" at once.
+BOOL pb_tcp_reject_syn_v6(unsigned char *packet, UINT *packet_len, PWINDIVERT_IPV6HDR ip6, PWINDIVERT_TCPHDR tcp, WINDIVERT_ADDRESS *addr)
+{
+    if (packet == NULL || ip6 == NULL || tcp == NULL || !tcp->Syn || tcp->Ack) return FALSE;
+    if ((unsigned char *)tcp != packet + sizeof(WINDIVERT_IPV6HDR)) return FALSE;   // extension headers: leave it
+    UINT32 seq = ntohl(tcp->SeqNum);
+    UINT32 tmp[4];
+    memcpy(tmp, ip6->DstAddr, 16);
+    memcpy(ip6->DstAddr, ip6->SrcAddr, 16);
+    memcpy(ip6->SrcAddr, tmp, 16);
+    UINT16 port = tcp->SrcPort;
+    tcp->SrcPort = tcp->DstPort;
+    tcp->DstPort = port;
+    tcp->SeqNum = 0;
+    tcp->AckNum = htonl(seq + 1);
+    tcp->HdrLength = 5;
+    tcp->Fin = 0; tcp->Syn = 0; tcp->Rst = 1; tcp->Psh = 0; tcp->Ack = 1; tcp->Urg = 0;
+    tcp->Window = 0;
+    tcp->UrgPtr = 0;
+    ip6->Length = htons((UINT16)sizeof(WINDIVERT_TCPHDR));
+    *packet_len = (UINT)(sizeof(WINDIVERT_IPV6HDR) + sizeof(WINDIVERT_TCPHDR));
+    addr->Outbound = FALSE;
+    return TRUE;
+}
+
 // One plain UDP query from the core's own socket (never intercepted) to resolver:53.
 static BOOL dns_udp_exchange(UINT32 resolver_ip, const unsigned char *query, int query_len,
                              unsigned char *answer, int answer_cap, int *answer_len)
@@ -888,6 +1048,7 @@ DWORD WINAPI connection_handler(LPVOID arg)
     }
 
     int rc = 0;
+    pb_set_connect_refused(FALSE);
     if (proxy->type == PROXY_TYPE_SOCKS5)
     {
         char cached_domain[256];
@@ -913,6 +1074,13 @@ DWORD WINAPI connection_handler(LPVOID arg)
         rc = is_ipv6
             ? http_connect_v6(socks_sock, dest_ip6, dest_port, proxy)
             : http_connect(socks_sock, dest_ip, dest_port, proxy);
+    }
+    if (is_ipv6)
+    {
+        if (rc == 0)
+            pb_proxy_note_ipv6(proxy->config_id, FALSE);
+        else if (pb_last_connect_refused() && pb_proxy_note_ipv6(proxy->config_id, TRUE))
+            log_no_ipv6(proxy, "it refused IPv6 destinations");
     }
     SecureZeroMemory(proxy_copy.password, sizeof(proxy_copy.password));
 
