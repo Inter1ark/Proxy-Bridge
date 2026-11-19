@@ -13,8 +13,8 @@ func TestParseDNSServers(t *testing.T) {
 	if got := parseDNSServers("There aren't any DNS Servers set on Wi-Fi.\n"); len(got) != 0 {
 		t.Fatalf("no servers expected, got %v", got)
 	}
-	got := parseDNSServers("37.128.241.21\n1.1.1.1\nfe80::1\n")
-	if want := []string{"37.128.241.21", "1.1.1.1", "fe80::1"}; !reflect.DeepEqual(got, want) {
+	got := parseDNSServers("203.0.113.53\n1.1.1.1\nfe80::1\n")
+	if want := []string{"203.0.113.53", "1.1.1.1", "fe80::1"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
