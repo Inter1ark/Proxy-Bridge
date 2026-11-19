@@ -933,12 +933,12 @@ static void test_dns_proxy_broken(void)
     CHECK(!pb_dns_proxy_broken(1, 1000), "unknown proxy is not broken");
     pb_dns_proxy_mark_broken(1, 1000);
     CHECK(pb_dns_proxy_broken(1, 1000), "marked proxy is broken now");
-    CHECK(pb_dns_proxy_broken(1, 1000 + 119000), "still broken before the window ends");
-    CHECK(!pb_dns_proxy_broken(1, 1000 + 120000), "forgotten after two minutes");
+    CHECK(pb_dns_proxy_broken(1, 1000 + 599000), "still broken before the window ends");
+    CHECK(!pb_dns_proxy_broken(1, 1000 + 600000), "forgotten after ten minutes");
     CHECK(!pb_dns_proxy_broken(2, 1000), "other proxies are not affected");
     pb_dns_proxy_mark_broken(1, 5000);
     pb_dns_proxy_mark_broken(1, 9000);
-    CHECK(pb_dns_proxy_broken(1, 9000 + 119000), "re-marking extends the window");
+    CHECK(pb_dns_proxy_broken(1, 9000 + 599000), "re-marking extends the window");
     for (UINT32 id = 10; id < 10 + 70; id++) pb_dns_proxy_mark_broken(id, 20000);
     CHECK(pb_dns_proxy_broken(79, 20000), "the table holds the newest entries");
     pb_dns_proxy_clear_broken();
@@ -1178,6 +1178,15 @@ static void test_dns_over_tcp(void)
     CHECK(ok && n == (int)sizeof(query) + 4, "answer received through the proxy");
     CHECK(ok && answer[0] == 0x12 && answer[1] == 0x34 && answer[2] == 0x81, "answer carries the query id and the response flag");
     WaitForSingleObject(srv, 3000); CloseHandle(srv);
+
+    // a proxy without port 53: OpenDNS answers plain DNS over TCP on port 443
+    srv = CreateThread(NULL, 0, fake_dns_proxy_server, (LPVOID)ls, 0, NULL);
+    n = 0;
+    ok = pb_dns_tcp_exchange_port(&cfg, inet_addr("208.67.222.222"), 443, query, sizeof(query), answer, sizeof(answer), &n);
+    CHECK(ok && n == (int)sizeof(query) + 4, "DNS over TCP to OpenDNS port 443 through the proxy");
+    DWORD code = 99;
+    WaitForSingleObject(srv, 3000); GetExitCodeThread(srv, &code); CloseHandle(srv);
+    CHECK(code == 0, "the proxy saw CONNECT 208.67.222.222:443");
     closesocket(ls);
 }
 
@@ -1220,7 +1229,7 @@ static DWORD WINAPI fake_dns_proxy_server(LPVOID arg)
         got += r; buf[got] = 0;
         if (strstr(buf, "\r\n\r\n")) break;
     }
-    if (strstr(buf, "CONNECT 1.1.1.1:53") == NULL) { closesocket(c); return 2; }
+    if (strstr(buf, "CONNECT 1.1.1.1:53") == NULL && strstr(buf, "CONNECT 208.67.222.222:443") == NULL) { closesocket(c); return 2; }
     const char *okresp = "HTTP/1.1 200 Connection established\r\n\r\n";
     send(c, okresp, (int)strlen(okresp), 0);
     unsigned char len2[2];

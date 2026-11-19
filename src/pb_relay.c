@@ -30,6 +30,12 @@ static volatile LONG g_dns_jobs = 0;
 BOOL pb_dns_tcp_exchange(const PROXY_CONFIG *cfg, UINT32 resolver_ip, const unsigned char *query, int query_len,
                          unsigned char *answer, int answer_cap, int *answer_len)
 {
+    return pb_dns_tcp_exchange_port(cfg, resolver_ip, 53, query, query_len, answer, answer_cap, answer_len);
+}
+
+BOOL pb_dns_tcp_exchange_port(const PROXY_CONFIG *cfg, UINT32 resolver_ip, UINT16 port, const unsigned char *query, int query_len,
+                              unsigned char *answer, int answer_cap, int *answer_len)
+{
     *answer_len = 0;
     if (query_len <= 0 || query_len > 65535)
         return FALSE;
@@ -46,10 +52,10 @@ BOOL pb_dns_tcp_exchange(const PROXY_CONFIG *cfg, UINT32 resolver_ip, const unsi
     pa.sin_addr.s_addr = proxy_ip;
     pa.sin_port = htons(cfg->port);
     BOOL ok = FALSE;
-    if (connect(s, (struct sockaddr *)&pa, sizeof(pa)) == 0)
+    if (connect_with_timeout(s, (struct sockaddr *)&pa, sizeof(pa), 4000) != SOCKET_ERROR)
     {
-        int rc = cfg->type == PROXY_TYPE_SOCKS5 ? socks5_connect(s, resolver_ip, 53, cfg)
-                                                : http_connect(s, resolver_ip, 53, cfg);
+        int rc = cfg->type == PROXY_TYPE_SOCKS5 ? socks5_connect(s, resolver_ip, port, cfg)
+                                                : http_connect(s, resolver_ip, port, cfg);
         if (rc == 0)
         {
             unsigned char len2[2] = { (unsigned char)(query_len >> 8), (unsigned char)query_len };
@@ -69,12 +75,12 @@ BOOL pb_dns_tcp_exchange(const PROXY_CONFIG *cfg, UINT32 resolver_ip, const unsi
     return ok;
 }
 
-// Proxies that accept a CONNECT to port 53 and then drop every byte (several datacenter
-// vendors do) would leave every name unresolved. After such a failure the proxy is marked
-// for DNS_BROKEN_MS and queries go straight to the resolver meanwhile (the resolver then
-// sees the real address; a proxy that passes port 53 keeps full privacy).
+// Many residential and mobile proxies refuse port 53 (SOCKS5 reply 2) or accept the CONNECT
+// and drop every byte. After such a failure the proxy is marked for DNS_BROKEN_MS and its
+// queries go to OpenDNS, which answers plain DNS over TCP on port 443, through the same
+// proxy. Queries are never sent around the proxy: the resolver must not see the real address.
 #define DNS_BROKEN_SLOTS 64
-#define DNS_BROKEN_MS    (2 * 60 * 1000)
+#define DNS_BROKEN_MS    (10 * 60 * 1000)
 static struct { UINT32 id; ULONGLONG until; } g_dns_broken[DNS_BROKEN_SLOTS];
 static SRWLOCK g_dns_broken_lock = SRWLOCK_INIT;
 
@@ -111,7 +117,11 @@ void pb_dns_proxy_clear_broken(void)
 }
 
 // ---- proxies without IPv6 ------------------------------------------------------------
+#if defined(__GNUC__)
+static __thread BOOL t_connect_refused = FALSE;            // MinGW ignores __declspec(thread)
+#else
 static __declspec(thread) BOOL t_connect_refused = FALSE;
+#endif
 void pb_set_connect_refused(BOOL refused) { t_connect_refused = refused; }
 BOOL pb_last_connect_refused(void) { return t_connect_refused; }
 
@@ -201,7 +211,7 @@ static DWORD WINAPI ipv6_probe_thread(LPVOID arg)
 
     for (int i = 0; i < n; i++)
     {
-        if (!is_proxy_config_referenced(ids[i])) continue;
+        // Every registered proxy: the GUI adds the rules after Start, so "referenced" is not known yet.
         PROXY_CONFIG p;
         if (!pb_proxy_snapshot(ids[i], &p) || p.host[0] == '\0' || p.port == 0) continue;
         UINT32 ip = p.resolved_ip ? p.resolved_ip : resolve_hostname(p.host);
@@ -270,33 +280,10 @@ BOOL pb_tcp_reject_syn_v6(unsigned char *packet, UINT *packet_len, PWINDIVERT_IP
     return TRUE;
 }
 
-// One plain UDP query from the core's own socket (never intercepted) to resolver:53.
-static BOOL dns_udp_exchange(UINT32 resolver_ip, const unsigned char *query, int query_len,
-                             unsigned char *answer, int answer_cap, int *answer_len)
-{
-    SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (s == INVALID_SOCKET)
-        return FALSE;
-    DWORD tmo = 3000;
-    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tmo, sizeof(tmo));
-    struct sockaddr_in ra;
-    memset(&ra, 0, sizeof(ra));
-    ra.sin_family = AF_INET;
-    ra.sin_addr.s_addr = resolver_ip;
-    ra.sin_port = htons(53);
-    BOOL ok = FALSE;
-    if (sendto(s, (const char *)query, query_len, 0, (struct sockaddr *)&ra, sizeof(ra)) == query_len)
-    {
-        int n = recv(s, (char *)answer, answer_cap, 0);
-        if (n > 12 && answer[0] == query[0] && answer[1] == query[1])
-        {
-            *answer_len = n;
-            ok = TRUE;
-        }
-    }
-    closesocket(s);
-    return ok;
-}
+// OpenDNS answers plain DNS over TCP on port 443 as well as 53; port 443 passes through
+// proxies that only allow web ports. Network byte order.
+static const UINT32 k_dns443[2] = { 0xDEDE43D0 /* 208.67.222.222 */, 0xDCDC43D0 /* 208.67.220.220 */ };
+static volatile LONG g_dns443_next = 0;
 
 static DWORD WINAPI dns_proxy_worker(LPVOID arg)
 {
@@ -312,15 +299,18 @@ static DWORD WINAPI dns_proxy_worker(LPVOID arg)
         if (!ok)
         {
             pb_dns_proxy_mark_broken(job->cfg.config_id, GetTickCount64());
-            log_message("[DNS] proxy #%u does not answer DNS over TCP on port 53: for the next %d s queries go directly to %u.%u.%u.%u (the resolver sees the real address)",
-                job->cfg.config_id, DNS_BROKEN_MS / 1000,
-                resolver & 0xff, (resolver >> 8) & 0xff, (resolver >> 16) & 0xff, (resolver >> 24) & 0xff);
+            char key[64];
+            snprintf(key, sizeof(key), "dns53:%u", job->cfg.config_id);
+            pb_log_ratelimited(key, "[DNS] proxy #%u does not pass DNS on port 53: for the next %d s its queries go to OpenDNS on port 443 through the same proxy",
+                job->cfg.config_id, DNS_BROKEN_MS / 1000);
         }
     }
     if (!ok)
     {
-        how = "directly (proxy skips port 53)";
-        ok = dns_udp_exchange(resolver, job->query, job->query_len, answer, sizeof(answer), &n);
+        how = "via proxy (OpenDNS, port 443)";
+        LONG first = InterlockedIncrement(&g_dns443_next) & 1;
+        for (int i = 0; i < 2 && !ok; i++)
+            ok = pb_dns_tcp_exchange_port(&job->cfg, k_dns443[(first + i) & 1], 443, job->query, job->query_len, answer, sizeof(answer), &n);
     }
     if (ok)
     {
@@ -337,7 +327,7 @@ static DWORD WINAPI dns_proxy_worker(LPVOID arg)
     {
         char key[64];
         snprintf(key, sizeof(key), "dnsfail:%u", job->cfg.config_id);
-        pb_log_ratelimited(key, "[DNS] query for proxy #%u failed both through the proxy and directly", job->cfg.config_id);
+        pb_log_ratelimited(key, "[DNS] query through proxy #%u failed on port 53 and on port 443; not sent around the proxy (no leak)", job->cfg.config_id);
     }
     SecureZeroMemory(job->cfg.password, sizeof(job->cfg.password));
     free(job);

@@ -463,8 +463,9 @@ PB_WD_REPAIR pb_windivert_repair_plan(DWORD open_err, DWORD start_type, DWORD st
 // Inspects and repairs the entry; TRUE when WinDivertOpen is worth retrying. detail explains a failure.
 BOOL pb_windivert_repair(DWORD open_err, char *detail, size_t detail_size);
 // ---- DNS over TCP through the proxy (pb_relay.c) ----
-// A proxy that swallowed a DNS over TCP exchange is skipped for a while; queries go to the
-// resolver directly meanwhile. now_ms is GetTickCount64() (injected for the tests).
+// A proxy that refused or swallowed DNS on port 53 is marked for a while; its queries go to
+// OpenDNS on port 443 through the same proxy meanwhile, never around it. now_ms is
+// GetTickCount64() (injected for the tests).
 BOOL pb_dns_proxy_broken(UINT32 config_id, ULONGLONG now_ms);
 void pb_dns_proxy_mark_broken(UINT32 config_id, ULONGLONG now_ms);
 void pb_dns_proxy_clear_broken(void);
@@ -481,5 +482,7 @@ void pb_proxy_ipv6_probe_async(void);                       // one CONNECT to a 
 BOOL pb_tcp_reject_syn_v6(unsigned char *packet, UINT *packet_len, PWINDIVERT_IPV6HDR ip6, PWINDIVERT_TCPHDR tcp, WINDIVERT_ADDRESS *addr);
 void pb_set_connect_refused(BOOL refused);                  // set by the SOCKS5/HTTP handshakes (thread local)
 BOOL pb_last_connect_refused(void);                         // the proxy answered and refused the destination
+BOOL pb_dns_tcp_exchange_port(const PROXY_CONFIG *cfg, UINT32 resolver_ip, UINT16 port, const unsigned char *query, int query_len,
+                              unsigned char *answer, int answer_cap, int *answer_len);
 BOOL pb_dns_tcp_exchange(const PROXY_CONFIG *cfg, UINT32 resolver_ip, const unsigned char *query, int query_len,
                          unsigned char *answer, int answer_cap, int *answer_len);

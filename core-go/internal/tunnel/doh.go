@@ -34,6 +34,10 @@ var dohEndpoints = []dohEndpoint{
 	{"1.1.1.1", "cloudflare-dns.com"},
 }
 
+// openDNS443 takes plain DNS over TCP on port 443, the last resort through a proxy that
+// refuses port 53 and the DoH endpoints.
+var openDNS443 = netip.MustParseAddrPort("208.67.222.222:443")
+
 // dohRetry is how long a DoH endpoint rests after dohFailLimit failures in a row.
 const dohRetry = 2 * time.Minute
 
@@ -77,6 +81,10 @@ func (p *proxyResolver) Exchange(ctx context.Context, resolver netip.AddrPort, q
 		return nil, ctx.Err()
 	}
 	answer, err = dnsOverTCP(ctx, p.dialer, resolver, query)
+	if err != nil && ctx.Err() == nil {
+		// Proxies that allow only web ports: OpenDNS answers plain DNS over TCP on 443 too.
+		answer, err = dnsOverTCP(ctx, p.dialer, openDNS443, query)
+	}
 	if err != nil {
 		p.mu.Lock()
 		warn := time.Since(p.warned) > 30*time.Second
@@ -85,7 +93,7 @@ func (p *proxyResolver) Exchange(ctx context.Context, resolver netip.AddrPort, q
 		}
 		p.mu.Unlock()
 		if warn {
-			p.log.Warnf("dns via proxy %d: no DNS over HTTPS endpoint answered and %s does not answer over TCP (%v); names will not resolve", p.id, resolver, err)
+			p.log.Warnf("dns via proxy %d: no DNS over HTTPS endpoint answered and neither %s nor OpenDNS on port 443 answers over TCP (%v); names will not resolve", p.id, resolver, err)
 		}
 		return nil, err
 	}
