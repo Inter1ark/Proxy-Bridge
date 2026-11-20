@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/netip"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -167,23 +168,61 @@ func (r *router) Decide(src, dst netip.AddrPort) engine.Decision {
 			r.log.Infof("tcp %s -> %s: owner process unknown, using the catch-all rule", src, dst)
 		}
 	}
-	rule, ok := t.set.Match(exe)
+	rule, ok, via := matchTree(t.set, pid, exe, r.parentOf)
 	if !ok {
 		r.log.Debugf("tcp %s -> %s: pid %d %q: no rule: direct", src, dst, pid, exe)
 		return engine.Decision{Dial: r.directDial, Label: "direct"}
 	}
 	switch rule.Action {
 	case rules.ActionBlock:
-		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q: block", src, dst, pid, exe, rule.Process)
+		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q%s: block", src, dst, pid, exe, rule.Process, via)
 		return engine.Decision{Block: true, Label: "block"}
 	case rules.ActionDirect:
-		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q: direct", src, dst, pid, exe, rule.Process)
+		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q%s: direct", src, dst, pid, exe, rule.Process, via)
 		return engine.Decision{Dial: r.directDial, Label: "direct"}
 	default:
 		d := t.dialers[rule.Proxy]
-		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q: proxy %d", src, dst, pid, exe, rule.Process, rule.Proxy)
+		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q%s: proxy %d", src, dst, pid, exe, rule.Process, via, rule.Proxy)
 		return engine.Decision{Dial: d.Dial, Label: "proxy " + strconv.Itoa(rule.Proxy)}
 	}
+}
+
+// inheritDepth bounds the walk up the process tree.
+const inheritDepth = 8
+
+// matchTree finds the rule for a process. Its own specific rule wins; without one, the
+// nearest ancestor's specific rule applies (an IDE's terminal, an AI agent's tool
+// processes and a launcher's real binary follow the program they belong to); the
+// catch-all "*" applies only when no ancestor has a rule. parent answers (ppid, exe, ok);
+// via describes an inherited match for the log.
+func matchTree(set *rules.Set, pid int, exe string, parent func(int) (int, string, bool)) (rule rules.Rule, ok bool, via string) {
+	rule, ok = set.Match(exe)
+	if ok && !isCatchAll(rule) {
+		return rule, true, ""
+	}
+	cur := pid
+	for depth := 0; depth < inheritDepth && cur > 1; depth++ {
+		ppid, pexe, pok := parent(cur)
+		if !pok {
+			break
+		}
+		if r, m := set.Match(pexe); m && !isCatchAll(r) {
+			return r, true, " inherited from " + strconv.Quote(pexe) + " (pid " + strconv.Itoa(ppid) + ")"
+		}
+		cur = ppid
+	}
+	return rule, ok, ""
+}
+
+func isCatchAll(r rules.Rule) bool { return strings.TrimSpace(r.Process) == "*" }
+
+func (r *router) parentOf(pid int) (int, string, bool) {
+	ppid, ok := r.procs.Parent(pid)
+	if !ok {
+		return 0, "", false
+	}
+	exe, _ := r.procs.Exe(ppid)
+	return ppid, exe, true
 }
 
 // directDial opens the destination outside the tunnel.

@@ -502,6 +502,86 @@ static void test_check_process_rule(void)
     flush_to_all_log();
 }
 
+static void test_rule_inheritance(void)
+{
+    printf("[rules] child processes follow the parent's rule\n");
+    clear_all_rules();
+    clear_all_proxies();
+    clear_parent_cache();
+    log_clear();
+
+    CHECK(get_parent_process_id(0) == 0 && get_parent_process_id(4) == 0, "idle and System have no parent");
+    CHECK(pb_is_system_launcher("C:\\Windows\\explorer.exe") && !pb_is_system_launcher("C:\\Tools\\codex.exe"), "system launchers recognised");
+    CHECK(!pb_rule_is_specific(0), "rule id 0 is not specific");
+
+    DWORD parent = get_parent_process_id(GetCurrentProcessId());
+    char parent_path[MAX_PATH];
+    if (parent == 0 || !get_process_name_from_pid(parent, parent_path, sizeof(parent_path)) || pb_is_system_launcher(parent_path))
+    {
+        printf("  (skipped: the parent of the test process is not usable: pid %lu)\n", (unsigned long)parent);
+        return;
+    }
+    CHECK(get_parent_process_id(GetCurrentProcessId()) == parent, "parent answer cached");
+    const char *parent_name = extract_filename(parent_path);
+
+    char exe[MAX_PATH];
+    GetModuleFileNameA(NULL, exe, sizeof(exe));
+    const char *exe_name = extract_filename(exe);
+
+    UINT32 pa = ProxyBridge_AddProxy(PROXY_TYPE_SOCKS5, "10.9.8.1", 1080, "", "");
+    UINT32 pb = ProxyBridge_AddProxy(PROXY_TYPE_SOCKS5, "10.9.8.2", 1080, "", "");
+    UINT16 lport;
+    SOCKET l = listen_local(&lport);
+    SOCKET c = connect_local(lport);
+    SOCKET a = accept(l, NULL, NULL);
+    struct sockaddr_in local;
+    int len = sizeof(local);
+    getsockname(c, (struct sockaddr *)&local, &len);
+    UINT32 src = local.sin_addr.s_addr;
+    UINT16 sport = ntohs(local.sin_port);
+    DWORD pid = 0;
+    UINT32 pcid = 0;
+
+    // no own rule: the parent's rule wins over the catch-all
+    UINT32 rp = ProxyBridge_AddRuleEx(parent_name, "*", "*", RULE_PROTOCOL_BOTH, RULE_ACTION_PROXY, pa);
+    ProxyBridge_AddRuleEx("*", "*", "*", RULE_PROTOCOL_BOTH, RULE_ACTION_PROXY, pb);
+    CHECK(pb_rule_is_specific(rp), "parent rule is specific");
+    RuleAction act = check_process_rule(src, sport, ip4("93.184.216.40"), 443, FALSE, &pid, &pcid);
+    CHECK(act == RULE_ACTION_PROXY && pcid == pa, "child without a rule inherits the parent's proxy, not the catch-all");
+    CHECK(log_has("inherited from "), "inheritance logged");
+
+    // no own rule and no catch-all: still the parent's rule
+    clear_all_rules();
+    ProxyBridge_AddRuleEx(parent_name, "*", "*", RULE_PROTOCOL_BOTH, RULE_ACTION_PROXY, pa);
+    CHECK(check_process_rule(src, sport, ip4("93.184.216.41"), 443, FALSE, &pid, &pcid) == RULE_ACTION_PROXY && pcid == pa, "inherited without a catch-all");
+
+    // the parent's rule only covers the destinations it names
+    clear_all_rules();
+    ProxyBridge_AddRuleEx(parent_name, "*", "8443", RULE_PROTOCOL_BOTH, RULE_ACTION_PROXY, pa);
+    CHECK(check_process_rule(src, sport, ip4("93.184.216.42"), 443, FALSE, &pid, &pcid) == RULE_ACTION_DIRECT, "parent rule for another port is not inherited");
+
+    // an own specific rule wins over the parent's
+    clear_all_rules();
+    ProxyBridge_AddRuleEx(exe_name, "*", "*", RULE_PROTOCOL_BOTH, RULE_ACTION_PROXY, pb);
+    ProxyBridge_AddRuleEx(parent_name, "*", "*", RULE_PROTOCOL_BOTH, RULE_ACTION_PROXY, pa);
+    log_clear();
+    CHECK(check_process_rule(src, sport, ip4("93.184.216.43"), 443, FALSE, &pid, &pcid) == RULE_ACTION_PROXY && pcid == pb, "own rule wins");
+    CHECK(!log_has("inherited from "), "own rule is not logged as inherited");
+
+    // a DIRECT rule of the parent is inherited too (catch-all would proxy)
+    clear_all_rules();
+    ProxyBridge_AddRuleEx(parent_name, "*", "*", RULE_PROTOCOL_BOTH, RULE_ACTION_DIRECT, 0);
+    ProxyBridge_AddRuleEx("*", "*", "*", RULE_PROTOCOL_BOTH, RULE_ACTION_PROXY, pb);
+    CHECK(check_process_rule(src, sport, ip4("93.184.216.44"), 443, FALSE, &pid, &pcid) == RULE_ACTION_DIRECT, "parent's DIRECT inherited over the catch-all");
+
+    closesocket(a);
+    closesocket(c);
+    closesocket(l);
+    clear_all_rules();
+    clear_all_proxies();
+    flush_to_all_log();
+}
+
 static void test_proxy_api(void)
 {
     printf("[proxies] registration and resolution\n");
@@ -1272,6 +1352,7 @@ int main(void)
 
     test_rule_matching();
     test_check_process_rule();
+    test_rule_inheritance();
     test_proxy_api();
     test_socks5();
     test_http();

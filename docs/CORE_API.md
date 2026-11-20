@@ -19,6 +19,7 @@ The GUI (`gui\Interop\ProxyBridgeNative.cs`, `gui\Services\ProxyBridgeService.cs
   - `process`: exe name (case-insensitive, e.g. `chrome.exe`), a full path, or `*` for any process.
   - `action`: PROXY (use `proxy_id`), DIRECT, BLOCK.
   - Rules are evaluated in insertion order; the first match wins; no match means DIRECT.
+  - Rule inheritance (since 3.6.6): a process without a specific rule follows the nearest ancestor (up to 8 levels) that has one, so an IDE's terminal, an AI agent's tool processes or a launcher's real binary use the program's rule. The catch-all `*` applies only when no ancestor has a rule. The walk stops at explorer.exe and the service hosts, otherwise a rule for them would cover everything. The decision log says `inherited from name (pid N)`. A parent that exited and whose pid was reused is ignored (start times are compared).
   - The GUI builds: one rule per enabled app row (PROXY with its proxy id, or DIRECT), then one catch-all rule `*` for "all other programs" (PROXY with a proxy id, or nothing when they go direct).
 - `UINT32 ProxyBridge_AddRule(...)`, `ProxyBridge_DeleteRule`, `EnableRule`, `DisableRule`, `EditRule` keep their current signatures.
 
@@ -44,6 +45,7 @@ On macOS the GUI (`gui\Services\MacProxyEngine.cs`) drives the bundled `pbcore` 
 - pbcore runs as root (one administrator prompt per connect) and gets the whole table at start as JSON in `--rules-file` (the file is deleted after reading):
   `{"proxies":[{"id":1,"url":"socks5://user:pass@host:port"}],"rules":[{"process":"/Applications/Telegram.app","action":"proxy","proxy":1},{"process":"curl","action":"direct"},{"process":"*","action":"proxy","proxy":1}]}`
   `action` is `proxy`, `direct` or `block`.
+- Rule inheritance works as on Windows: a process without a specific rule follows the nearest ancestor that has one (`kern.proc.pid` gives the parent, launchd is never matched); the catch-all applies only when no ancestor has a rule.
 - `process` is an `.app` bundle path (matches every executable inside it, helpers included), an executable path, or a bare name that matches the executable's file name or the bundle name (case-insensitive, `.app`/`.exe` suffix optional). The GUI sends the bundle or executable path when it knows it, else the name.
 - The owner of a connection is found through the `net.inet.tcp.pcblist_n` sysctl (pid of the socket) and `kern.procargs2` (executable path); when that self-test fails at start, `netstat -anv` is parsed instead. The method is reported in the `up` status line (`"procmap":"pcblist"` or `"netstat"`).
 - Rules can be replaced while running: control socket command `rules <token> <base64 json>` answers `ok` or `error <reason>`; open connections keep their decision, new ones follow the new table. `MacProxyEngine` implements `ILiveRules.CommitRulesAsync()` for this, so the GUI never restarts the helper (and never asks for the password again) when the table changes.

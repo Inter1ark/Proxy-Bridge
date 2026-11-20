@@ -151,6 +151,74 @@ static RuleAction unowned_policy(BOOL is_udp, UINT16 dest_port, UINT32 *out_prox
     return a;
 }
 
+// ---- Rule inheritance ----
+// A program's helpers and child processes (an IDE's terminal, an AI agent's tool processes,
+// a launcher that starts the real binary) rarely carry the program's name, so a rule for the
+// program alone would miss them. A process without a specific rule therefore follows the
+// nearest ancestor that has one; the catch-all "*" applies only when no ancestor does.
+
+// Shells of the system: everything descends from them, so a rule for one of them must not
+// cover every program.
+BOOL pb_is_system_launcher(const char *path)
+{
+    static const char *names[] = {"explorer.exe", "services.exe", "svchost.exe", "wininit.exe",
+                                  "winlogon.exe", "userinit.exe", "smss.exe", "csrss.exe", "System"};
+    const char *name = extract_filename(path);
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++)
+        if (_stricmp(name, names[i]) == 0)
+            return TRUE;
+    return FALSE;
+}
+
+// A rule that names a program (not "*" / ANY).
+BOOL pb_rule_is_specific(UINT32 rule_id)
+{
+    BOOL specific = FALSE;
+    if (rule_id == 0)
+        return FALSE;
+    AcquireSRWLockShared(&g_rules_lock);
+    for (PROCESS_RULE *r = rules_list; r != NULL; r = r->next)
+    {
+        if (r->rule_id == rule_id)
+        {
+            specific = !(strcmp(r->process_name, "*") == 0 || _stricmp(r->process_name, "ANY") == 0);
+            break;
+        }
+    }
+    ReleaseSRWLockShared(&g_rules_lock);
+    return specific;
+}
+
+// Walks up from pid and returns TRUE with the first ancestor's specific rule for this
+// destination; note_buf then says where the rule came from.
+BOOL match_rule_inherited(DWORD pid, BOOL is_v6, UINT32 dest_ip, const UINT8 *dest_ip6, UINT16 dest_port, BOOL is_udp,
+                          RuleAction *action, UINT32 *proxy_config_id, UINT32 *rule_id, char *note_buf, size_t note_size)
+{
+    char name[MAX_PROCESS_NAME];
+    DWORD cur = pid;
+    for (int depth = 0; depth < PB_INHERIT_DEPTH; depth++)
+    {
+        DWORD parent = get_parent_process_id(cur);
+        if (parent == 0 || parent == g_current_process_id)
+            return FALSE;
+        if (!get_process_name_from_pid(parent, name, sizeof(name)) || pb_is_system_launcher(name))
+            return FALSE;
+        UINT32 pc = 0, rid = 0;
+        RuleAction a = is_v6 ? match_rule_v6(name, dest_ip6, dest_port, is_udp, &pc, &rid)
+                             : match_rule(name, dest_ip, dest_port, is_udp, &pc, &rid);
+        if (pb_rule_is_specific(rid))
+        {
+            *action = a;
+            *proxy_config_id = pc;
+            *rule_id = rid;
+            snprintf(note_buf, note_size, "inherited from %s (pid %lu)", extract_filename(name), (unsigned long)parent);
+            return TRUE;
+        }
+        cur = parent;
+    }
+    return FALSE;
+}
+
 RuleAction check_process_rule_v6(const UINT8 src_ip6[16], UINT16 src_port, const UINT8 dest_ip6[16], UINT16 dest_port, BOOL is_udp, DWORD *out_pid, UINT32 *out_proxy_config_id)
 {
     DWORD pid;
@@ -177,7 +245,11 @@ RuleAction check_process_rule_v6(const UINT8 src_ip6[16], UINT16 src_port, const
     }
 
     UINT32 proxy_config_id = 0, rule_id = 0;
+    char inherited[MAX_PROCESS_NAME + 48];
     RuleAction action = match_rule_v6(process_name, dest_ip6, dest_port, is_udp, &proxy_config_id, &rule_id);
+    if (!pb_rule_is_specific(rule_id) &&
+        match_rule_inherited(pid, TRUE, 0, dest_ip6, dest_port, is_udp, &action, &proxy_config_id, &rule_id, inherited, sizeof(inherited)))
+        note = inherited;
     action = apply_policy(action, is_udp, dest_port, &proxy_config_id, &note);
 
     if (action == RULE_ACTION_PROXY && !g_localhost_via_proxy)
@@ -814,7 +886,11 @@ RuleAction check_process_rule(UINT32 src_ip, UINT16 src_port, UINT32 dest_ip, UI
     }
 
     UINT32 proxy_config_id = 0, rule_id = 0;
+    char inherited[MAX_PROCESS_NAME + 48];
     RuleAction action = match_rule(process_name, dest_ip, dest_port, is_udp, &proxy_config_id, &rule_id);
+    if (!pb_rule_is_specific(rule_id) &&
+        match_rule_inherited(pid, FALSE, dest_ip, NULL, dest_port, is_udp, &action, &proxy_config_id, &rule_id, inherited, sizeof(inherited)))
+        note = inherited;
     action = apply_policy(action, is_udp, dest_port, &proxy_config_id, &note);
 
     if (action == RULE_ACTION_PROXY)

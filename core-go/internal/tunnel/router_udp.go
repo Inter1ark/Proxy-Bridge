@@ -61,7 +61,7 @@ func (r *router) DecideUDP(src, dst netip.AddrPort) engine.UDPDecision {
 		}
 		return r.directUDP(dst)
 	}
-	rule, matched := t.set.Match(exe)
+	rule, matched, _ := matchTree(t.set, pid, exe, r.parentOf)
 
 	if isDNS {
 		if !r.udp.DNSViaProxy {

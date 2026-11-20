@@ -274,6 +274,38 @@ func (r *Resolver) exePath(pid int) (string, error) {
 	return path, nil
 }
 
+// Exe returns the executable path of a process (cached), ok=false when it cannot be read.
+func (r *Resolver) Exe(pid int) (string, bool) {
+	p, err := r.exePath(pid)
+	return p, err == nil
+}
+
+// Parent returns the parent pid of pid, used for rule inheritance. launchd (pid 1) is
+// never reported, everything descends from it. A parent that exited and whose pid was
+// reused is not reported either: a parent must have started before its child.
+func (r *Resolver) Parent(pid int) (int, bool) {
+	if pid <= 1 {
+		return 0, false
+	}
+	kp, err := unix.SysctlKinfoProc("kern.proc.pid", pid)
+	if err != nil {
+		return 0, false
+	}
+	ppid := int(kp.Eproc.Ppid)
+	if ppid <= 1 {
+		return 0, false
+	}
+	pp, err := unix.SysctlKinfoProc("kern.proc.pid", ppid)
+	if err != nil || startOf(pp) > startOf(kp) {
+		return 0, false
+	}
+	return ppid, true
+}
+
+func startOf(kp *unix.KinfoProc) int64 {
+	return int64(kp.Proc.P_starttime.Sec)*1_000_000 + int64(kp.Proc.P_starttime.Usec)
+}
+
 func procArgsExe(pid int) (string, error) {
 	b, err := unix.SysctlRaw("kern.procargs2", pid)
 	if err != nil {

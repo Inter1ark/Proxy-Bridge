@@ -45,6 +45,12 @@ func (r *Resolver) Lookup(local, remote netip.AddrPort) (int, string, bool) {
 	return hook(6, local, remote)
 }
 
+// Exe is unknown here: the host names flows itself.
+func (r *Resolver) Exe(pid int) (string, bool) { return "", false }
+
+// Parent is unknown here, so rules are not inherited through the process tree.
+func (r *Resolver) Parent(pid int) (int, bool) { return 0, false }
+
 // LookupUDP asks the host for the owner of a UDP flow.
 func (r *Resolver) LookupUDP(local, remote netip.AddrPort) (int, string, bool) {
 	if hook == nil {

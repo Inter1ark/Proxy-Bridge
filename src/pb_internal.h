@@ -319,6 +319,8 @@ DWORD get_process_id_from_udp_connection(UINT32 src_ip, UINT16 src_port);
 DWORD get_process_id_from_connection_v6(const UINT8 src_ip6[16], UINT16 src_port);
 DWORD get_process_id_from_udp_connection_v6(const UINT8 src_ip6[16], UINT16 src_port);
 BOOL get_process_name_from_pid(DWORD pid, char *name, DWORD name_size);
+DWORD get_parent_process_id(DWORD pid);      // 0: none, unreadable, or the parent is gone
+void clear_parent_cache(void);
 UINT32 pid_cache_hash(UINT32 src_ip, UINT16 src_port, BOOL is_udp);
 DWORD get_cached_pid(UINT32 src_ip, UINT16 src_port, BOOL is_udp);
 void cache_pid(UINT32 src_ip, UINT16 src_port, DWORD pid, BOOL is_udp);
@@ -351,6 +353,13 @@ RuleAction match_rule_inner(const char *process_name, UINT32 dest_ip, UINT16 des
 RuleAction match_rule(const char *process_name, UINT32 dest_ip, UINT16 dest_port, BOOL is_udp, UINT32 *out_proxy_config_id, UINT32 *out_rule_id);
 RuleAction match_rule_v6_inner(const char *process_name, const UINT8 dest_ip6[16], UINT16 dest_port, BOOL is_udp, UINT32 *out_proxy_config_id, UINT32 *out_rule_id);
 RuleAction match_rule_v6(const char *process_name, const UINT8 dest_ip6[16], UINT16 dest_port, BOOL is_udp, UINT32 *out_proxy_config_id, UINT32 *out_rule_id);
+// Rule inheritance: a process without a specific rule follows the nearest ancestor that has
+// one (PB_INHERIT_DEPTH levels up); the walk stops at the system's shells and service hosts.
+#define PB_INHERIT_DEPTH 8
+BOOL pb_is_system_launcher(const char *path);
+BOOL pb_rule_is_specific(UINT32 rule_id);
+BOOL match_rule_inherited(DWORD pid, BOOL is_v6, UINT32 dest_ip, const UINT8 *dest_ip6, UINT16 dest_port, BOOL is_udp,
+                          RuleAction *action, UINT32 *proxy_config_id, UINT32 *rule_id, char *note_buf, size_t note_size);
 RuleAction check_process_rule(UINT32 src_ip, UINT16 src_port, UINT32 dest_ip, UINT16 dest_port, BOOL is_udp, DWORD *out_pid, UINT32 *out_proxy_config_id);
 // Rule store (formerly upstream's exported AddRule/EditRule/MoveRule; now internal, see pb_compat.c)
 UINT32 pb_rule_add(const char* process_name, const char* target_hosts, const char* target_ports, const char* target_domains, RuleProtocol protocol, RuleAction action, UINT32 proxy_config_id);

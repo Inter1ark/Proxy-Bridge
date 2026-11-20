@@ -227,6 +227,91 @@ BOOL get_process_name_from_pid(DWORD pid, char *name, DWORD name_size)
     return FALSE;
 }
 
+// ---- Parent process (rule inheritance, see match_rule_inherited in pb_rules.c) ----
+
+typedef LONG (NTAPI *NtQueryInformationProcess_t)(HANDLE, int, PVOID, ULONG, PULONG);
+typedef struct {
+    PVOID Reserved1;
+    PVOID PebBaseAddress;
+    PVOID Reserved2[2];
+    ULONG_PTR UniqueProcessId;
+    ULONG_PTR InheritedFromUniqueProcessId;
+} PB_PROCESS_BASIC_INFORMATION;
+
+static BOOL process_start_time(HANDLE h, ULONGLONG *out)
+{
+    FILETIME c, e, k, u;
+    if (!GetProcessTimes(h, &c, &e, &k, &u))
+        return FALSE;
+    *out = ((ULONGLONG)c.dwHighDateTime << 32) | c.dwLowDateTime;
+    return TRUE;
+}
+
+// Recent answers, so a program opening many connections does not query the kernel for
+// its ancestry every time. Only the packet thread and tests call this.
+#define PARENT_CACHE_SLOTS 64
+#define PARENT_CACHE_MS 5000
+typedef struct { DWORD pid, parent; ULONGLONG when; } PARENT_CACHE_SLOT;
+static PARENT_CACHE_SLOT g_parent_cache[PARENT_CACHE_SLOTS];
+
+// The parent process id, or 0 when there is none, it cannot be read, or the parent has
+// exited and its id was reused (a process that started after the child is not its parent).
+// ntdll is resolved at run time so the DLL gains no import (see build-installer.ps1).
+DWORD get_parent_process_id(DWORD pid)
+{
+    static NtQueryInformationProcess_t query = NULL;
+    static BOOL looked_up = FALSE;
+
+    if (pid <= 4)
+        return 0;
+    ULONGLONG now = GetTickCount64();
+    PARENT_CACHE_SLOT *slot = &g_parent_cache[pid % PARENT_CACHE_SLOTS];
+    if (slot->pid == pid && now - slot->when < PARENT_CACHE_MS)
+        return slot->parent;
+
+    if (!looked_up)
+    {
+        HMODULE nt = GetModuleHandleW(L"ntdll.dll");
+        if (nt != NULL)
+            query = (NtQueryInformationProcess_t)(void *)GetProcAddress(nt, "NtQueryInformationProcess");
+        looked_up = TRUE;
+    }
+    DWORD parent = 0;
+    if (query != NULL)
+    {
+        HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+        if (h != NULL)
+        {
+            PB_PROCESS_BASIC_INFORMATION pbi;
+            ULONG len = 0;
+            ULONGLONG child_start = 0;
+            if (query(h, 0 /* ProcessBasicInformation */, &pbi, sizeof(pbi), &len) == 0 && process_start_time(h, &child_start))
+                parent = (DWORD)pbi.InheritedFromUniqueProcessId;
+            CloseHandle(h);
+            if (parent == pid)
+                parent = 0;
+            if (parent != 0)
+            {
+                HANDLE hp = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, parent);
+                ULONGLONG parent_start = 0;
+                if (hp == NULL || !process_start_time(hp, &parent_start) || parent_start > child_start)
+                    parent = 0;
+                if (hp != NULL)
+                    CloseHandle(hp);
+            }
+        }
+    }
+    slot->pid = pid;
+    slot->parent = parent;
+    slot->when = now;
+    return parent;
+}
+
+void clear_parent_cache(void)
+{
+    memset(g_parent_cache, 0, sizeof(g_parent_cache));
+}
+
 //  cache pid
 // This can be imprroved
 // Need to work on this before releease for potential collusion
