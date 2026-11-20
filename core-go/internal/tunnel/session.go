@@ -148,12 +148,17 @@ func (s *Session) setup() error {
 		// default route scoped to it, or the tunnel routes win the lookup.
 		if err := netcfg.AddScopedDefault(gw, &s.undo); err != nil {
 			s.log.Warnf("scoped default route via %s: %v", gw.Interface, err)
-		}
-		// The direct resolver must stay reachable outside the tunnel.
-		if cfg.DNS.IsValid() {
-			if err := netcfg.AddHostRoute(cfg.DNS, gw, &s.undo); err != nil {
-				// Not fatal: the resolver may be on the local link already, or be a proxy IP.
-				s.log.Warnf("host route for dns %s: %v", cfg.DNS, err)
+			// Without the scoped route a bound socket cannot reach the direct resolver, so pin
+			// it as a last resort. This is not done otherwise: a host route sends EVERY
+			// connection of the Mac to that address around the tunnel, and 1.1.1.1 is also a
+			// web site (https://1.1.1.1/cdn-cgi/trace is what IP checkers use for their
+			// "Cloudflare exit IP"), so pinning it showed the real IP there.
+			if cfg.DNS.IsValid() {
+				if err := netcfg.AddHostRoute(cfg.DNS, gw, &s.undo); err != nil {
+					s.log.Warnf("host route for dns %s: %v", cfg.DNS, err)
+				} else {
+					s.log.Warnf("dns %s is pinned to %s: connections to that address bypass the tunnel", cfg.DNS, gw.Interface)
+				}
 			}
 		}
 	}
