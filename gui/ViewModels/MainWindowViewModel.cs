@@ -1326,10 +1326,11 @@ public class MainWindowViewModel : ViewModelBase
         if (_demo || _engine == null || !_engine.ProvidesTrafficStats) return;
         if (_engine.TryGetTrafficStats(out var up, out var down))
         {
-            _sentBytes = Math.Max(0, up);
-            _receivedBytes = Math.Max(0, down);
-            OnPropertyChanged(nameof(Received));
-            OnPropertyChanged(nameof(Sent));
+            // Raise changes only when a number moved: an idle connection must not repaint every second.
+            var sent = Math.Max(0, up);
+            var received = Math.Max(0, down);
+            if (received != _receivedBytes) { _receivedBytes = received; OnPropertyChanged(nameof(Received)); }
+            if (sent != _sentBytes) { _sentBytes = sent; OnPropertyChanged(nameof(Sent)); }
         }
     }
 

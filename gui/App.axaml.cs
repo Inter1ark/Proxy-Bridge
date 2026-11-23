@@ -30,6 +30,16 @@ public class App : Application
 
             SetupTrayIcon();
 
+            // Test switch (CI memory check): repaint every open window about 30 times a second.
+            if (Environment.GetEnvironmentVariable("PB_RENDER_STRESS") == "1")
+            {
+                var stress = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) =>
+                {
+                    foreach (var w in desktop.Windows) w.InvalidateVisual();
+                });
+                stress.Start();
+            }
+
             // Before the updater closes the app to install: stop system mode and Split Tunnel so
             // traffic interception is released. Errors are ignored (the updater also has a timeout).
             AutoUpdateService.BeforeInstall = async () =>

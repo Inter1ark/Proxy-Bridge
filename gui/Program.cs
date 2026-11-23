@@ -36,8 +36,25 @@ class Program
     }
 
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .WithInterFont()
-            .LogToTrace();
+    {
+        var builder = AppBuilder.Configure<App>().UsePlatformDetect();
+        if (OperatingSystem.IsMacOS())
+            builder = builder.With(new AvaloniaNativePlatformOptions { RenderingMode = MacRenderingModes() });
+        return builder.WithInterFont().LogToTrace();
+    }
+
+    /// <summary>
+    /// macOS renderer order. Metal leaked a window-sized surface per rendered frame (tens of GB
+    /// after a couple of hours), so OpenGL comes first and software is the fallback.
+    /// PB_MAC_RENDER=metal|opengl|software overrides it for diagnostics.
+    /// </summary>
+    private static AvaloniaNativeRenderingMode[] MacRenderingModes()
+    {
+        switch ((Environment.GetEnvironmentVariable("PB_MAC_RENDER") ?? "").Trim().ToLowerInvariant())
+        {
+            case "metal": return new[] { AvaloniaNativeRenderingMode.Metal, AvaloniaNativeRenderingMode.Software };
+            case "software": return new[] { AvaloniaNativeRenderingMode.Software };
+            default: return new[] { AvaloniaNativeRenderingMode.OpenGl, AvaloniaNativeRenderingMode.Software };
+        }
+    }
 }
