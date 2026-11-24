@@ -103,6 +103,14 @@
                            Classes.danger="{Binding Status.IsError}"
                            Text="{Binding Status.Text}"/>
                 <Button Classes="pb ghost caps" Height="42" HorizontalAlignment="Stretch"
+                        IsVisible="{Binding IsAddDeviceVisible}"
+                        Command="{Binding AddDeviceCommand}">
+                    <StackPanel>
+                        <TextBlock Text="{i:Tr license.add_device_caps}"/>
+                        <c:Icon Data="{StaticResource IcoArrowUpRight}" Width="14" Height="14" StrokeThickness="1.6"/>
+                    </StackPanel>
+                </Button>
+                <Button Classes="pb ghost caps" Height="42" HorizontalAlignment="Stretch"
                         IsVisible="{Binding IsRenewVisible}"
                         Command="{Binding RenewCommand}">
                     <StackPanel>

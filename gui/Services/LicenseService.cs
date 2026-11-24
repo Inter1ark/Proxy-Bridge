@@ -149,6 +149,10 @@ public class LicenseService
                + (I18n.Instance.IsRussian ? "" : "&lang=en");
     }
 
+    /// <summary>The site page that adds device slots to this same key.</summary>
+    public static string AddDevicesUrl(string key) =>
+        $"{BuyUrl}?add={Uri.EscapeDataString(NormalizeKey(key))}" + (I18n.Instance.IsRussian ? "" : "&lang=en");
+
     /// <summary>Days before the end when the app starts offering to renew.</summary>
     public static readonly TimeSpan RenewWarning = TimeSpan.FromDays(3);
     public static readonly TimeSpan CacheLifetime = TimeSpan.FromDays(7);

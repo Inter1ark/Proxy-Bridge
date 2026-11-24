@@ -120,6 +120,7 @@ public class MainWindowViewModel : ViewModelBase
         OpenLogsCommand = new RelayCommand(OpenLogsFolder);
         OpenNoticesCommand = new RelayCommand(OpenNotices);
         UnlinkDeviceCommand = new RelayCommand(async () => await UnlinkDevice());
+        AddDeviceCommand = new RelayCommand(() => { if (_license.HasKey) OpenUrl(LicenseService.AddDevicesUrl(_license.Key)); });
         RemoveHelperCommand = new RelayCommand(async () => await RemoveMacHelper());
         AskUnlinkCommand = new RelayCommand(() => IsUnlinkConfirmVisible = true);
         CancelUnlinkCommand = new RelayCommand(() => IsUnlinkConfirmVisible = false);
@@ -191,6 +192,8 @@ public class MainWindowViewModel : ViewModelBase
     public ICommand OpenLinkCommand { get; }
     public ICommand OpenTelegramCommand { get; }
     public ICommand RenewLicenseCommand { get; }
+    /// <summary>Opens the site page that adds device slots to the current key.</summary>
+    public ICommand AddDeviceCommand { get; }
     public ICommand DismissRenewBannerCommand { get; }
     public ICommand OpenLogsCommand { get; }
     public ICommand OpenNoticesCommand { get; }

@@ -5,7 +5,7 @@ workflows:
     max_build_duration: 60
     environment:
       vars:
-        VERSION: "3.6.8"
+        VERSION: "3.6.9"
     scripts:
       - name: Install .NET 9 and Go
         script: |

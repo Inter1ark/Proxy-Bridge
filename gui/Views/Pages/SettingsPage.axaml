@@ -218,6 +218,16 @@
                             </StackPanel>
                         </Grid>
 
+                        <StackPanel Spacing="10" IsVisible="{Binding HasLicense}" Margin="0,4,0,0">
+                            <TextBlock Classes="shint" Text="{i:Tr license.add_device_hint}"/>
+                            <Button Classes="pb outline sm" HorizontalAlignment="Left" Command="{Binding AddDeviceCommand}">
+                                <StackPanel>
+                                    <TextBlock Text="{i:Tr license.add_device}"/>
+                                    <c:Icon Data="{StaticResource IcoArrowUpRight}" Width="13" Height="13" StrokeThickness="1.6"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
                         <StackPanel Spacing="10" IsVisible="{Binding IsUnlinkButtonVisible}" Margin="0,4,0,0">
                             <TextBlock Classes="shint" Text="{i:Tr license.unlink_hint}"/>
                             <Button Classes="pb danger sm" HorizontalAlignment="Left"

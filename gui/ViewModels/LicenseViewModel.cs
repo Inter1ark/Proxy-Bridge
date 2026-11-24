@@ -41,6 +41,7 @@ public class LicenseViewModel : ViewModelBase
         ActivateCommand = new RelayCommand(async () => await ActivateAsync(), () => !_isBusy);
         BuyCommand = new RelayCommand(OpenBuyPage);
         RenewCommand = new RelayCommand(OpenRenewPage);
+        AddDeviceCommand = new RelayCommand(OpenAddDevicePage);
         SetRussianCommand = new RelayCommand(() => I18n.Instance.SetLanguageAndSave(I18n.Russian));
         SetEnglishCommand = new RelayCommand(() => I18n.Instance.SetLanguageAndSave(I18n.English));
 
@@ -82,6 +83,16 @@ public class LicenseViewModel : ViewModelBase
 
     public ICommand RenewCommand { get; }
 
+    private bool _isAddDeviceVisible;
+    /// <summary>The key is used on every device it covers: offer to add one more slot on the site.</summary>
+    public bool IsAddDeviceVisible
+    {
+        get => _isAddDeviceVisible;
+        set => SetProperty(ref _isAddDeviceVisible, value);
+    }
+
+    public ICommand AddDeviceCommand { get; }
+
     public bool IsRussian => I18n.Instance.IsRussian;
     public bool IsEnglish => !I18n.Instance.IsRussian;
 
@@ -121,6 +132,7 @@ public class LicenseViewModel : ViewModelBase
 
             Status.Set(LicenseService.ErrorToKey(result.Error), StatusKind.Error, result.Error);
             IsRenewVisible = result.Error == "expired";
+            IsAddDeviceVisible = result.Error == "device_limit";
             if (IsRenewVisible && string.IsNullOrWhiteSpace(KeyText)) KeyText = _license.GetExpiredKey();
         }
         catch (Exception ex)
@@ -164,6 +176,7 @@ public class LicenseViewModel : ViewModelBase
 
             Status.Set(LicenseService.ErrorToKey(result.Error), StatusKind.Error, result.Error);
             IsRenewVisible = result.Error == "expired";
+            IsAddDeviceVisible = result.Error == "device_limit";
         }
         catch (Exception ex)
         {
@@ -173,6 +186,21 @@ public class LicenseViewModel : ViewModelBase
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private void OpenAddDevicePage()
+    {
+        var key = LicenseService.NormalizeKey(KeyText);
+        if (!LicenseService.IsValidKeyFormat(key)) return;
+        Status.Set("license.msg.add_device_hint", StatusKind.Neutral);
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = LicenseService.AddDevicesUrl(key), UseShellExecute = true });
+        }
+        catch
+        {
+            // browser could not be opened
         }
     }
 
