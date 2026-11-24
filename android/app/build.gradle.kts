@@ -22,8 +22,8 @@ android {
         applicationId = "org.proxybridge.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "3.7.1"
+        versionCode = 3
+        versionName = "3.7.2"
     }
     signingConfigs {
         if (signingProps.containsKey("storeFile")) {

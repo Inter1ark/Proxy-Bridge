@@ -282,6 +282,6 @@ class MainActivity : ComponentActivity() {
 
 /** Build-time switches for the prototype phase. */
 object BuildConfigFlags {
-    /** True while testing: the connect button works without a key. */
-    const val allowUnlicensed = true
+    /** True only for local testing: the connect button then works without a key. Releases keep it false. */
+    const val allowUnlicensed = false
 }
