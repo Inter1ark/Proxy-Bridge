@@ -1,5 +1,5 @@
 // Package check tests a proxy the way the desktop checker does: one HTTP request to
-// ip-api.com through it and, for SOCKS5, a STUN request through UDP ASSOCIATE.
+// ip-api.com and ipinfo.io through it and, for SOCKS5, a STUN request through UDP ASSOCIATE.
 package check
 
 import (
@@ -51,36 +51,101 @@ func Proxy(rawURL, lang string) Result {
 	if lang != "en" {
 		lang = "ru"
 	}
-	client := &http.Client{Transport: &http.Transport{
-		DialContext:       func(ctx context.Context, network, addr string) (net.Conn, error) { return d.Dial(ctx, addr) },
-		DisableKeepAlives: true,
-	}, Timeout: 12 * time.Second}
-	started := time.Now()
-	resp, err := client.Get("http://ip-api.com/json/?fields=status,message,country,countryCode,city,query&lang=" + lang)
-	if err != nil {
-		return Result{Error: shortErr(err)}
+	newClient := func(timeout time.Duration) *http.Client {
+		return &http.Client{Transport: &http.Transport{
+			DialContext:       func(ctx context.Context, network, addr string) (net.Conn, error) { return d.Dial(ctx, addr) },
+			DisableKeepAlives: true,
+		}, Timeout: timeout}
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
-	resp.Body.Close()
-	if err != nil {
-		return Result{Error: shortErr(err)}
+	// Two independent services at once. ip-api.com silently drops requests from exits it has banned,
+	// so alone it used to report a working proxy as dead after its whole timeout.
+	type answer struct {
+		info    exitInfo
+		ms      int
+		err     string
+		primary bool
 	}
-	ms := int(time.Since(started).Milliseconds())
-	var info struct {
-		Status, Message, Country, CountryCode, City, Query string
-	}
-	if err := json.Unmarshal(body, &info); err != nil || info.Status != "success" {
-		msg := info.Message
-		if msg == "" {
-			msg = "bad answer"
+	answers := make(chan answer, 2)
+	go func() {
+		info, ms, e := askIPAPI(newClient(12*time.Second), lang)
+		answers <- answer{info, ms, e, true}
+	}()
+	go func() {
+		info, ms, e := askIPInfo(newClient(12 * time.Second))
+		answers <- answer{info, ms, e, false}
+	}()
+	first := <-answers
+	best := first
+	if first.err != "" {
+		second := <-answers
+		// Both failed: report what ip-api said, it is the more telling of the two.
+		if second.err == "" || second.primary {
+			best = second
 		}
-		return Result{Error: "ip-api: " + msg}
+	} else if !first.primary {
+		// The fallback answered first: ip-api gets a short grace, its country names are localised.
+		select {
+		case second := <-answers:
+			if second.err == "" {
+				second.ms = min(second.ms, first.ms)
+				best = second
+			}
+		case <-time.After(2 * time.Second):
+		}
 	}
+	if best.err != "" {
+		return Result{Error: best.err}
+	}
+	info, ms := best.info, best.ms
 	res := Result{OK: true, IP: info.Query, Country: info.Country, CountryCode: info.CountryCode, City: info.City, LatencyMs: ms}
 	if cfg.Kind == proxy.KindSOCKS5 {
 		res.UDP, res.UDPIP = probeUDP(ctx, d)
 	}
 	return res
+}
+
+// exitInfo is what an address service says about the proxy's exit.
+type exitInfo struct {
+	Status, Message, Country, CountryCode, City, Query string
+}
+
+func fetchJSON(client *http.Client, url string, out any) (int, string) {
+	started := time.Now()
+	resp, err := client.Get(url)
+	if err != nil {
+		return 0, shortErr(err)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
+	resp.Body.Close()
+	if err != nil {
+		return 0, shortErr(err)
+	}
+	ms := int(time.Since(started).Milliseconds())
+	if err := json.Unmarshal(body, out); err != nil {
+		return ms, "bad answer"
+	}
+	return ms, ""
+}
+
+func askIPAPI(client *http.Client, lang string) (exitInfo, int, string) {
+	var info exitInfo
+	ms, e := fetchJSON(client, "http://ip-api.com/json/?fields=status,message,country,countryCode,city,query&lang="+lang, &info)
+	if e == "" && info.Status != "success" {
+		e = "ip-api: bad answer"
+		if info.Message != "" {
+			e = "ip-api: " + info.Message
+		}
+	}
+	return info, ms, e
+}
+
+func askIPInfo(client *http.Client) (exitInfo, int, string) {
+	var j struct{ IP, City, Country string }
+	ms, e := fetchJSON(client, "https://ipinfo.io/json", &j)
+	if e == "" && j.IP == "" {
+		e = "ipinfo: bad answer"
+	}
+	return exitInfo{Status: "success", Query: j.IP, City: j.City, Country: j.Country, CountryCode: j.Country}, ms, e
 }
 
 // JSON is Proxy marshalled for the bindings.

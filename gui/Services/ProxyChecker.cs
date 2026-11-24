@@ -42,8 +42,8 @@ public sealed class ProxyCheckResult
 
 /// <summary>
 /// Real check of an HTTP or SOCKS5 proxy: an HTTP request through the proxy (HttpClient with
-/// WebProxy "http://host:port" or "socks5://host:port" and NetworkCredential) to ip-api.com, with
-/// ipinfo.io as a fallback. Returns the exit IP and its location, or an error code. This runs in the
+/// WebProxy "http://host:port" or "socks5://host:port" and NetworkCredential) to ip-api.com and
+/// ipinfo.io at the same time (either answer proves the proxy works). Returns the exit IP and its location, or an error code. This runs in the
 /// GUI process, which the core never intercepts, so it works while connected and does not touch
 /// the system's traffic.
 /// </summary>
@@ -55,6 +55,8 @@ public static class ProxyChecker
     public const string ErrBadResponse = "bad_response";
 
     public static TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(10);
+    /// <summary>How long ip-api.com may still answer after the fallback already has.</summary>
+    public static TimeSpan PrimaryGrace { get; set; } = TimeSpan.FromSeconds(2);
     /// <summary>Overridable for tests: skip the SOCKS5 UDP probe.</summary>
     public static bool ProbeUdp { get; set; } = true;
 
@@ -88,14 +90,40 @@ public static class ProxyChecker
         client.DefaultRequestHeaders.UserAgent.ParseAdd("ProxyBridge/" + LicenseService.AppVersion);
         client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
 
-        var primary = await TryOnce(client, PrimaryUrl.Replace("{lang}", lang == "ru" ? "ru" : "en"), ParseIpApi, ct);
-        var result = primary;
-        // Fallback only when the proxy itself answered (auth and connection errors would repeat).
-        if (!primary.Ok && primary.Error == ErrBadResponse && !string.IsNullOrEmpty(FallbackUrl))
+        // Two independent services at once. ip-api.com silently drops requests from exits it has banned,
+        // and waiting out its timeout used to turn a working proxy into "no answer in 10 s".
+        using var race = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var primaryTask = TryOnce(client, PrimaryUrl.Replace("{lang}", lang == "ru" ? "ru" : "en"), ParseIpApi, race.Token);
+        ProxyCheckResult result;
+        if (string.IsNullOrEmpty(FallbackUrl))
         {
-            var fallback = await TryOnce(client, FallbackUrl, ParseIpInfo, ct);
-            if (fallback.Ok || fallback.Error != ErrBadResponse) result = fallback;
+            result = await primaryTask;
         }
+        else
+        {
+            var fallbackTask = TryOnce(client, FallbackUrl, ParseIpInfo, race.Token);
+            var firstTask = await Task.WhenAny(primaryTask, fallbackTask);
+            var first = await firstTask;
+            if (first.Ok && firstTask == primaryTask)
+            {
+                result = first;
+            }
+            else if (first.Ok)
+            {
+                // The fallback answered first: ip-api gets a short grace, its names are localised.
+                var done = await Task.WhenAny(primaryTask, Task.Delay(PrimaryGrace, ct));
+                result = done == primaryTask && primaryTask.Result.Ok ? primaryTask.Result : first;
+            }
+            else
+            {
+                var second = await (firstTask == primaryTask ? fallbackTask : primaryTask);
+                if (second.Ok) result = second;
+                else if (first.Error == ErrAuth || second.Error == ErrAuth) result = first.Error == ErrAuth ? first : second;
+                else result = primaryTask.Result.Error == ErrBadResponse ? fallbackTask.Result : primaryTask.Result;
+            }
+            race.Cancel(); // drop the request that is still waiting
+        }
+        ct.ThrowIfCancellationRequested();
 
         int latency = 0;
         bool? udp = null;
