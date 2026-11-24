@@ -423,7 +423,7 @@ workflows:
         - appstore_credentials
       xcode: latest
       vars:
-        VERSION: "3.7.0"
+        VERSION: "3.7.1"
         BUNDLE_ID: org.proxybridge.ios
         TUNNEL_BUNDLE_ID: org.proxybridge.ios.tunnel
     scripts:

@@ -7,7 +7,7 @@
 param(
     [string]$Version = "3.7.0-dev",
     [string]$Targets = "android/arm64,android/amd64",
-    [int]$Api = 29
+    [int]$Api = 26
 )
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
