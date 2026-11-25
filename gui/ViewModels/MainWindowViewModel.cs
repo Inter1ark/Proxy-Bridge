@@ -884,20 +884,21 @@ public class MainWindowViewModel : ViewModelBase
         if (_mainWindow == null || _pickerRow == null) return;
         try
         {
+            // macOS: no type filter. With one, the open panel greyed out .app bundles on some systems
+            // (the customer could not pick anything), and the "all files" switch hides behind Show Options.
+            IStorageFolder? start = null;
+            if (OperatingSystem.IsMacOS())
+            {
+                try { start = await _mainWindow.StorageProvider.TryGetFolderFromPathAsync("/Applications"); }
+                catch { start = null; }
+            }
             var files = await _mainWindow.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
                 Title = I18n.T("apps.browse_title"),
                 AllowMultiple = false,
+                SuggestedStartLocation = start,
                 FileTypeFilter = OperatingSystem.IsMacOS()
-                    ? new[]
-                    {
-                        new FilePickerFileType(I18n.T("file.programs"))
-                        {
-                            Patterns = new[] { "*.app" },
-                            AppleUniformTypeIdentifiers = new[] { "com.apple.application-bundle", "public.unix-executable" }
-                        },
-                        new FilePickerFileType(I18n.T("file.all")) { Patterns = new[] { "*" } }
-                    }
+                    ? null
                     : new[]
                     {
                         new FilePickerFileType(I18n.T("file.programs")) { Patterns = new[] { "*.exe" } },

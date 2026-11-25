@@ -12,10 +12,12 @@ namespace ProxyBridge.GUI.Services;
 public sealed record RunningProgram(string ExeName, string Path, bool HasWindow);
 
 /// <summary>
-/// Lists running programs for the app picker: one entry per program, with the image path when it
+/// Lists programs for the app picker: one entry per program, with the image path when it
 /// can be read without elevation. Programs with a window come first.
-/// Windows: one entry per exe name. macOS: one entry per .app bundle (helpers are folded into their
-/// bundle), plus plain executables started by the user (homebrew tools, scripts).
+/// Windows: one entry per exe name of a running process. macOS: one entry per .app bundle (helpers
+/// are folded into their bundle): the running ones first, then every app installed in the
+/// Applications folders (so a program can get its rule before it is started), then plain
+/// executables started by the user (homebrew tools, scripts).
 /// </summary>
 public static class ProcessCatalog
 {
@@ -171,11 +173,59 @@ public static class ProcessCatalog
                 byKey[path] = new RunningProgram(exe, path, HasWindow: false);
         }
 
-        result.AddRange(byKey.Values
-            .OrderByDescending(r => r.HasWindow)
-            .ThenByDescending(r => r.Path.StartsWith("/Applications/", StringComparison.Ordinal))
+        // Installed apps that are not running now: the list would otherwise miss the very program
+        // the user is about to set up.
+        var installed = new List<RunningProgram>();
+        foreach (var bundle in MacInstalledApps())
+        {
+            if (byKey.ContainsKey(bundle)) continue;
+            if (selfBundle.Length > 0 && string.Equals(bundle, selfBundle, StringComparison.Ordinal)) continue;
+            var name = System.IO.Path.GetFileName(bundle);
+            if (MacHiddenNames.Contains(System.IO.Path.GetFileNameWithoutExtension(name))) continue;
+            installed.Add(new RunningProgram(name, bundle, HasWindow: false));
+        }
+
+        result.AddRange(byKey.Values.Where(r => r.HasWindow)
+            .OrderByDescending(r => r.Path.StartsWith("/Applications/", StringComparison.Ordinal))
             .ThenBy(r => r.ExeName, StringComparer.OrdinalIgnoreCase));
+        result.AddRange(installed.OrderBy(r => r.ExeName, StringComparer.OrdinalIgnoreCase));
+        result.AddRange(byKey.Values.Where(r => !r.HasWindow)
+            .OrderBy(r => r.ExeName, StringComparer.OrdinalIgnoreCase));
         return result;
+    }
+
+    /// <summary>
+    /// .app bundles in /Applications and ~/Applications, plus one level of subfolders
+    /// (Utilities, vendor folders). Unreadable folders are skipped.
+    /// </summary>
+    private static List<string> MacInstalledApps()
+    {
+        var found = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var roots = new List<string> { "/Applications" };
+        if (!string.IsNullOrEmpty(home)) roots.Add(System.IO.Path.Combine(home, "Applications"));
+        foreach (var root in roots)
+        {
+            foreach (var entry in SafeDirs(root))
+            {
+                if (entry.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (seen.Add(entry)) found.Add(entry);
+                    continue;
+                }
+                if (System.IO.Path.GetFileName(entry).StartsWith(".", StringComparison.Ordinal)) continue;
+                foreach (var inner in SafeDirs(entry))
+                    if (inner.EndsWith(".app", StringComparison.OrdinalIgnoreCase) && seen.Add(inner)) found.Add(inner);
+            }
+        }
+        return found;
+    }
+
+    private static string[] SafeDirs(string dir)
+    {
+        try { return Directory.Exists(dir) ? Directory.GetDirectories(dir) : Array.Empty<string>(); }
+        catch { return Array.Empty<string>(); }
     }
 
     /// <summary>"/Applications/Google Chrome.app" for any executable inside that bundle, or "".</summary>
