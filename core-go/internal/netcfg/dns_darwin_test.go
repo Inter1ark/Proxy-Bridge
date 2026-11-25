@@ -19,6 +19,19 @@ func TestParseDNSServers(t *testing.T) {
 	}
 }
 
+func TestWithoutServer(t *testing.T) {
+	got := withoutServer([]string{"10.255.0.1", "1.1.1.1", "10.255.0.1"}, "10.255.0.1")
+	if len(got) != 1 || got[0] != "1.1.1.1" {
+		t.Fatalf("got %v", got)
+	}
+	if got := withoutServer([]string{"10.255.0.1"}, "10.255.0.1"); len(got) != 0 {
+		t.Fatalf("got %v, want none (the service goes back to automatic)", got)
+	}
+	if got := withoutServer([]string{"8.8.8.8"}, "10.255.0.1"); len(got) != 1 {
+		t.Fatalf("got %v", got)
+	}
+}
+
 func TestBackupRoundTrip(t *testing.T) {
 	old := DNSBackupPath
 	DNSBackupPath = filepath.Join(t.TempDir(), "sub", "dns-backup.json")

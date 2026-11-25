@@ -269,9 +269,30 @@ func runDaemon(log logger, rep *status.Reporter, port int, sock, token string, d
 		log.Warnf("restore dns settings from the last session: %v", err)
 	}
 	var (
-		mu  sync.Mutex
-		cur *tunnel.Session
+		mu       sync.Mutex
+		cur      *tunnel.Session
+		starting bool // a tunnel is being brought up: its DNS address is about to be set on purpose
 	)
+	// While no tunnel is up nothing may point at the tunnel's DNS address. The backup restore
+	// above covers our own crash; this also covers a VPN client that saved our address while
+	// both were connected and put it back when it disconnected.
+	clearStaleDNS := func() {
+		mu.Lock()
+		idle := cur == nil && !starting
+		mu.Unlock()
+		if !idle || !defaults.DNS.IsValid() {
+			return
+		}
+		if fixed := netcfg.ClearStaleDNS(defaults.DNS); len(fixed) > 0 {
+			log.Warnf("dns: no tunnel is up but %v still pointed at %s; removed it", fixed, defaults.DNS)
+		}
+	}
+	clearStaleDNS()
+	go func() {
+		for range time.Tick(30 * time.Second) {
+			clearStaleDNS()
+		}
+	}()
 	stopCurrent := func() {
 		mu.Lock()
 		s := cur
@@ -310,13 +331,19 @@ func runDaemon(log logger, rep *status.Reporter, port int, sock, token string, d
 			}
 			stopCurrent()
 			log.Infof("start requested: %d rules, %d proxies, parent pid %d", len(cfg.Set.Rules), len(cfg.Set.Proxies), cfg.ParentPID)
+			mu.Lock()
+			starting = true
+			mu.Unlock()
 			s, err := tunnel.BringUp(log, rep, cfg)
+			mu.Lock()
+			starting = false
+			if err == nil {
+				cur = s
+			}
+			mu.Unlock()
 			if err != nil {
 				return err
 			}
-			mu.Lock()
-			cur = s
-			mu.Unlock()
 			go func() {
 				<-s.Done()
 				mu.Lock()

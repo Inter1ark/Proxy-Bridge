@@ -159,6 +159,51 @@ func RestoreSystemDNS() error {
 	return os.Remove(DNSBackupPath)
 }
 
+// ClearStaleDNS removes ip from the DNS servers of every network service and returns the
+// services it fixed. It is meant for the time when no tunnel is up: the address exists only
+// inside the tunnel, so a service that still points at it cannot resolve anything. The backup
+// does not cover every way to get there: a VPN client that connected while our tunnel was up
+// saves our address as "the original DNS" and puts it back when it disconnects, long after our
+// own restore.
+func ClearStaleDNS(ip netip.Addr) []string {
+	svcs, err := networkServices()
+	if err != nil {
+		return nil
+	}
+	var fixed []string
+	for _, svc := range svcs {
+		out, err := run("networksetup", "-getdnsservers", svc)
+		if err != nil {
+			continue
+		}
+		servers := parseDNSServers(out)
+		keep := withoutServer(servers, ip.String())
+		if len(keep) == len(servers) {
+			continue
+		}
+		if err := setServiceDNS(svc, keep); err != nil {
+			Logf("dns: clear the tunnel address on %q: %v", svc, err)
+			continue
+		}
+		fixed = append(fixed, svc)
+	}
+	if len(fixed) > 0 {
+		flushDNSCache()
+	}
+	return fixed
+}
+
+// withoutServer returns servers without the entries equal to drop.
+func withoutServer(servers []string, drop string) []string {
+	var keep []string
+	for _, s := range servers {
+		if s != drop {
+			keep = append(keep, s)
+		}
+	}
+	return keep
+}
+
 func writeBackup(b dnsBackup) error {
 	if err := os.MkdirAll(filepath.Dir(DNSBackupPath), 0o755); err != nil {
 		return err
