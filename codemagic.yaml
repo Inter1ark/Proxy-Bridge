@@ -385,27 +385,31 @@ workflows:
             echo "start: $(printf 'start %s %s\n' "$tok" "$req" | nc -w 60 127.0.0.1 34050)"
           }
           stop() { printf 'stop %s\n' "$tok" | nc -w 3 127.0.0.1 34050 >/dev/null; sleep 1; }
-          only_python='[{"process": "python3", "action": "proxy", "proxy": 1}]'
+          only_curl='[{"process": "curl", "action": "proxy", "proxy": 1}]'
           everything='[{"process": "*", "action": "proxy", "proxy": 1}]'
+          py() { python3 -c "import urllib.request; print(urllib.request.urlopen('$1', timeout=$2).read().decode()[:40])" 2>&1 | tail -1; }
+          log=/Library/Logs/ProxyBridge/pbcore.log
 
-          echo "== A) the proxy does not answer at all (192.0.2.1 is never routed), rule for python3 only"
-          start socks5://192.0.2.1:1080 "$only_python"
-          echo "system DNS while connected: $(networksetup -getdnsservers Wi-Fi 2>/dev/null | tr '\n' ' ') $(scutil --dns | awk '/nameserver\[0\]/{print $3; exit}')"
-          t0=$(date +%s); curl -4 -sS -m 30 https://api.ipify.org; echo " exit=$? after $(( $(date +%s) - t0 )) s (expected 0 and $direct_ip: curl has no rule and must stay online)"
-          t0=$(date +%s); curl -4 -sS -m 15 https://www.example.com -o /dev/null -w '%{http_code}'; echo " exit=$? after $(( $(date +%s) - t0 )) s (expected 200, fast: the proxy is already known to be down)"
-          python3 -c "import urllib.request; print(urllib.request.urlopen('https://api.ipify.org', timeout=12).read().decode())" 2>&1 | tail -1; echo " (expected: an error, python3 has a rule and must not leave around the proxy)"
+          echo "== A) the proxy does not answer at all (192.0.2.1 is never routed), rule for curl only"
+          start socks5://192.0.2.1:1080 "$only_curl"
+          echo "system resolver while connected: $(scutil --dns | awk '/nameserver\[0\]/{print $3; exit}') (expected 10.255.0.1)"
+          t0=$(date +%s); echo "python3, no rule, first lookup: $(py https://api.ipify.org 30) after $(( $(date +%s) - t0 )) s (expected: $direct_ip, it must stay online)"
+          t0=$(date +%s); echo "python3, no rule, another name: $(py https://www.example.com 20 | cut -c1-15) after $(( $(date +%s) - t0 )) s (expected: a page, fast: the proxy is already known to be down)"
+          t0=$(date +%s); curl -4 -sS -m 12 https://api.ipify.org; echo " curl exit=$? after $(( $(date +%s) - t0 )) s (expected: not 0, curl has a rule and must not leave around the proxy)"
           stop
-          echo "== B) the proxy refuses the connection (a closed port on this machine), rule for python3 only"
+          echo "-- daemon log of A"; sudo grep -v "exec: " "$log" | tail -n 14
+          echo "== B) the proxy refuses the connection (a closed port on this machine), rule for curl only"
           own=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null); echo "own address: $own"
-          start "socks5://$own:9" "$only_python"
-          t0=$(date +%s); curl -4 -sS -m 30 https://api.ipify.org; echo " exit=$? after $(( $(date +%s) - t0 )) s (expected 0 and $direct_ip)"
+          start "socks5://$own:9" "$only_curl"
+          t0=$(date +%s); echo "python3, no rule: $(py https://api.ipify.org 30) after $(( $(date +%s) - t0 )) s (expected: $direct_ip)"
           stop
           echo "== C) everything through the same dead proxy: no fallback, lookups must fail"
           start socks5://192.0.2.1:1080 "$everything"
-          t0=$(date +%s); curl -4 -sS -m 12 https://api.ipify.org; echo " exit=$? after $(( $(date +%s) - t0 )) s (expected: not 0, nothing leaves around the proxy)"
+          sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+          t0=$(date +%s); echo "python3, catch-all rule, a name nobody asked before: $(py https://www.wikipedia.org 12 | cut -c1-60) after $(( $(date +%s) - t0 )) s (expected: an error, nothing leaves around the proxy)"
           stop
+          echo "-- daemon log of C"; sudo grep -v "exec: " "$log" | tail -n 10
           echo "after stop: $(curl -4 -sS -m 15 https://api.ipify.org) (expected: $direct_ip)"
-          echo "== daemon log (dns lines)"; sudo grep -E "does not answer|answers again|regular DNS|names will not resolve|up:" /Library/Logs/ProxyBridge/pbcore.log | tail -n 12
           echo "== idle log noise: exec lines in the last minute of the daemon log"; sleep 35; sudo tail -n 30 /Library/Logs/ProxyBridge/pbcore.log | grep -c "exec: networksetup -getdnsservers"
           sudo /bin/sh "$app/uninstall-helper.sh" >/dev/null
           exit 0
