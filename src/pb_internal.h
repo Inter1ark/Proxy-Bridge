@@ -475,6 +475,11 @@ BOOL pb_windivert_repair(DWORD open_err, char *detail, size_t detail_size);
 // A proxy that refused or swallowed DNS on port 53 is marked for a while; its queries go to
 // OpenDNS on port 443 through the same proxy meanwhile, never around it. now_ms is
 // GetTickCount64() (injected for the tests).
+// Regular DNS while a proxy is unreachable (see dns_proxy_worker)
+BOOL pb_dns_proxy_dead(UINT32 config_id, ULONGLONG now_ms);
+void pb_dns_proxy_mark_dead(UINT32 config_id, ULONGLONG now_ms);
+BOOL pb_dns_direct_port(UINT16 port_host_order);
+BOOL pb_others_go_direct(void);
 BOOL pb_dns_proxy_broken(UINT32 config_id, ULONGLONG now_ms);
 void pb_dns_proxy_mark_broken(UINT32 config_id, ULONGLONG now_ms);
 void pb_dns_proxy_clear_broken(void);

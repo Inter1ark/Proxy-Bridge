@@ -115,3 +115,9 @@ func RouteAllViaTun(cfg Config, original Gateway, undo *Undo) error {
 // AddScopedDefault is not needed on Linux: SO_BINDTODEVICE sockets route
 // through the bound interface already.
 func AddScopedDefault(gw Gateway, undo *Undo) error { return nil }
+
+// PhysicalGateway is not needed on Linux (Android and tests): routes are managed by the platform.
+func PhysicalGateway(vpnInterface string) (Gateway, bool) { return Gateway{}, false }
+
+// RepairRoutes is a no-op on Linux.
+func RepairRoutes(gw Gateway, hosts []netip.Addr) error { return nil }

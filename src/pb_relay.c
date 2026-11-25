@@ -204,11 +204,121 @@ void pb_dns_proxy_mark_broken(UINT32 config_id, ULONGLONG now_ms)
     ReleaseSRWLockExclusive(&g_dns_broken_lock);
 }
 
+// ---- regular DNS while a proxy is unreachable -------------------------------------------
+// With DNS via proxy every lookup of the computer goes through a proxy: they come from the
+// DNS Client service, so they cannot be told apart by program. When that proxy cannot be
+// reached nothing resolves, and programs without a rule lose the internet together with the
+// proxied ones. While "all other programs" go direct, a proxy that failed is left alone for
+// DNS_DEAD_MS and lookups are answered by the resolver the system asked in the first place.
+// A proxied program still connects only through its proxy: what leaves around the proxy
+// during an outage is the name it asked for, never its traffic.
+#define DNS_DEAD_MS (45 * 1000)
+static struct { UINT32 id; ULONGLONG until; } g_dns_dead[DNS_BROKEN_SLOTS];
+static SRWLOCK g_dns_dead_lock = SRWLOCK_INIT;
+
+BOOL pb_dns_proxy_dead(UINT32 config_id, ULONGLONG now_ms)
+{
+    BOOL dead = FALSE;
+    AcquireSRWLockShared(&g_dns_dead_lock);
+    for (int i = 0; i < DNS_BROKEN_SLOTS; i++)
+        if (g_dns_dead[i].id == config_id && g_dns_dead[i].until > now_ms) { dead = TRUE; break; }
+    ReleaseSRWLockShared(&g_dns_dead_lock);
+    return dead;
+}
+
+void pb_dns_proxy_mark_dead(UINT32 config_id, ULONGLONG now_ms)
+{
+    AcquireSRWLockExclusive(&g_dns_dead_lock);
+    int slot = -1;
+    for (int i = 0; i < DNS_BROKEN_SLOTS; i++)
+    {
+        if (g_dns_dead[i].id == config_id) { slot = i; break; }
+        if (slot < 0 && g_dns_dead[i].until <= now_ms) slot = i;
+    }
+    if (slot < 0) slot = 0;
+    g_dns_dead[slot].id = config_id;
+    g_dns_dead[slot].until = now_ms + DNS_DEAD_MS;
+    ReleaseSRWLockExclusive(&g_dns_dead_lock);
+}
+
+// Source ports of the core's own lookups to the regular DNS, host byte order. The packet
+// path lets them through untouched (pb_dns_direct_port), so a lookup can never be captured
+// and sent to the DNS proxy again.
+#define DNS_DIRECT_PORTS 32
+static volatile LONG g_dns_direct_ports[DNS_DIRECT_PORTS];
+
+BOOL pb_dns_direct_port(UINT16 port_host_order)
+{
+    if (port_host_order == 0)
+        return FALSE;
+    for (int i = 0; i < DNS_DIRECT_PORTS; i++)
+        if ((UINT16)g_dns_direct_ports[i] == port_host_order)
+            return TRUE;
+    return FALSE;
+}
+
+// One lookup over UDP straight to resolver_ip:53. The source port is registered before the
+// first packet leaves.
+static BOOL dns_udp_direct(UINT32 resolver_ip, const unsigned char *query, int query_len,
+                           unsigned char *answer, int answer_cap, int *answer_len)
+{
+    if (query_len < 12)
+        return FALSE;
+    SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (s == INVALID_SOCKET)
+        return FALSE;
+    BOOL ok = FALSE;
+    int slot = -1;
+    struct sockaddr_in local;
+    memset(&local, 0, sizeof(local));
+    local.sin_family = AF_INET;
+    int len = sizeof(local);
+    if (bind(s, (struct sockaddr *)&local, sizeof(local)) == 0 &&
+        getsockname(s, (struct sockaddr *)&local, &len) == 0)
+    {
+        LONG port = ntohs(local.sin_port);
+        for (int i = 0; i < DNS_DIRECT_PORTS && slot < 0; i++)
+            if (InterlockedCompareExchange(&g_dns_direct_ports[i], port, 0) == 0)
+                slot = i;
+    }
+    if (slot >= 0)
+    {
+        DWORD timeout_ms = 3000;
+        setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout_ms, sizeof(timeout_ms));
+        struct sockaddr_in to;
+        memset(&to, 0, sizeof(to));
+        to.sin_family = AF_INET;
+        to.sin_addr.s_addr = resolver_ip;
+        to.sin_port = htons(53);
+        if (sendto(s, (const char *)query, query_len, 0, (struct sockaddr *)&to, sizeof(to)) == query_len)
+        {
+            for (int tries = 0; tries < 4 && !ok; tries++)
+            {
+                int n = recv(s, (char *)answer, answer_cap, 0);
+                if (n <= 0)
+                    break;
+                if (n >= 12 && answer[0] == query[0] && answer[1] == query[1])
+                {
+                    *answer_len = n;
+                    ok = TRUE;
+                }
+            }
+        }
+    }
+    closesocket(s);
+    if (slot >= 0)
+        InterlockedExchange(&g_dns_direct_ports[slot], 0);
+    return ok;
+}
+
 void pb_dns_proxy_clear_broken(void)
 {
     AcquireSRWLockExclusive(&g_dns_broken_lock);
     memset(g_dns_broken, 0, sizeof(g_dns_broken));
     ReleaseSRWLockExclusive(&g_dns_broken_lock);
+    AcquireSRWLockExclusive(&g_dns_dead_lock);
+    memset(g_dns_dead, 0, sizeof(g_dns_dead));
+    ReleaseSRWLockExclusive(&g_dns_dead_lock);
 }
 
 // ---- proxies without IPv6 ------------------------------------------------------------
@@ -402,7 +512,11 @@ static DWORD WINAPI dns_proxy_worker(LPVOID arg)
     UINT32 resolver = pb_is_private_ipv4(job->resolver_ip) ? g_dns_server_ip : job->resolver_ip;
     const char *how = "via proxy";
     BOOL ok = FALSE;
-    if (!pb_dns_proxy_broken(job->cfg.config_id, GetTickCount64()))
+    // The proxy did not answer a moment ago and programs without a rule go direct: do not
+    // make every lookup wait for it again.
+    BOOL regular_allowed = pb_others_go_direct();
+    BOOL dead = regular_allowed && pb_dns_proxy_dead(job->cfg.config_id, GetTickCount64());
+    if (!dead && !pb_dns_proxy_broken(job->cfg.config_id, GetTickCount64()))
     {
         ok = pb_dns_tcp_exchange(&job->cfg, resolver, job->query, job->query_len, answer, sizeof(answer), &n);
         if (!ok)
@@ -414,12 +528,27 @@ static DWORD WINAPI dns_proxy_worker(LPVOID arg)
                 job->cfg.config_id, DNS_BROKEN_MS / 1000);
         }
     }
-    if (!ok)
+    if (!ok && !dead)
     {
         how = "via proxy (OpenDNS, port 443)";
         LONG first = InterlockedIncrement(&g_dns443_next) & 1;
         for (int i = 0; i < 2 && !ok; i++)
             ok = pb_dns_tcp_exchange_port(&job->cfg, k_dns443[(first + i) & 1], 443, job->query, job->query_len, answer, sizeof(answer), &n);
+    }
+    if (!ok && regular_allowed)
+    {
+        if (!dead)
+        {
+            pb_dns_proxy_mark_dead(job->cfg.config_id, GetTickCount64());
+            char key[64];
+            snprintf(key, sizeof(key), "dnsdead:%u", job->cfg.config_id);
+            pb_log_ratelimited(key, "[DNS] proxy #%u cannot be reached from this network: for the next %d s name lookups are answered by the regular DNS, so programs without a rule stay online; programs with a rule have no connection",
+                job->cfg.config_id, DNS_DEAD_MS / 1000);
+        }
+        how = "by the regular DNS (the proxy is unreachable)";
+        ok = dns_udp_direct(job->resolver_ip, job->query, job->query_len, answer, sizeof(answer), &n);
+        if (!ok && job->resolver_ip != g_dns_server_ip)
+            ok = dns_udp_direct(g_dns_server_ip, job->query, job->query_len, answer, sizeof(answer), &n);
     }
     if (ok)
     {
@@ -436,7 +565,8 @@ static DWORD WINAPI dns_proxy_worker(LPVOID arg)
     {
         char key[64];
         snprintf(key, sizeof(key), "dnsfail:%u", job->cfg.config_id);
-        pb_log_ratelimited(key, "[DNS] query through proxy #%u failed on port 53 and on port 443; not sent around the proxy (no leak)", job->cfg.config_id);
+        pb_log_ratelimited(key, "[DNS] query through proxy #%u failed on port 53 and on port 443%s", job->cfg.config_id,
+            regular_allowed ? " and the regular DNS did not answer either" : "; not sent around the proxy (no leak)");
     }
     SecureZeroMemory(job->cfg.password, sizeof(job->cfg.password));
     free(job);

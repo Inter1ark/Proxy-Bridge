@@ -68,6 +68,27 @@ RuleAction pb_udp_policy(UINT16 dest_port, ProxyType proxy_type, const char **no
     }
 }
 
+// TRUE when programs without a rule of their own go direct: no enabled catch-all rule sends
+// them to a proxy. Only then may a name lookup be answered outside the proxy (see
+// dns_proxy_worker): those programs use the real address anyway.
+BOOL pb_others_go_direct(void)
+{
+    BOOL direct = TRUE;
+    AcquireSRWLockShared(&g_rules_lock);
+    for (PROCESS_RULE *r = rules_list; r != NULL; r = r->next)
+    {
+        if (!r->enabled || r->action != RULE_ACTION_PROXY)
+            continue;
+        if (strcmp(r->process_name, "*") == 0 || _stricmp(r->process_name, "ANY") == 0)
+        {
+            direct = FALSE;
+            break;
+        }
+    }
+    ReleaseSRWLockShared(&g_rules_lock);
+    return direct;
+}
+
 UINT32 pb_dns_proxy_choice(void)
 {
     UINT32 id = (UINT32)g_dns_proxy_id;
@@ -850,6 +871,11 @@ RuleAction check_process_rule(UINT32 src_ip, UINT16 src_port, UINT32 dest_ip, UI
 
     if (out_proxy_config_id != NULL)
         *out_proxy_config_id = 0;
+
+    // The core's own lookup to the regular DNS (the proxy is unreachable): never back into
+    // the DNS proxy, even when the owner of the socket cannot be found.
+    if (is_udp && dest_port == 53 && pb_dns_direct_port(src_port))
+        return RULE_ACTION_DIRECT;
 
     pid = is_udp ? get_process_id_from_udp_connection(src_ip, src_port) : get_process_id_from_connection(src_ip, src_port);
     if (pid == 0 && is_udp)

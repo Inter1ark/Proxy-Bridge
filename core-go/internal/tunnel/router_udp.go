@@ -62,6 +62,18 @@ func (r *router) DecideUDP(src, dst netip.AddrPort) engine.UDPDecision {
 		return r.directUDP(dst)
 	}
 	rule, matched, _ := matchTree(t.set, pid, exe, r.parentOf)
+	if r.physical != nil && !isDNS && (!matched || isCatchAll(rule)) && isVPNClient(exe) {
+		// WireGuard-style clients talk to their server over UDP: outside the VPN, see Decide.
+		r.log.Debugf("udp %s -> %s: pid %d %q: a VPN client: outside the VPN through %s", src, dst, pid, exe, r.physicalName)
+		r.noteOnce(t, exe, pid, "a VPN client: its own connections leave through "+r.physicalName)
+		return engine.UDPDecision{Label: "direct", Open: func(ctx context.Context) (engine.UDPSession, error) {
+			c, err := r.physicalDialNet(ctx, "udp", dst.String(), 0)
+			if err != nil {
+				return nil, err
+			}
+			return engine.NewConnSession(c, 60*time.Second), nil
+		}}
+	}
 
 	if isDNS {
 		if !r.udp.DNSViaProxy {
@@ -90,7 +102,7 @@ func (r *router) DecideUDP(src, dst netip.AddrPort) engine.UDPDecision {
 		}
 		r.log.Debugf("udp %s -> %s: pid %d %q: dns via proxy %d -> %s", src, dst, pid, exe, id, resolver)
 		return engine.UDPDecision{Label: "dns via proxy " + strconv.Itoa(id), Open: func(ctx context.Context) (engine.UDPSession, error) {
-			return newDNSSession(res, resolver), nil
+			return newDNSSession(res, resolver, t.fallback[id]), nil
 		}}
 	}
 
@@ -128,8 +140,7 @@ func (r *router) DecideUDP(src, dst netip.AddrPort) engine.UDPDecision {
 // directUDP opens a connected socket to dst outside the tunnel.
 func (r *router) directUDP(dst netip.AddrPort) engine.UDPDecision {
 	return engine.UDPDecision{Label: "direct", Open: func(ctx context.Context) (engine.UDPSession, error) {
-		d := *r.direct
-		c, err := d.DialContext(ctx, "udp", dst.String())
+		c, err := r.dialOut(ctx, "udp", dst.String(), 0)
 		if err != nil {
 			return nil, err
 		}
@@ -145,8 +156,7 @@ func (r *router) directDNS(dst netip.AddrPort) engine.UDPDecision {
 	}
 	resolver := r.udp.DNSServer
 	return engine.UDPDecision{Label: "dns direct", Open: func(ctx context.Context) (engine.UDPSession, error) {
-		d := *r.direct
-		c, err := d.DialContext(ctx, "udp", resolver.String())
+		c, err := r.dialOut(ctx, "udp", resolver.String(), 0)
 		if err != nil {
 			return nil, err
 		}
@@ -186,15 +196,16 @@ func isPrivate(a netip.Addr) bool {
 // ---------------------------------------------------------------------------
 
 type dnsSession struct {
-	res      *proxyResolver
+	res      exchanger
+	fb       *dnsFallback // nil: the proxy or nothing
 	resolver netip.AddrPort
 	answers  chan []byte
 	done     chan struct{}
 	once     sync.Once
 }
 
-func newDNSSession(res *proxyResolver, resolver netip.AddrPort) *dnsSession {
-	return &dnsSession{res: res, resolver: resolver, answers: make(chan []byte, 16), done: make(chan struct{})}
+func newDNSSession(res exchanger, resolver netip.AddrPort, fb *dnsFallback) *dnsSession {
+	return &dnsSession{res: res, fb: fb, resolver: resolver, answers: make(chan []byte, 16), done: make(chan struct{})}
 }
 
 func (s *dnsSession) Write(query []byte) error {
@@ -204,9 +215,7 @@ func (s *dnsSession) Write(query []byte) error {
 	q := make([]byte, len(query))
 	copy(q, query)
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		answer, err := s.res.Exchange(ctx, s.resolver, q)
+		answer, err := exchangeDNS(s.res, s.fb, s.resolver, q)
 		if err != nil {
 			return
 		}

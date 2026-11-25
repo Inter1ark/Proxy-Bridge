@@ -53,6 +53,9 @@ type Session struct {
 	log    Logger
 	rep    *status.Reporter
 	rt     *router
+	gw     netcfg.Gateway // the original route (not set when the platform owns the routes)
+	gwIdx  int            // index of gw.Interface when the routes on it were last installed
+	gwGone bool
 	undo   netcfg.Undo
 	eng    *engine.Engine
 	stats  *engine.Counters
@@ -112,7 +115,18 @@ func (s *Session) setup() error {
 	if !external {
 		undo = &s.undo
 	}
-	s.rt = newRouter(s.log, gw, undo, cfg.Exempt, udp)
+	var physical netcfg.Gateway
+	if !external && gw.Tunnel {
+		if p, ok := netcfg.PhysicalGateway(gw.Interface); ok {
+			physical = p
+			s.log.Infof("network under the VPN: gateway=%s interface=%s (used by the VPN client itself and while the VPN is down)", p.IP, p.Interface)
+		}
+	}
+	if !external {
+		s.gw = gw
+		s.gwIdx = interfaceIndex(gw.Interface)
+	}
+	s.rt = newRouter(s.log, gw, physical, undo, cfg.Exempt, udp)
 	if err := s.rt.Load(cfg.Set); err != nil {
 		return err
 	}
@@ -224,6 +238,7 @@ loop:
 		case <-ticker.C:
 			s.rep.Stats(s.stats.Up.Load(), s.stats.Down.Load())
 		case <-parentTicker.C:
+			s.watchGateway()
 			if s.cfg.ParentPID > 0 && !ProcessAlive(s.cfg.ParentPID) {
 				s.log.Infof("parent process %d is gone: shutting down the tunnel", s.cfg.ParentPID)
 				break loop
@@ -242,6 +257,47 @@ loop:
 	s.mu.Unlock()
 	s.rep.Emit(status.Line{Status: "down"})
 	s.log.Infof("tunnel down")
+}
+
+// watchGateway notices that the original interface was destroyed and created again (a VPN
+// client that reconnected) and puts the routes that lived on it back: the scoped default
+// route and the host routes of the proxies. Without them sockets bound to the interface
+// have no route and every connection of the session fails until a reconnect.
+func (s *Session) watchGateway() {
+	if s.gw.Interface == "" {
+		return
+	}
+	idx := interfaceIndex(s.gw.Interface)
+	if idx <= 0 {
+		if !s.gwGone {
+			s.gwGone = true
+			s.log.Warnf("interface %s is gone (the VPN disconnected?): waiting for it to come back", s.gw.Interface)
+		}
+		return
+	}
+	trouble := s.rt.gwTrouble.Swap(false)
+	if idx == s.gwIdx && !s.gwGone && !trouble {
+		return
+	}
+	if idx != s.gwIdx || s.gwGone {
+		s.log.Infof("interface %s was created again (index %d -> %d): restoring the routes on it", s.gw.Interface, s.gwIdx, idx)
+	}
+	s.gwIdx, s.gwGone = idx, false
+	if err := netcfg.RepairRoutes(s.gw, s.rt.routedHosts()); err != nil {
+		s.log.Warnf("restore routes on %s: %v", s.gw.Interface, err)
+	}
+}
+
+// interfaceIndex returns the current index of an interface, 0 when it does not exist.
+func interfaceIndex(name string) int {
+	if name == "" {
+		return 0
+	}
+	iface, err := net.InterfaceByName(name)
+	if err != nil {
+		return 0
+	}
+	return iface.Index
 }
 
 // Stop tears the session down and waits for the cleanup to finish.

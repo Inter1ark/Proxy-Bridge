@@ -26,7 +26,64 @@ func DefaultGateway() (Gateway, error) {
 		probe.Tunnel = true
 		return probe, nil
 	}
+	// A VPN that replaced the default route itself: the default route is its utun.
+	if IsTunnelName(gw.Interface) {
+		gw.Tunnel = true
+	}
 	return gw, nil
+}
+
+// PhysicalGateway finds the default route of the network card under a VPN. macOS keeps it
+// as an interface-scoped default route ("default 192.168.0.1 UGScIg en0") while the VPN
+// owns the unscoped one. vpnInterface is skipped. ok is false when there is none.
+func PhysicalGateway(vpnInterface string) (Gateway, bool) {
+	out, err := run("netstat", "-rn", "-f", "inet")
+	if err != nil {
+		return Gateway{}, false
+	}
+	return parsePhysicalGateway(out, vpnInterface)
+}
+
+func parsePhysicalGateway(netstat, vpnInterface string) (Gateway, bool) {
+	for _, line := range strings.Split(netstat, "\n") {
+		f := strings.Fields(line)
+		if len(f) < 4 || f[0] != "default" {
+			continue
+		}
+		iface := f[3]
+		if iface == vpnInterface || IsTunnelName(iface) || strings.HasPrefix(iface, "lo") {
+			continue
+		}
+		ip, err := netip.ParseAddr(f[1])
+		if err != nil || !ip.Is4() {
+			continue
+		}
+		return Gateway{IP: ip, Interface: iface}, true
+	}
+	return Gateway{}, false
+}
+
+// RepairRoutes puts back the routes that live on the original interface after it was
+// destroyed and created again (a VPN client that reconnected): the scoped default route and
+// the host routes of the proxies. Routes that are still there are left alone. The cleanup
+// steps registered when they were first added stay valid.
+func RepairRoutes(gw Gateway, hosts []netip.Addr) error {
+	var first error
+	note := func(err error) {
+		if err != nil && !strings.Contains(err.Error(), "exists") && first == nil {
+			first = err
+		}
+	}
+	if gw.Interface != "" {
+		args := append([]string{"-n", "add", "-inet", "default"}, viaArgs(gw)...)
+		_, err := run("route", append(args, "-ifscope", gw.Interface)...)
+		note(err)
+	}
+	for _, ip := range hosts {
+		_, err := run("route", append([]string{"-n", "add", "-inet", "-host", ip.String()}, viaArgs(gw)...)...)
+		note(err)
+	}
+	return first
 }
 
 // routeGet parses "route -n get -inet <dest>" into the gateway and interface.

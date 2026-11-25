@@ -14,6 +14,17 @@ import (
 	"time"
 )
 
+// IsTunnelName tells whether an interface name belongs to a tunnel (a VPN) rather than to
+// a network card.
+func IsTunnelName(name string) bool {
+	for _, p := range []string{"utun", "ipsec", "ppp", "tun", "tap", "wg", "gif", "stf"} {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // Gateway is the default route that was active before the tunnel came up.
 type Gateway struct {
 	// IP is the next hop. It is invalid when the default route is a direct link.
@@ -55,6 +66,11 @@ var Logf = func(format string, args ...any) {}
 
 func run(name string, args ...string) (string, error) {
 	Logf("exec: %s %s", name, strings.Join(args, " "))
+	return runQuiet(name, args...)
+}
+
+// runQuiet is run without the "exec:" log line, for commands repeated on a timer.
+func runQuiet(name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)

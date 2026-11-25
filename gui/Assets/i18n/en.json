@@ -70,6 +70,7 @@
   "status.checking": "Checking the proxy...",
   "status.check_ok": "The proxy works.",
   "status.check_ok_no_geo": "The proxy works, but its location could not be determined.",
+  "status.proxy_unreachable": "Proxy \"{0}\" cannot be reached from this network: programs with this rule will have no internet. Try the HTTP type instead of SOCKS5, another network or another proxy.",
   "status.check_failed": "The proxy is not reachable.",
   "status.socks_note": "SOCKS5 cannot be checked in advance: just connect, and the result shows right away.",
   "status.reconnect_to_apply": "Reconnect to switch to this proxy.",

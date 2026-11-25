@@ -555,6 +555,33 @@ public class MainWindowViewModel : ViewModelBase
     }
 
     // ---------------- checks ----------------
+    /// <summary>
+    /// After a connect the proxies of the plan are checked once. "Connected" only means the
+    /// interception is on: a proxy that this network cannot reach (an internet provider that
+    /// drops the connection to it) would otherwise look like a program that silently has no internet.
+    /// </summary>
+    private async Task WarnUnreachableProxiesAsync(RulePlan plan)
+    {
+        try
+        {
+            foreach (var raw in plan.Proxies.Take(4))
+            {
+                var item = Proxies.FirstOrDefault(p => p.Raw == raw);
+                if (item == null) continue;
+                await CheckProxy(item);
+                if (!IsConnected) return;
+                if (item.Check == null || item.Check.Ok) continue;
+                AppLog.Warn($"Proxy {item.HostPort} cannot be used from this network right after the connect: {item.Check.Error}");
+                Status.Set("status.proxy_unreachable", StatusKind.Warning, item.Name);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"Proxy check after connect failed: {ex.Message}");
+        }
+    }
+
     public bool IsCheckingAll { get => _isCheckingAll; private set => SetProperty(ref _isCheckingAll, value); }
     private bool _isCheckingAll;
 
@@ -1045,6 +1072,7 @@ public class MainWindowViewModel : ViewModelBase
                 if (string.IsNullOrEmpty(_engine.StartWarning)) Status.Clear(); // the status word says it all
                 else Status.Set("status.warning_detail", StatusKind.Warning, _engine.StartWarning);
                 StartTimers();
+                _ = WarnUnreachableProxiesAsync(plan);
             }
         }
         finally

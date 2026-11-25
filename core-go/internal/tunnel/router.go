@@ -4,6 +4,7 @@ package tunnel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"proxybridge/core/internal/engine"
@@ -39,6 +41,16 @@ type router struct {
 
 	// unknownLogged rate-limits the "owner unknown" log line.
 	unknownLogged atomic.Int64
+
+	// physical is set when the original gateway is a VPN and the network card under it has
+	// its own default route: the VPN client's own connections leave through it, and so do
+	// direct connections while the VPN interface is gone (see dialOut).
+	physical     *net.Dialer
+	physicalName string
+	// gwTrouble is raised when a socket bound to the original interface could not be used;
+	// the session then puts the routes on that interface back (see Session.watchGateway).
+	gwTrouble   atomic.Bool
+	vpnDownNote atomic.Int64
 }
 
 // ruleTable is an immutable, resolved rule set.
@@ -51,11 +63,14 @@ type ruleTable struct {
 	dialers map[int]*proxy.Dialer
 	udp     map[int]*udpPool       // SOCKS5 UDP associations per proxy id
 	dns     map[int]*proxyResolver // DNS through each proxy (DoH on 443, else TCP/53)
+	// fallback answers lookups from the regular DNS while a proxy is unreachable. It is
+	// filled only when "all other programs" go direct (see dnsFallback).
+	fallback map[int]*dnsFallback
 	// summary is shown in the "up" status line: the catch-all proxy or "direct".
 	summary string
 }
 
-func newRouter(log Logger, gw netcfg.Gateway, undo *netcfg.Undo, exempt []int, udp UDPOptions) *router {
+func newRouter(log Logger, gw netcfg.Gateway, physical netcfg.Gateway, undo *netcfg.Undo, exempt []int, udp UDPOptions) *router {
 	base := boundDialer(gw.Interface)
 	r := &router{
 		log:     log,
@@ -72,8 +87,91 @@ func newRouter(log Logger, gw netcfg.Gateway, undo *netcfg.Undo, exempt []int, u
 			r.exempt[pid] = true
 		}
 	}
+	if physical.Interface != "" && physical.Interface != gw.Interface {
+		r.physical = boundDialer(physical.Interface)
+		r.physicalName = physical.Interface
+	}
 	r.procs = procmap.New(log.Infof)
 	return r
+}
+
+// routedHosts lists the proxy addresses that have a host route on the original interface.
+func (r *router) routedHosts() []netip.Addr {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]netip.Addr, 0, len(r.routed))
+	for ip := range r.routed {
+		out = append(out, ip)
+	}
+	return out
+}
+
+// interfaceUnusable tells whether a dial failed because the interface the socket is bound
+// to is gone or has no address and no route: a VPN that is down or reconnecting.
+func interfaceUnusable(err error) bool {
+	for _, e := range []error{syscall.EADDRNOTAVAIL, syscall.ENETUNREACH, syscall.EHOSTUNREACH, syscall.ENETDOWN, syscall.ENXIO} {
+		if errors.Is(err, e) {
+			return true
+		}
+	}
+	return false
+}
+
+// vpnClientMarks are parts of the executable path of programs that build tunnels
+// themselves. Their own connections (to the VPN server) must never be sent into the VPN
+// interface: the client then waits for an answer through the tunnel it is trying to build.
+// The marks are narrow on purpose: a program taken for a VPN client by mistake would send
+// its traffic around the VPN.
+var vpnClientMarks = []string{
+	"packettunnel", "tunnelprovider", "networkextension", "/neagent", "nesessionmanager",
+	"/library/systemextensions/", "wireguard", "openvpn", "amnezia", "sing-box", "/xray", "/v2ray",
+	"v2box.app/", "happ.app/", "hiddify", "streisand.app/", "clashx", "clash verge",
+	"shadowrocket", "nekoray", "tailscale", "vpn",
+}
+
+func isVPNClient(exe string) bool {
+	if exe == "" {
+		return false
+	}
+	low := strings.ToLower(exe)
+	for _, m := range vpnClientMarks {
+		if strings.Contains(low, m) {
+			return true
+		}
+	}
+	return false
+}
+
+// dialOut opens a connection outside the tunnel through the original interface. When that
+// interface is a VPN that cannot be used right now, the network card under it is used
+// instead: without ProxyBridge the system would do the same.
+func (r *router) dialOut(ctx context.Context, network, target string, timeout time.Duration) (net.Conn, error) {
+	d := *r.direct
+	d.Timeout = timeout
+	c, err := d.DialContext(ctx, network, target)
+	if err == nil || !interfaceUnusable(err) {
+		return c, err
+	}
+	r.gwTrouble.Store(true)
+	if r.physical == nil {
+		return nil, err
+	}
+	now := time.Now().Unix()
+	if last := r.vpnDownNote.Load(); now-last >= 30 && r.vpnDownNote.CompareAndSwap(last, now) {
+		r.log.Warnf("the VPN interface %s cannot be used (%v): direct connections leave through %s until it is back", r.gateway.Interface, err, r.physicalName)
+	}
+	return r.physicalDialNet(ctx, network, target, timeout)
+}
+
+func (r *router) physicalDialNet(ctx context.Context, network, target string, timeout time.Duration) (net.Conn, error) {
+	p := *r.physical
+	p.Timeout = timeout
+	return p.DialContext(ctx, network, target)
+}
+
+// physicalDial is the dial function for the connections of a VPN client.
+func (r *router) physicalDial(ctx context.Context, target string) (net.Conn, error) {
+	return r.physicalDialNet(ctx, "tcp", target, 15*time.Second)
 }
 
 // Procmap names the process attribution method for the status line.
@@ -85,7 +183,7 @@ func (r *router) Load(set *rules.Set) error {
 	if err := set.Validate(); err != nil {
 		return err
 	}
-	t := &ruleTable{set: set, dialers: make(map[int]*proxy.Dialer, len(set.Proxies)), udp: make(map[int]*udpPool), dns: make(map[int]*proxyResolver), summary: "direct"}
+	t := &ruleTable{set: set, dialers: make(map[int]*proxy.Dialer, len(set.Proxies)), udp: make(map[int]*udpPool), dns: make(map[int]*proxyResolver), fallback: make(map[int]*dnsFallback), summary: "direct"}
 	for _, p := range set.Proxies {
 		cfg, err := proxy.Parse(p.URL)
 		if err != nil {
@@ -112,6 +210,11 @@ func (r *router) Load(set *rules.Set) error {
 				t.summary = string(rule.Action)
 			}
 			break
+		}
+	}
+	if t.summary == "direct" && r.udp.DNSViaProxy {
+		for id := range t.dns {
+			t.fallback[id] = newDNSFallback(id, r.log, r.askRegularDNS)
 		}
 	}
 	if old := r.current.Swap(t); old != nil {
@@ -173,6 +276,11 @@ func (r *router) Decide(src, dst netip.AddrPort) engine.Decision {
 		}
 	}
 	rule, ok, via := matchTree(t.set, pid, exe, r.parentOf)
+	if r.physical != nil && (!ok || isCatchAll(rule)) && isVPNClient(exe) {
+		r.log.Debugf("tcp %s -> %s: pid %d %q: a VPN client: outside the VPN through %s", src, dst, pid, exe, r.physicalName)
+		r.noteOnce(t, exe, pid, "a VPN client: its own connections leave through "+r.physicalName)
+		return engine.Decision{Dial: r.physicalDial, Label: "direct"}
+	}
 	if !ok {
 		r.log.Debugf("tcp %s -> %s: pid %d %q: no rule: direct", src, dst, pid, exe)
 		r.noteOnce(t, exe, pid, "no rule: direct")
@@ -251,11 +359,30 @@ func (r *router) parentOf(pid int) (int, string, bool) {
 	return ppid, exe, true
 }
 
+// regularResolvers lists the DNS servers outside the tunnel: the configured direct
+// resolver and the router of the local network (home routers answer DNS themselves, and an
+// internet provider that drops foreign resolvers still serves its own).
+func (r *router) regularResolvers() []netip.AddrPort {
+	var out []netip.AddrPort
+	if r.udp.DNSServer.IsValid() {
+		out = append(out, r.udp.DNSServer)
+	}
+	if ip := r.gateway.IP; ip.IsValid() && ip.Is4() && isPrivate(ip) {
+		out = append(out, netip.AddrPortFrom(ip, 53))
+	}
+	return out
+}
+
+// askRegularDNS answers a query from the resolvers outside the tunnel.
+func (r *router) askRegularDNS(ctx context.Context, query []byte) ([]byte, error) {
+	return askResolvers(ctx, r.regularResolvers(), query, func(ctx context.Context, addr string) (udpConn, error) {
+		return r.dialOut(ctx, "udp", addr, 3*time.Second)
+	})
+}
+
 // directDial opens the destination outside the tunnel.
 func (r *router) directDial(ctx context.Context, target string) (net.Conn, error) {
-	d := *r.direct
-	d.Timeout = 15 * time.Second
-	return d.DialContext(ctx, "tcp", target)
+	return r.dialOut(ctx, "tcp", target, 15*time.Second)
 }
 
 func (r *router) pin(ip netip.Addr) error {

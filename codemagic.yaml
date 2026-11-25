@@ -5,7 +5,7 @@ workflows:
     max_build_duration: 60
     environment:
       vars:
-        VERSION: "3.6.11"
+        VERSION: "3.6.12"
     scripts:
       - name: Install .NET 9 and Go
         script: |
@@ -339,6 +339,21 @@ workflows:
           echo "== 1) curl (rule: direct, should still leave through the VPN) "; curl -4 -sS -m 40 https://api.ipify.org; echo " exit=$? (expected: $direct_ip)"
           echo "== 2) python3 (catch-all: proxy)"; python3 -c "import urllib.request; print(urllib.request.urlopen('https://api.ipify.org', timeout=40).read().decode())"; echo " exit=$? (expected: the proxy IP)"
           echo "== 3) the VPN's own log saw the daemon's flows as direct:"; grep -c "direct" /tmp/vpn.log
+          echo "== 4) the VPN reconnects while the session is up: its utun is destroyed and created again"
+          old_idx=$(ifconfig -v "$vtun" 2>/dev/null | sed -n 's/.*index \([0-9]*\).*/\1/p' | head -1)
+          printf 'stop vpn\n' | nc -w 3 127.0.0.1 34060 >/dev/null; sleep 2
+          echo "VPN down, $vtun present: $(ifconfig "$vtun" >/dev/null 2>&1 && echo yes || echo no)"
+          echo "curl while the VPN is down (rule: direct, expected: $direct_ip through the network card):"; curl -4 -sS -m 20 https://api.ipify.org; echo " exit=$?"
+          sudo /bin/sh /tmp/vpn-launch.sh < /dev/null
+          for i in $(seq 1 30); do [ "$(grep -c '"status":"up"' /tmp/vpn.log)" -ge 1 ] && break; sleep 0.5; done
+          vtun2=$(sed -n 's/.*TUN \(utun[0-9]*\) created.*/\1/p' /tmp/vpn.log | tail -1)
+          new_idx=$(ifconfig -v "$vtun2" 2>/dev/null | sed -n 's/.*index \([0-9]*\).*/\1/p' | head -1)
+          echo "VPN up again: tun=$vtun2 (was $vtun), interface index $old_idx -> $new_idx"
+          sleep 6
+          echo "== routes after the VPN came back"; netstat -rn -f inet | grep -E "^(default|0/1|128.0/1|0/2|64/2|128.0/2|192)"
+          echo "curl after the VPN came back (rule: direct):"; curl -4 -sS -m 30 https://api.ipify.org; echo " exit=$? (expected: $direct_ip)"
+          echo "python3 after the VPN came back (catch-all: proxy):"; python3 -c "import urllib.request; print(urllib.request.urlopen('https://api.ipify.org', timeout=40).read().decode())"; echo " exit=$? (expected: the proxy IP)"
+          echo "== daemon log: what it did about the VPN"; sudo grep -E "created again|is gone|restore routes|restoring the routes|a VPN client|cannot be used|network under the VPN" /Library/Logs/ProxyBridge/pbcore.log | tail -12
           echo "stop: $(printf 'stop %s\n' "$tok" | nc -w 3 -U "$sock")"
           sleep 2
           echo "== routes after stop (expected: only the /1 pair on $vtun)"; netstat -rn -f inet | grep -E "^(0/1|128.0/1|0/2|64/2|128.0/2|192)"
@@ -350,6 +365,49 @@ workflows:
           echo "IP after everything: $(curl -4 -sS -m 15 https://api.ipify.org)"
           cp /tmp/vpn.log out/vpn-coexistence-vpn.log
           sudo pkill -f vpncore; sudo pkill -f pbcore
+          exit 0
+
+      - name: Unreachable proxy test (DNS via proxy must not take programs without a rule offline)
+        script: |
+          set +e
+          app=/Applications/ProxyBridge.app/Contents/MacOS
+          sudo /bin/sh "$app/install-helper.sh" "$app/pbcore" >/dev/null; tok=$(sudo cat "/Library/Application Support/ProxyBridge/control.token")
+          for i in $(seq 1 20); do r=$(printf 'ping %s\n' "$tok" | nc -w 2 127.0.0.1 34050); [ -n "$r" ] && break; sleep 0.5; done; echo "ping: $r"
+          direct_ip=$(curl -4 -sS -m 15 https://api.ipify.org); echo "direct IP: $direct_ip"
+          start() {  # $1 proxy url, $2 rules as JSON
+            req=$(python3 - "$1" "$2" <<'PY'
+          import base64, json, os, sys
+          s = json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}], "rules": json.loads(sys.argv[2]),
+                          "udp": "proxy", "dns_via_proxy": True, "dns": "1.1.1.1", "parent_pid": os.getppid()})
+          print(base64.b64encode(s.encode()).decode())
+          PY
+          )
+            echo "start: $(printf 'start %s %s\n' "$tok" "$req" | nc -w 60 127.0.0.1 34050)"
+          }
+          stop() { printf 'stop %s\n' "$tok" | nc -w 3 127.0.0.1 34050 >/dev/null; sleep 1; }
+          only_python='[{"process": "python3", "action": "proxy", "proxy": 1}]'
+          everything='[{"process": "*", "action": "proxy", "proxy": 1}]'
+
+          echo "== A) the proxy does not answer at all (192.0.2.1 is never routed), rule for python3 only"
+          start socks5://192.0.2.1:1080 "$only_python"
+          echo "system DNS while connected: $(networksetup -getdnsservers Wi-Fi 2>/dev/null | tr '\n' ' ') $(scutil --dns | awk '/nameserver\[0\]/{print $3; exit}')"
+          t0=$(date +%s); curl -4 -sS -m 30 https://api.ipify.org; echo " exit=$? after $(( $(date +%s) - t0 )) s (expected 0 and $direct_ip: curl has no rule and must stay online)"
+          t0=$(date +%s); curl -4 -sS -m 15 https://www.example.com -o /dev/null -w '%{http_code}'; echo " exit=$? after $(( $(date +%s) - t0 )) s (expected 200, fast: the proxy is already known to be down)"
+          python3 -c "import urllib.request; print(urllib.request.urlopen('https://api.ipify.org', timeout=12).read().decode())" 2>&1 | tail -1; echo " (expected: an error, python3 has a rule and must not leave around the proxy)"
+          stop
+          echo "== B) the proxy refuses the connection (a closed port on this machine), rule for python3 only"
+          own=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null); echo "own address: $own"
+          start "socks5://$own:9" "$only_python"
+          t0=$(date +%s); curl -4 -sS -m 30 https://api.ipify.org; echo " exit=$? after $(( $(date +%s) - t0 )) s (expected 0 and $direct_ip)"
+          stop
+          echo "== C) everything through the same dead proxy: no fallback, lookups must fail"
+          start socks5://192.0.2.1:1080 "$everything"
+          t0=$(date +%s); curl -4 -sS -m 12 https://api.ipify.org; echo " exit=$? after $(( $(date +%s) - t0 )) s (expected: not 0, nothing leaves around the proxy)"
+          stop
+          echo "after stop: $(curl -4 -sS -m 15 https://api.ipify.org) (expected: $direct_ip)"
+          echo "== daemon log (dns lines)"; sudo grep -E "does not answer|answers again|regular DNS|names will not resolve|up:" /Library/Logs/ProxyBridge/pbcore.log | tail -n 12
+          echo "== idle log noise: exec lines in the last minute of the daemon log"; sleep 35; sudo tail -n 30 /Library/Logs/ProxyBridge/pbcore.log | grep -c "exec: networksetup -getdnsservers"
+          sudo /bin/sh "$app/uninstall-helper.sh" >/dev/null
           exit 0
 
       - name: UDP end-to-end test (SOCKS5 UDP, block mode, DNS via proxy)

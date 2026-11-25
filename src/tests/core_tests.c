@@ -1025,6 +1025,35 @@ static void test_dns_proxy_broken(void)
     CHECK(!pb_dns_proxy_broken(1, 9000), "cleared at start");
 }
 
+static void test_dns_regular_fallback(void)
+{
+    printf("dns via proxy: an unreachable proxy is left alone and lookups go to the regular DNS\n");
+    pb_dns_proxy_clear_broken();
+    CHECK(!pb_dns_proxy_dead(1, 1000), "unknown proxy is not dead");
+    pb_dns_proxy_mark_dead(1, 1000);
+    CHECK(pb_dns_proxy_dead(1, 1000), "marked proxy is dead now");
+    CHECK(pb_dns_proxy_dead(1, 1000 + 44000), "still dead before the window ends");
+    CHECK(!pb_dns_proxy_dead(1, 1000 + 45000), "tried again after 45 s");
+    CHECK(!pb_dns_proxy_dead(2, 1000), "other proxies are not affected");
+    pb_dns_proxy_mark_dead(1, 2000);
+    pb_dns_proxy_clear_broken();
+    CHECK(!pb_dns_proxy_dead(1, 2000), "cleared at start");
+    CHECK(!pb_dns_direct_port(0) && !pb_dns_direct_port(53124), "no lookup of the core is in flight");
+
+    CHECK(pb_others_go_direct(), "no catch-all rule: other programs go direct");
+    UINT32 one = ProxyBridge_AddRule("telegram.exe", "*", "*", RULE_PROTOCOL_BOTH, RULE_ACTION_PROXY);
+    CHECK(pb_others_go_direct(), "a rule for one program: other programs still go direct");
+    UINT32 all = ProxyBridge_AddRule("*", "*", "*", RULE_PROTOCOL_BOTH, RULE_ACTION_PROXY);
+    CHECK(!pb_others_go_direct(), "catch-all through a proxy: lookups never leave the proxy");
+    ProxyBridge_DisableRule(all);
+    CHECK(pb_others_go_direct(), "a disabled catch-all rule does not count");
+    ProxyBridge_DeleteRule(all);
+    UINT32 direct = ProxyBridge_AddRule("*", "*", "*", RULE_PROTOCOL_BOTH, RULE_ACTION_DIRECT);
+    CHECK(pb_others_go_direct(), "catch-all direct: other programs go direct");
+    ProxyBridge_DeleteRule(direct);
+    ProxyBridge_DeleteRule(one);
+}
+
 static void test_no_ipv6(void)
 {
     printf("[ipv6] proxies without IPv6 are detected and IPv6 SYNs get a RST\n");
@@ -1361,6 +1390,7 @@ int main(void)
     test_testconnection();
     test_udp_dns_exports();
     test_dns_proxy_broken();
+    test_dns_regular_fallback();
     test_no_ipv6();
     test_windivert_repair_plan();
     test_udp_policy();

@@ -33,6 +33,10 @@ func networkServices() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	return parseNetworkServices(out), nil
+}
+
+func parseNetworkServices(out string) []string {
 	var svcs []string
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
@@ -41,7 +45,7 @@ func networkServices() ([]string, error) {
 		}
 		svcs = append(svcs, line)
 	}
-	return svcs, nil
+	return svcs
 }
 
 // parseDNSServers reads "networksetup -getdnsservers" output: one address per line, or a
@@ -166,13 +170,14 @@ func RestoreSystemDNS() error {
 // saves our address as "the original DNS" and puts it back when it disconnects, long after our
 // own restore.
 func ClearStaleDNS(ip netip.Addr) []string {
-	svcs, err := networkServices()
+	// Runs every 30 seconds while idle: without the "exec:" lines, or the log is nothing else.
+	list, err := runQuiet("networksetup", "-listallnetworkservices")
 	if err != nil {
 		return nil
 	}
 	var fixed []string
-	for _, svc := range svcs {
-		out, err := run("networksetup", "-getdnsservers", svc)
+	for _, svc := range parseNetworkServices(list) {
+		out, err := runQuiet("networksetup", "-getdnsservers", svc)
 		if err != nil {
 			continue
 		}
