@@ -133,23 +133,18 @@ workflows:
           set +e
           app=/Applications/ProxyBridge.app/Contents/MacOS
           svc=$(networksetup -listallnetworkservices | sed 1d | grep -v '^\*' | head -1)
-          echo "service: $svc; before: $(networksetup -getdnsservers "$svc" | tr '
-' ' ')"
+          echo "service: $svc; before: $(networksetup -getdnsservers "$svc" | xargs)"
           sudo networksetup -setdnsservers "$svc" 10.255.0.1 1.1.1.1
-          echo "prepared: $(networksetup -getdnsservers "$svc" | tr '
-' ' ')"
+          echo "prepared: $(networksetup -getdnsservers "$svc" | xargs)"
           sudo "$app/pbcore" --daemon --control-port 34077 --token-file /tmp/pbstale.token --log-level info > /tmp/stale-dns.log 2>&1 &
           sleep 8
-          echo "STALE after daemon start: [$(networksetup -getdnsservers "$svc" | tr '
-' ' ')] (expected: 1.1.1.1 alone)"
+          echo "STALE after daemon start: [$(networksetup -getdnsservers "$svc" | xargs)] (expected: 1.1.1.1 alone)"
           sudo networksetup -setdnsservers "$svc" 10.255.0.1
           sleep 45
-          echo "STALE after the periodic check: [$(networksetup -getdnsservers "$svc" | tr '
-' ' ')] (expected: no DNS servers set)"
+          echo "STALE after the periodic check: [$(networksetup -getdnsservers "$svc" | xargs)] (expected: no DNS servers set)"
           sudo networksetup -setdnsservers "$svc" 8.8.8.8 9.9.9.9
           sleep 40
-          echo "STALE foreign servers untouched: [$(networksetup -getdnsservers "$svc" | tr '
-' ' ')] (expected: 8.8.8.8 9.9.9.9)"
+          echo "STALE foreign servers untouched: [$(networksetup -getdnsservers "$svc" | xargs)] (expected: 8.8.8.8 9.9.9.9)"
           sudo pkill -f "pbcore --daemon --control-port 34077"; sleep 1
           sudo networksetup -setdnsservers "$svc" empty
           sudo cat /tmp/stale-dns.log | grep -E "dns:|daemon" | tail -n 8
