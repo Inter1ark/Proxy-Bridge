@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 
 namespace ProxyBridge.GUI.Services;
@@ -14,7 +16,8 @@ public sealed record RunningProgram(string ExeName, string Path, bool HasWindow)
 /// <summary>
 /// Lists programs for the app picker: one entry per program, with the image path when it
 /// can be read without elevation. Programs with a window come first.
-/// Windows: one entry per exe name of a running process. macOS: one entry per .app bundle (helpers
+/// Windows: one entry per exe name: running programs with a window, then installed programs
+/// (Start menu shortcuts and the App Paths registry key), then background processes. macOS: one entry per .app bundle (helpers
 /// are folded into their bundle): the running ones first, then every app installed in the
 /// Applications folders (so a program can get its rule before it is started), then plain
 /// executables started by the user (homebrew tools, scripts).
@@ -88,11 +91,127 @@ public static class ProcessCatalog
             }
         }
 
-        result.AddRange(byName.Values
-            .OrderByDescending(r => r.HasWindow)
-            .ThenBy(r => IsWindowsDir(r.Path))
+        // Installed programs that are not running now, so a program can get its rule before it is started.
+        var installed = new List<RunningProgram>();
+        try
+        {
+            foreach (var path in WindowsInstalledExes())
+            {
+                var exe = System.IO.Path.GetFileName(path);
+                if (byName.ContainsKey(exe) || Hidden.Contains(System.IO.Path.GetFileNameWithoutExtension(exe))) continue;
+                if (installed.Any(i => string.Equals(i.ExeName, exe, StringComparison.OrdinalIgnoreCase))) continue;
+                installed.Add(new RunningProgram(exe, path, HasWindow: false));
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"Installed programs list failed: {ex.Message}");
+        }
+
+        result.AddRange(byName.Values.Where(r => r.HasWindow)
+            .OrderBy(r => IsWindowsDir(r.Path))
+            .ThenBy(r => r.ExeName, StringComparer.OrdinalIgnoreCase));
+        result.AddRange(installed.OrderBy(r => r.ExeName, StringComparer.OrdinalIgnoreCase));
+        result.AddRange(byName.Values.Where(r => !r.HasWindow)
+            .OrderBy(r => IsWindowsDir(r.Path))
             .ThenBy(r => r.ExeName, StringComparer.OrdinalIgnoreCase));
         return result;
+    }
+
+    /// <summary>
+    /// Executables of installed programs: targets of the Start menu shortcuts (all users and the
+    /// current one) and the App Paths registry key. Uninstallers and Windows' own tools are left out.
+    /// </summary>
+    [SupportedOSPlatform("windows")]
+    private static List<string> WindowsInstalledExes()
+    {
+        var found = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void Add(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return;
+            var path = Environment.ExpandEnvironmentVariables(raw.Trim().Trim('"'));
+            if (!path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || IsWindowsDir(path)) return;
+            var name = System.IO.Path.GetFileNameWithoutExtension(path);
+            if (name.StartsWith("unins", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("uninstall", StringComparison.OrdinalIgnoreCase)) return;
+            try { if (!File.Exists(path)) return; } catch { return; }
+            if (seen.Add(path)) found.Add(path);
+        }
+
+        foreach (var hive in new[] { Microsoft.Win32.Registry.CurrentUser, Microsoft.Win32.Registry.LocalMachine })
+        {
+            try
+            {
+                using var key = hive.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\App Paths");
+                if (key == null) continue;
+                foreach (var sub in key.GetSubKeyNames())
+                {
+                    try
+                    {
+                        using var k = key.OpenSubKey(sub);
+                        Add(k?.GetValue(null) as string);
+                    }
+                    catch { /* unreadable entry */ }
+                }
+            }
+            catch { /* no access */ }
+        }
+
+        object? shell = null;
+        try
+        {
+            var type = Type.GetTypeFromProgID("WScript.Shell");
+            if (type != null) shell = Activator.CreateInstance(type);
+            if (shell != null)
+            {
+                var roots = new[]
+                {
+                    Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
+                    Environment.GetFolderPath(Environment.SpecialFolder.Programs),
+                    Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                    Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory)
+                };
+                var links = 0;
+                foreach (var root in roots)
+                {
+                    if (string.IsNullOrEmpty(root) || !Directory.Exists(root)) continue;
+                    IEnumerable<string> files;
+                    try
+                    {
+                        files = Directory.EnumerateFiles(root, "*.lnk", new EnumerationOptions
+                        { RecurseSubdirectories = true, IgnoreInaccessible = true, MaxRecursionDepth = 4 });
+                    }
+                    catch { continue; }
+                    foreach (var lnk in files)
+                    {
+                        if (++links > 1500) break;
+                        object? shortcut = null;
+                        try
+                        {
+                            shortcut = shell.GetType().InvokeMember("CreateShortcut", BindingFlags.InvokeMethod, null, shell, new object[] { lnk });
+                            if (shortcut == null) continue;
+                            Add(shortcut.GetType().InvokeMember("TargetPath", BindingFlags.GetProperty, null, shortcut, null) as string);
+                        }
+                        catch { /* broken shortcut */ }
+                        finally
+                        {
+                            if (shortcut != null && Marshal.IsComObject(shortcut)) Marshal.ReleaseComObject(shortcut);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"Start menu scan failed: {ex.Message}");
+        }
+        finally
+        {
+            if (shell != null && Marshal.IsComObject(shell)) Marshal.ReleaseComObject(shell);
+        }
+        return found;
     }
 
     // ------------------------------------------------------------------
