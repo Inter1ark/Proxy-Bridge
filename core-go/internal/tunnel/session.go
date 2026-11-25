@@ -56,6 +56,8 @@ type Session struct {
 	gw     netcfg.Gateway // the original route (not set when the platform owns the routes)
 	gwIdx  int            // index of gw.Interface when the routes on it were last installed
 	gwGone bool
+	// repairedAt rate-limits the route repair that a failed dial asks for.
+	repairedAt time.Time
 	undo   netcfg.Undo
 	eng    *engine.Engine
 	stats  *engine.Counters
@@ -276,9 +278,10 @@ func (s *Session) watchGateway() {
 		return
 	}
 	trouble := s.rt.gwTrouble.Swap(false)
-	if idx == s.gwIdx && !s.gwGone && !trouble {
+	if idx == s.gwIdx && !s.gwGone && (!trouble || time.Since(s.repairedAt) < 10*time.Second) {
 		return
 	}
+	s.repairedAt = time.Now()
 	if idx != s.gwIdx || s.gwGone {
 		s.log.Infof("interface %s was created again (index %d -> %d): restoring the routes on it", s.gw.Interface, s.gwIdx, idx)
 	}

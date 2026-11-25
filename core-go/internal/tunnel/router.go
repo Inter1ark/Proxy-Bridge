@@ -299,7 +299,14 @@ func (r *router) Decide(src, dst netip.AddrPort) engine.Decision {
 		d := t.dialers[rule.Proxy]
 		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q%s: proxy %d", src, dst, pid, exe, rule.Process, via, rule.Proxy)
 		r.noteOnce(t, exe, pid, fmt.Sprintf("rule %q%s: proxy %d", rule.Process, via, rule.Proxy))
-		return engine.Decision{Dial: d.Dial, Label: "proxy " + strconv.Itoa(rule.Proxy)}
+		return engine.Decision{Dial: func(ctx context.Context, target string) (net.Conn, error) {
+			c, err := d.Dial(ctx, target)
+			if err != nil && interfaceUnusable(err) {
+				// the socket to the proxy is bound to the original interface too
+				r.gwTrouble.Store(true)
+			}
+			return c, err
+		}, Label: "proxy " + strconv.Itoa(rule.Proxy)}
 	}
 }
 
