@@ -338,6 +338,11 @@ workflows:
           print(base64.b64encode(s.encode()).decode())
           PY
           )
+          # safety net: if the two tunnels leave the machine without a network, everything is torn
+          # down after three minutes and the logs are kept, so the build ends and shows why
+          ( sleep 180; sudo cp /Library/Logs/ProxyBridge/pbcore.log /tmp/wd-daemon.log; cp /tmp/vpn.log /tmp/wd-vpn.log; netstat -rn -f inet > /tmp/wd-routes.txt 2>&1
+            printf 'stop %s\n' "$tok" | nc -w 3 -U "$sock" >/dev/null 2>&1; sudo pkill -f vpncore; sleep 2; sudo pkill -f pbcore; echo fired > /tmp/wd-fired ) >/dev/null 2>&1 &
+          wd=$!
           echo "start: $(printf 'start %s %s\n' "$tok" "$req" | nc -w 60 -U "$sock")"
           echo "== routes with both up (expected: the /2 set on the daemon's utun, the /1 pair still on $vtun)"
           netstat -rn -f inet | grep -E "^(default|0/1|128.0/1|0/2|64/2|128.0/2|192)"
@@ -370,6 +375,13 @@ workflows:
           printf 'stop vpn\n' | nc -w 3 127.0.0.1 34060; sleep 3
           echo "== routes after the VPN is gone"; netstat -rn -f inet | grep -E "^(0/1|128.0/1|0/2|64/2)" || echo "(none, as expected)"
           echo "IP after everything: $(curl -4 -sS -m 15 https://api.ipify.org)"
+          kill $wd 2>/dev/null
+          if [ -f /tmp/wd-fired ]; then
+            echo "== THE SAFETY NET FIRED: the machine had no network with both tunnels up"
+            echo "-- daemon log at that moment"; grep -v -e "exec: " -e "failed 3 times in a row" /tmp/wd-daemon.log | tail -n 45
+            echo "-- VPN log at that moment"; grep -v -e "exec: " -e "failed 3 times in a row" /tmp/wd-vpn.log | tail -n 45
+            echo "-- routes at that moment"; grep -E "^(default|0/|64/|128|192.0|10.25)" /tmp/wd-routes.txt
+          fi
           cp /tmp/vpn.log out/vpn-coexistence-vpn.log
           sudo pkill -f vpncore; sudo pkill -f pbcore
           exit 0
