@@ -306,6 +306,9 @@ workflows:
           set +e
           export PB_PARENT=$$
           if [ -z "${TEST_PROXY:-}" ]; then echo "TEST_PROXY not set, skipping"; exit 0; fi
+          # A tunnel of our own under the session is not a faithful VPN: with both up the build machine
+          # loses its network for good. Run it on purpose only (RUN_VPN_TEST=1).
+          if [ -z "${RUN_VPN_TEST:-}" ]; then echo "RUN_VPN_TEST not set, skipping"; exit 0; fi
           app=/Applications/ProxyBridge.app/Contents/MacOS
           core="$app/pbcore"
           direct_ip=$(curl -4 -sS -m 15 https://api.ipify.org); echo "direct IP: $direct_ip"
