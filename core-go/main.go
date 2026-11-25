@@ -280,11 +280,11 @@ func runDaemon(log logger, rep *status.Reporter, port int, sock, token string, d
 		mu.Lock()
 		idle := cur == nil && !starting
 		mu.Unlock()
-		if !idle || !defaults.DNS.IsValid() {
+		if !idle || !defaults.Peer.IsValid() {
 			return
 		}
-		if fixed := netcfg.ClearStaleDNS(defaults.DNS); len(fixed) > 0 {
-			log.Warnf("dns: no tunnel is up but %v still pointed at %s; removed it", fixed, defaults.DNS)
+		if fixed := netcfg.ClearStaleDNS(defaults.Peer); len(fixed) > 0 {
+			log.Warnf("dns: no tunnel is up but %v still pointed at %s; removed it", fixed, defaults.Peer)
 		}
 	}
 	clearStaleDNS()
