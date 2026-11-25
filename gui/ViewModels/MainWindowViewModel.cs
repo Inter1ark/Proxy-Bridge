@@ -1516,6 +1516,20 @@ public class MainWindowViewModel : ViewModelBase
         {
             Directory.CreateDirectory(AppLog.Directory);
             AppLog.Info("Logs folder opened");
+            if (OperatingSystem.IsMacOS())
+            {
+                // The connection log is written by the system helper to /Library/Logs: bring a copy
+                // next to the app log, otherwise people send the short app log alone.
+                try
+                {
+                    if (File.Exists(MacHelper.LogPath))
+                        File.Copy(MacHelper.LogPath, Path.Combine(AppLog.Directory, "pbcore.log"), overwrite: true);
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Warn($"Could not copy the helper log: {ex.Message}");
+                }
+            }
             if (OperatingSystem.IsWindows())
                 Process.Start(new ProcessStartInfo { FileName = "explorer.exe", Arguments = $"\"{AppLog.Directory}\"", UseShellExecute = false });
             else

@@ -43,6 +43,10 @@ type router struct {
 
 // ruleTable is an immutable, resolved rule set.
 type ruleTable struct {
+	// noted holds the program+decision pairs already written to the log (see noteOnce).
+	noted      sync.Map
+	notedCount atomic.Int32
+
 	set     *rules.Set
 	dialers map[int]*proxy.Dialer
 	udp     map[int]*udpPool       // SOCKS5 UDP associations per proxy id
@@ -171,20 +175,42 @@ func (r *router) Decide(src, dst netip.AddrPort) engine.Decision {
 	rule, ok, via := matchTree(t.set, pid, exe, r.parentOf)
 	if !ok {
 		r.log.Debugf("tcp %s -> %s: pid %d %q: no rule: direct", src, dst, pid, exe)
+		r.noteOnce(t, exe, pid, "no rule: direct")
 		return engine.Decision{Dial: r.directDial, Label: "direct"}
 	}
 	switch rule.Action {
 	case rules.ActionBlock:
 		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q%s: block", src, dst, pid, exe, rule.Process, via)
+		r.noteOnce(t, exe, pid, fmt.Sprintf("rule %q%s: block", rule.Process, via))
 		return engine.Decision{Block: true, Label: "block"}
 	case rules.ActionDirect:
 		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q%s: direct", src, dst, pid, exe, rule.Process, via)
+		r.noteOnce(t, exe, pid, fmt.Sprintf("rule %q%s: direct", rule.Process, via))
 		return engine.Decision{Dial: r.directDial, Label: "direct"}
 	default:
 		d := t.dialers[rule.Proxy]
 		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q%s: proxy %d", src, dst, pid, exe, rule.Process, via, rule.Proxy)
+		r.noteOnce(t, exe, pid, fmt.Sprintf("rule %q%s: proxy %d", rule.Process, via, rule.Proxy))
 		return engine.Decision{Dial: d.Dial, Label: "proxy " + strconv.Itoa(rule.Proxy)}
 	}
+}
+
+// noteLimit bounds the "first decision" lines of one rule table.
+const noteLimit = 300
+
+// noteOnce writes one info line per program and decision for the current rule table, so the
+// support log shows which rule every program fell under without a line per connection.
+func (r *router) noteOnce(t *ruleTable, exe string, pid int, decision string) {
+	if exe == "" {
+		return
+	}
+	if _, seen := t.noted.LoadOrStore(exe+"|"+decision, struct{}{}); seen {
+		return
+	}
+	if t.notedCount.Add(1) > noteLimit {
+		return
+	}
+	r.log.Infof("program %q (pid %d): %s", exe, pid, decision)
 }
 
 // inheritDepth bounds the walk up the process tree.
