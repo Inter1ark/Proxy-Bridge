@@ -90,6 +90,7 @@ workflows:
       - name: Install the arm64 package and start the app
         script: |
           set +e
+          export PB_PARENT=$$
           sudo installer -pkg "out/ProxyBridge-${VERSION}-macOS-arm64.pkg" -target /
           app=/Applications/ProxyBridge.app
           echo "quarantine after install:"; xattr -p com.apple.quarantine "$app" 2>/dev/null || echo "none"
@@ -107,6 +108,7 @@ workflows:
       - name: Window memory check (repaint 30 times a second, compare renderers)
         script: |
           set +e
+          export PB_PARENT=$$
           app=/Applications/ProxyBridge.app
           sw_vers
           mem_kb() { ps -o rss= -p "$1" | tr -d ' '; }
@@ -131,6 +133,7 @@ workflows:
       - name: Stale DNS cleanup test (the tunnel address left in a network service is removed, other servers stay)
         script: |
           set +e
+          export PB_PARENT=$$
           app=/Applications/ProxyBridge.app/Contents/MacOS
           svc=$(networksetup -listallnetworkservices | sed 1d | grep -v '^\*' | head -1)
           echo "service: $svc; before: $(networksetup -getdnsservers "$svc" | xargs)"
@@ -153,6 +156,7 @@ workflows:
       - name: In-app update script test (install-update.sh on the installed app)
         script: |
           set +e
+          export PB_PARENT=$$
           app=/Applications/ProxyBridge.app/Contents/MacOS
           cp "out/ProxyBridge-${VERSION}-macOS-arm64.pkg" /tmp/update.pkg
           echo "== without the helper installed"
@@ -175,6 +179,7 @@ workflows:
       - name: Core end-to-end test (per-program rules through a real proxy)
         script: |
           set +e
+          export PB_PARENT=$$
           if [ -z "${TEST_PROXY:-}" ]; then echo "TEST_PROXY not set, skipping"; exit 0; fi
           core=/Applications/ProxyBridge.app/Contents/MacOS/pbcore
           python3 - "$TEST_PROXY" <<'PY' > /tmp/rules1.json
@@ -241,6 +246,7 @@ workflows:
       - name: Daemon end-to-end test (launchd helper, start/stop without a new process)
         script: |
           set +e
+          export PB_PARENT=$$
           if [ -z "${TEST_PROXY:-}" ]; then echo "TEST_PROXY not set, skipping"; exit 0; fi
           app=/Applications/ProxyBridge.app/Contents/MacOS
           echo "== the job disabled by an override (launchctl disable) must be recovered by the install script"
@@ -270,7 +276,7 @@ workflows:
           import base64, json, os, sys
           s = json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}],
                           "rules": [{"process": "curl", "action": "direct"}, {"process": "*", "action": "proxy", "proxy": 1}],
-                          "dns": "1.1.1.1", "dns_via_proxy": True, "parent_pid": os.getppid()})
+                          "dns": "1.1.1.1", "dns_via_proxy": True, "parent_pid": int(os.environ.get("PB_PARENT") or os.getppid())})
           print(base64.b64encode(s.encode()).decode())
           PY
           )
@@ -298,6 +304,7 @@ workflows:
       - name: VPN coexistence test (a tunnel already owns 0/1 and 128/1 when the session starts)
         script: |
           set +e
+          export PB_PARENT=$$
           if [ -z "${TEST_PROXY:-}" ]; then echo "TEST_PROXY not set, skipping"; exit 0; fi
           app=/Applications/ProxyBridge.app/Contents/MacOS
           core="$app/pbcore"
@@ -327,7 +334,7 @@ workflows:
           import base64, json, os, sys
           s = json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}],
                           "rules": [{"process": "curl", "action": "direct"}, {"process": "*", "action": "proxy", "proxy": 1}],
-                          "dns": "1.1.1.1", "dns_via_proxy": True, "parent_pid": os.getppid()})
+                          "dns": "1.1.1.1", "dns_via_proxy": True, "parent_pid": int(os.environ.get("PB_PARENT") or os.getppid())})
           print(base64.b64encode(s.encode()).decode())
           PY
           )
@@ -370,6 +377,7 @@ workflows:
       - name: Unreachable proxy test (DNS via proxy must not take programs without a rule offline)
         script: |
           set +e
+          export PB_PARENT=$$
           app=/Applications/ProxyBridge.app/Contents/MacOS
           sudo /bin/sh "$app/install-helper.sh" "$app/pbcore" >/dev/null; tok=$(sudo cat "/Library/Application Support/ProxyBridge/control.token")
           for i in $(seq 1 20); do r=$(printf 'ping %s\n' "$tok" | nc -w 2 127.0.0.1 34050); [ -n "$r" ] && break; sleep 0.5; done; echo "ping: $r"
@@ -378,7 +386,7 @@ workflows:
             req=$(python3 - "$1" "$2" <<'PY'
           import base64, json, os, sys
           s = json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}], "rules": json.loads(sys.argv[2]),
-                          "udp": "proxy", "dns_via_proxy": True, "dns": "1.1.1.1", "parent_pid": os.getppid()})
+                          "udp": "proxy", "dns_via_proxy": True, "dns": "1.1.1.1", "parent_pid": int(os.environ.get("PB_PARENT") or os.getppid())})
           print(base64.b64encode(s.encode()).decode())
           PY
           )
@@ -417,6 +425,7 @@ workflows:
       - name: UDP end-to-end test (SOCKS5 UDP, block mode, DNS via proxy)
         script: |
           set +e
+          export PB_PARENT=$$
           if [ -z "${TEST_PROXY:-}" ] || [ -z "${TEST_PROXY_UDP:-}" ]; then echo "TEST_PROXY / TEST_PROXY_UDP not set, skipping"; exit 0; fi
           app=/Applications/ProxyBridge.app/Contents/MacOS
           sudo /bin/sh "$app/install-helper.sh" "$app/pbcore" >/dev/null; tok=$(sudo cat "/Library/Application Support/ProxyBridge/control.token")
@@ -459,7 +468,7 @@ workflows:
           import base64, json, os, sys
           s = json.dumps({"proxies": [{"id": 1, "url": sys.argv[1]}],
                           "rules": [{"process": "curl", "action": "direct"}, {"process": "python3", "action": "proxy", "proxy": 1}],
-                          "udp": sys.argv[2], "dns_via_proxy": sys.argv[3] == "1", "dns": "1.1.1.1", "parent_pid": os.getppid()})
+                          "udp": sys.argv[2], "dns_via_proxy": sys.argv[3] == "1", "dns": "1.1.1.1", "parent_pid": int(os.environ.get("PB_PARENT") or os.getppid())})
           print(base64.b64encode(s.encode()).decode())
           PY
           )
@@ -574,6 +583,7 @@ workflows:
           # A build already waiting for beta review blocks the submission of the next one; the upload
           # itself has succeeded by then and testers of the internal group get the new build anyway.
           set +e
+          export PB_PARENT=$$
           app-store-connect publish --path build/ios/ipa/ProxyBridge.ipa --testflight --beta-group "ProxyBridge public" 2>&1 | tee /tmp/publish.log
           rc=${PIPESTATUS[0]}
           if [ "$rc" -ne 0 ] && grep -q "Another build is in review" /tmp/publish.log; then
