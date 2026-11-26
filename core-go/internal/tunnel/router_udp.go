@@ -62,10 +62,11 @@ func (r *router) DecideUDP(src, dst netip.AddrPort) engine.UDPDecision {
 		return r.directUDP(dst)
 	}
 	rule, matched, _ := matchTree(t.set, pid, exe, r.parentOf)
-	if r.physical != nil && !isDNS && (!matched || isCatchAll(rule)) && isVPNClient(exe) {
-		// WireGuard-style clients talk to their server over UDP: outside the VPN, see Decide.
-		r.log.Debugf("udp %s -> %s: pid %d %q: a VPN client: outside the VPN through %s", src, dst, pid, exe, r.physicalName)
-		r.noteOnce(t, exe, pid, "a VPN client: its own connections leave through "+r.physicalName)
+	if r.physical != nil && !isDNS && (!matched || isCatchAll(rule)) && isVPNClient(exe) && r.vpnDown() {
+		// WireGuard-style clients talk to their server over UDP. UDP has no "connected", so the
+		// choice follows the state of the VPN: around it only while it is down (see Decide).
+		r.log.Debugf("udp %s -> %s: pid %d %q: a VPN client and the VPN is down: through %s", src, dst, pid, exe, r.physicalName)
+		r.noteOnce(t, exe, pid, "a VPN client, the VPN is down: udp leaves through "+r.physicalName)
 		return engine.UDPDecision{Label: "direct", Open: func(ctx context.Context) (engine.UDPSession, error) {
 			c, err := r.physicalDialNet(ctx, "udp", dst.String(), 0)
 			if err != nil {
