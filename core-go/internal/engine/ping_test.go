@@ -11,7 +11,7 @@ func TestEchoReplyPacket(t *testing.T) {
 	request := []byte{8, 0, 0, 0, 0x12, 0x34, 0x00, 0x07, 'a', 'b', 'c'}
 	// what came back from outside: another identifier (the system may rewrite it), same sequence
 	reply := []byte{0, 0, 0xFF, 0xFF, 0x99, 0x99, 0x00, 0x07, 'a', 'b', 'c'}
-	from, to := netip.MustParseAddr("10.66.0.1"), netip.MustParseAddr("10.255.0.2")
+	from, to := netip.MustParseAddr("10.8.0.1"), netip.MustParseAddr("10.255.0.2")
 	pkt := echoReplyPacket(from, to, request, reply)
 	if len(pkt) != 20+len(reply) || pkt[0] != 0x45 || pkt[9] != 1 {
 		t.Fatalf("bad IP header: % x", pkt[:20])
