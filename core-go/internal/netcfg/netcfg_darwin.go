@@ -44,6 +44,41 @@ func PhysicalGateway(vpnInterface string) (Gateway, bool) {
 	return parsePhysicalGateway(out, vpnInterface)
 }
 
+// Describe returns a few lines about the VPN that owns the internet route, for the support
+// log: the addresses of its interface and the routes that decide where traffic goes (the
+// default routes, the 0/1 style pairs and host routes through a gateway, which is how VPN
+// clients pin their server).
+func Describe(vpnInterface string) []string {
+	var out []string
+	if cfg, err := runQuiet("ifconfig", vpnInterface); err == nil {
+		for _, line := range strings.Split(cfg, "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "inet ") || strings.Contains(line, "mtu ") {
+				out = append(out, vpnInterface+": "+line)
+			}
+		}
+	}
+	rt, err := runQuiet("netstat", "-rn", "-f", "inet")
+	if err != nil {
+		return out
+	}
+	n := 0
+	for _, line := range strings.Split(rt, "\n") {
+		f := strings.Fields(line)
+		if len(f) < 4 || n >= 24 {
+			continue
+		}
+		dest, flags := f[0], f[2]
+		wide := dest == "default" || strings.HasSuffix(dest, "/1") || strings.HasSuffix(dest, "/2") || dest == "128.0/1"
+		pinned := strings.Contains(flags, "H") && strings.Contains(flags, "G") && strings.Contains(flags, "S")
+		if wide || pinned {
+			out = append(out, "route: "+strings.Join(f[:4], " "))
+			n++
+		}
+	}
+	return out
+}
+
 func parsePhysicalGateway(netstat, vpnInterface string) (Gateway, bool) {
 	for _, line := range strings.Split(netstat, "\n") {
 		f := strings.Fields(line)

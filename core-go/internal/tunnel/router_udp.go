@@ -62,11 +62,16 @@ func (r *router) DecideUDP(src, dst netip.AddrPort) engine.UDPDecision {
 		return r.directUDP(dst)
 	}
 	rule, matched, _ := matchTree(t.set, pid, exe, r.parentOf)
-	if r.physical != nil && !isDNS && (!matched || isCatchAll(rule)) && isVPNClient(exe) && r.vpnDown() {
-		// WireGuard-style clients talk to their server over UDP. UDP has no "connected", so the
-		// choice follows the state of the VPN: around it only while it is down (see Decide).
-		r.log.Debugf("udp %s -> %s: pid %d %q: a VPN client and the VPN is down: through %s", src, dst, pid, exe, r.physicalName)
-		r.noteOnce(t, exe, pid, "a VPN client, the VPN is down: udp leaves through "+r.physicalName)
+	if !known && !isDNS && r.gateway.Tunnel {
+		now := time.Now().Unix()
+		if last := r.unknownUDPLogged.Load(); now-last >= 10 && r.unknownUDPLogged.CompareAndSwap(last, now) {
+			r.log.Infof("udp %s -> %s: owner process unknown, using the catch-all rule", src, dst)
+		}
+	}
+	if r.physical != nil && !isDNS && (!matched || isCatchAll(rule)) && isVPNClient(exe) {
+		// The transport of WireGuard, Hysteria and similar clients is UDP: outside the VPN, see Decide.
+		r.log.Debugf("udp %s -> %s: pid %d %q: a VPN client: outside the VPN through %s", src, dst, pid, exe, r.physicalName)
+		r.noteOnce(t, exe, pid, "a VPN client: its own udp leaves through "+r.physicalName+" (to "+dst.String()+")")
 		return engine.UDPDecision{Label: "direct", Open: func(ctx context.Context) (engine.UDPSession, error) {
 			c, err := r.physicalDialNet(ctx, "udp", dst.String(), 0)
 			if err != nil {
@@ -109,6 +114,9 @@ func (r *router) DecideUDP(src, dst netip.AddrPort) engine.UDPDecision {
 
 	if !matched {
 		r.log.Debugf("udp %s -> %s: pid %d %q: no rule: direct", src, dst, pid, exe)
+		if r.gateway.Tunnel {
+			r.noteOnce(t, exe, pid, "udp, no rule: direct")
+		}
 		return r.directUDP(dst)
 	}
 	switch rule.Action {

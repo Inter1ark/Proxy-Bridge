@@ -119,6 +119,9 @@ func (s *Session) setup() error {
 	}
 	var physical netcfg.Gateway
 	if !external && gw.Tunnel {
+		for _, line := range netcfg.Describe(gw.Interface) {
+			s.log.Infof("vpn %s", line)
+		}
 		if p, ok := netcfg.PhysicalGateway(gw.Interface); ok {
 			physical = p
 			s.log.Infof("network under the VPN: gateway=%s interface=%s (used by the VPN client itself and while the VPN is down)", p.IP, p.Interface)

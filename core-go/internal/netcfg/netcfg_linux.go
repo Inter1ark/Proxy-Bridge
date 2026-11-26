@@ -122,5 +122,8 @@ func PhysicalGateway(vpnInterface string) (Gateway, bool) { return Gateway{}, fa
 // RepairRoutes is a no-op on Linux.
 func RepairRoutes(gw Gateway, hosts []netip.Addr, private bool) error { return nil }
 
+// Describe is not needed on Linux.
+func Describe(vpnInterface string) []string { return nil }
+
 // KeepPrivateInVPN is a no-op on Linux.
 func KeepPrivateInVPN(gw Gateway, undo *Undo) {}

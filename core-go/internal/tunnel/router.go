@@ -40,7 +40,8 @@ type router struct {
 	current atomic.Pointer[ruleTable]
 
 	// unknownLogged rate-limits the "owner unknown" log line.
-	unknownLogged atomic.Int64
+	unknownLogged    atomic.Int64
+	unknownUDPLogged atomic.Int64
 
 	// physical is set when the original gateway is a VPN and the network card under it has
 	// its own default route: the VPN client's own connections leave through it, and so do
@@ -122,11 +123,12 @@ func interfaceUnusable(err error) bool {
 }
 
 // vpnClientMarks are parts of the executable path of programs that build tunnels
-// themselves. While the VPN works their connections go through it like everyone else's: a
-// client that checks its own tunnel ("which address do sites see?") and finds the real
-// address restarts the tunnel in a loop. While the VPN is down they leave through the
-// network card: a client that reaches its server only through the tunnel it is trying to
-// build never gets it back.
+// themselves. Their own connections leave through the network card first: what such a
+// program sends is, above all, its transport to the VPN server, and transport sent into
+// the VPN's own interface is a loop that takes the whole VPN down without a single error
+// (the interface accepts every connection at once and then has nowhere to send it). Only
+// when the network card does not let the connection out (the client's own kill switch) is
+// it sent through the VPN.
 // The marks are narrow on purpose: a program taken for a VPN client by mistake would send
 // its traffic around the VPN.
 var vpnClientMarks = []string{
@@ -205,26 +207,21 @@ func (r *router) vpnDown() bool {
 	return fail > ok && time.Now().UnixMilli()-ok > vpnDownAfter.Milliseconds()
 }
 
-// vpnClientProbe is how long a VPN client's connection may take through the VPN before it
-// is tried through the network card instead.
-const vpnClientProbe = 2500 * time.Millisecond
+// vpnClientProbe is how long a VPN client's connection may take through the network card
+// before it is tried through the VPN instead.
+const vpnClientProbe = 3 * time.Second
 
-// vpnClientDial is the dial function for the connections of a VPN client: through the VPN
-// while it works, through the network card when it does not answer.
+// vpnClientDial is the dial function for the connections of a VPN client: through the
+// network card, and through the VPN only when the card does not let the connection out.
 func (r *router) vpnClientDial(ctx context.Context, target string) (net.Conn, error) {
-	if !r.vpnDown() {
-		d := *r.direct
-		d.Timeout = vpnClientProbe
-		c, err := d.DialContext(ctx, "tcp", target)
-		r.noteVPN(err)
-		if err == nil {
-			return c, nil
-		}
-		if interfaceUnusable(err) {
-			r.gwTrouble.Store(true)
-		}
+	c, err := r.physicalDialNet(ctx, "tcp", target, vpnClientProbe)
+	if err == nil {
+		return c, nil
 	}
-	return r.physicalDialNet(ctx, "tcp", target, 15*time.Second)
+	if ctx.Err() != nil {
+		return nil, err
+	}
+	return r.dialOut(ctx, "tcp", target, 15*time.Second)
 }
 
 // Procmap names the process attribution method for the status line.
@@ -330,8 +327,8 @@ func (r *router) Decide(src, dst netip.AddrPort) engine.Decision {
 	}
 	rule, ok, via := matchTree(t.set, pid, exe, r.parentOf)
 	if r.physical != nil && (!ok || isCatchAll(rule)) && isVPNClient(exe) {
-		r.log.Debugf("tcp %s -> %s: pid %d %q: a VPN client: through the VPN, or through %s while the VPN is down", src, dst, pid, exe, r.physicalName)
-		r.noteOnce(t, exe, pid, "a VPN client: through the VPN, or through "+r.physicalName+" while the VPN is down")
+		r.log.Debugf("tcp %s -> %s: pid %d %q: a VPN client: outside the VPN through %s", src, dst, pid, exe, r.physicalName)
+		r.noteOnce(t, exe, pid, "a VPN client: its own connections leave through "+r.physicalName+" (to "+dst.String()+")")
 		return engine.Decision{Dial: r.vpnClientDial, Label: "direct"}
 	}
 	if !ok {
