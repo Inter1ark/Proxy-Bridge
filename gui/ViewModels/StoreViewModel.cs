@@ -121,8 +121,14 @@ public sealed class StoreIspTermChoice : ViewModelBase
     public StoreIspTerm Term { get; init; } = new();
     public string MonthsText => I18n.T("store.isp.months_" + Term.Months);
     public string PriceText => Term.PriceRub.ToString("N0", CultureInfo.GetCultureInfo("ru-RU")) + " ₽";
+    public string MonthPriceText => I18n.T("store.isp.month_short",
+        (Term.PriceRubMonth > 0 ? Term.PriceRubMonth : Term.PriceRub / Math.Max(1, Term.Months)).ToString("N0", CultureInfo.GetCultureInfo("ru-RU")));
     public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
-    public void RefreshTexts() => OnPropertyChanged(nameof(MonthsText));
+    public void RefreshTexts()
+    {
+        OnPropertyChanged(nameof(MonthsText));
+        OnPropertyChanged(nameof(MonthPriceText));
+    }
 }
 
 /// <summary>
@@ -561,6 +567,7 @@ public sealed class StoreViewModel : ViewModelBase
         OnPropertyChanged(nameof(DatacenterPrice));
         OnPropertyChanged(nameof(DcPriceText));
         OnPropertyChanged(nameof(DcDays));
+        OnPropertyChanged(nameof(IspPriceText));
     }
 
     public string Rotation

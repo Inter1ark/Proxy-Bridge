@@ -39,6 +39,7 @@ public sealed class StoreIspTerm
     public int Months { get; init; }
     public int Days { get; init; }
     public int PriceRub { get; init; }
+    public int PriceRubMonth { get; init; }
     public List<string> Countries { get; init; } = new();
 }
 
@@ -203,7 +204,8 @@ public sealed class StoreService
                 var codes = new List<string>();
                 if (t?["countries"] is JsonArray ca)
                     foreach (var c in ca) codes.Add(Str(c));
-                terms.Add(new StoreIspTerm { Months = Int(t?["months"]), Days = Int(t?["days"]), PriceRub = Int(t?["price_rub"]), Countries = codes });
+                terms.Add(new StoreIspTerm { Months = Int(t?["months"]), Days = Int(t?["days"]), PriceRub = Int(t?["price_rub"]),
+                    PriceRubMonth = Int(t?["price_rub_month"]), Countries = codes });
             }
         var prices = new Dictionary<string, double>();
         if (tr?["gb_price_rub"] is JsonObject p)
