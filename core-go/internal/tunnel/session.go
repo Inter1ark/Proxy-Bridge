@@ -188,6 +188,7 @@ func (s *Session) setup() error {
 		Logf:      s.log.Debugf,
 		Stats:     s.stats,
 		LowMemory: cfg.LowMemory,
+		Ping:      pingFunc(external, s.rt),
 	})
 	if err != nil {
 		return err
@@ -293,6 +294,15 @@ func (s *Session) watchGateway() {
 	if err := netcfg.RepairRoutes(s.gw, s.rt.routedHosts(), s.gw.Tunnel); err != nil {
 		s.log.Warnf("restore routes on %s: %v", s.gw.Interface, err)
 	}
+}
+
+// pingFunc gives the engine its ICMP echo forwarder: on the desktop only, where the core
+// owns the routes (the phone platforms keep ICMP out of the tunnel themselves).
+func pingFunc(external bool, r *router) func(netip.Addr, []byte) ([]byte, error) {
+	if external || runtime.GOOS != "darwin" {
+		return nil
+	}
+	return r.ping
 }
 
 // interfaceIndex returns the current index of an interface, 0 when it does not exist.

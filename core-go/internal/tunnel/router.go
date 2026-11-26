@@ -440,6 +440,24 @@ func (r *router) askRegularDNS(ctx context.Context, query []byte) ([]byte, error
 	})
 }
 
+// ping forwards an ICMP echo request outside the tunnel: through the original interface,
+// or through the network card while a VPN under the session cannot be used. Ping has no
+// ports, so the program that sent it is unknown; it is forwarded only while programs
+// without a rule go direct, and never when everything goes through a proxy.
+func (r *router) ping(dst netip.Addr, msg []byte) ([]byte, error) {
+	if t := r.current.Load(); t == nil || t.summary != "direct" {
+		return nil, errors.New("ping is not forwarded while all programs go through a proxy")
+	}
+	if r.gateway.Interface == "" {
+		return nil, errors.New("ping: no original interface")
+	}
+	reply, err := pingThrough(r.gateway.Interface, dst, msg)
+	if err != nil && r.physical != nil && interfaceUnusable(err) {
+		return pingThrough(r.physicalName, dst, msg)
+	}
+	return reply, err
+}
+
 // directDial opens the destination outside the tunnel.
 func (r *router) directDial(ctx context.Context, target string) (net.Conn, error) {
 	return r.dialOut(ctx, "tcp", target, 15*time.Second)

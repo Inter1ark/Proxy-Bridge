@@ -82,6 +82,11 @@ type Options struct {
 	Logf func(format string, args ...any)
 	// Stats receives byte counters.
 	Stats *Counters
+	// Ping, when set, answers ICMP echo requests: it sends the request (msg starts at the
+	// ICMP type byte) to dst outside the tunnel and returns the echo reply. Without it ping
+	// gets no answer: the stack carries TCP and UDP only. A VPN client under the tunnel that
+	// checks its link with ping would take the silence for a dead link.
+	Ping func(dst netip.Addr, msg []byte) ([]byte, error)
 	// LowMemory keeps TCP buffers and queues small (the iOS packet tunnel
 	// extension is killed by the system above roughly 50 MB).
 	LowMemory bool
@@ -97,6 +102,9 @@ type Engine struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 	closed atomic.Bool
+	// wmu serialises writes to the TUN device: the stack's loop and the ping replies.
+	wmu   sync.Mutex
+	pings atomic.Int32
 }
 
 // New creates the stack attached to dev. Call Start to begin forwarding.
@@ -219,6 +227,9 @@ func (e *Engine) tunToStack() {
 			var proto tcpip.NetworkProtocolNumber
 			switch pkt[0] >> 4 {
 			case 4:
+				if e.forwardPing(pkt) {
+					continue
+				}
 				proto = header.IPv4ProtocolNumber
 			case 6:
 				proto = header.IPv6ProtocolNumber
@@ -252,12 +263,101 @@ func (e *Engine) stackToTun() {
 		n := copy(buf[tunOffset:], data)
 		view.Release()
 		pb.DecRef()
-		if _, err := e.dev.Write([][]byte{buf[:tunOffset+n]}, tunOffset); err != nil {
+		e.wmu.Lock()
+		_, err := e.dev.Write([][]byte{buf[:tunOffset+n]}, tunOffset)
+		e.wmu.Unlock()
+		if err != nil {
 			if e.ctx.Err() == nil {
 				e.opts.Logf("tun write: %v", err)
 			}
 		}
 	}
+}
+
+// maxPings bounds the echo requests in flight.
+const maxPings = 64
+
+// forwardPing takes an IPv4 ICMP echo request off the tunnel, sends it outside through
+// opts.Ping and writes the echo reply back. It reports whether the packet was taken.
+func (e *Engine) forwardPing(pkt []byte) bool {
+	if e.opts.Ping == nil || len(pkt) < 28 || pkt[9] != 1 {
+		return false
+	}
+	ihl := int(pkt[0]&0x0F) * 4
+	if ihl < 20 || len(pkt) < ihl+8 {
+		return false
+	}
+	if (uint16(pkt[6])<<8|uint16(pkt[7]))&0x3FFF != 0 { // a fragment
+		return false
+	}
+	if pkt[ihl] != 8 || pkt[ihl+1] != 0 { // echo request only
+		return false
+	}
+	if e.pings.Add(1) > maxPings {
+		e.pings.Add(-1)
+		return true // dropped: too many in flight
+	}
+	src, _ := netip.AddrFromSlice(pkt[12:16])
+	dst, _ := netip.AddrFromSlice(pkt[16:20])
+	msg := append([]byte(nil), pkt[ihl:]...)
+	go func() {
+		defer e.pings.Add(-1)
+		reply, err := e.opts.Ping(dst, msg)
+		if err != nil || len(reply) < 8 || e.ctx.Err() != nil {
+			e.opts.Logf("ping %s -> %s: no reply (%v)", src, dst, err)
+			return
+		}
+		out := echoReplyPacket(dst, src, msg, reply)
+		buf := make([]byte, tunOffset+len(out))
+		copy(buf[tunOffset:], out)
+		e.wmu.Lock()
+		_, werr := e.dev.Write([][]byte{buf}, tunOffset)
+		e.wmu.Unlock()
+		if werr != nil && e.ctx.Err() == nil {
+			e.opts.Logf("tun write (ping reply): %v", werr)
+		}
+	}()
+	return true
+}
+
+// echoReplyPacket builds the IPv4 packet with the echo reply for the program that sent
+// request: from the pinged address, with the request's identifier and sequence number and
+// the payload that came back.
+func echoReplyPacket(from, to netip.Addr, request, reply []byte) []byte {
+	icmp := append([]byte(nil), reply...)
+	icmp[0], icmp[1] = 0, 0
+	copy(icmp[4:8], request[4:8])
+	icmp[2], icmp[3] = 0, 0
+	c := internetChecksum(icmp)
+	icmp[2], icmp[3] = byte(c>>8), byte(c)
+
+	total := 20 + len(icmp)
+	pkt := make([]byte, total)
+	pkt[0] = 0x45
+	pkt[2], pkt[3] = byte(total>>8), byte(total)
+	pkt[8] = 64 // ttl
+	pkt[9] = 1  // icmp
+	f, t := from.As4(), to.As4()
+	copy(pkt[12:16], f[:])
+	copy(pkt[16:20], t[:])
+	h := internetChecksum(pkt[:20])
+	pkt[10], pkt[11] = byte(h>>8), byte(h)
+	copy(pkt[20:], icmp)
+	return pkt
+}
+
+func internetChecksum(b []byte) uint16 {
+	var sum uint32
+	for i := 0; i+1 < len(b); i += 2 {
+		sum += uint32(b[i])<<8 | uint32(b[i+1])
+	}
+	if len(b)%2 == 1 {
+		sum += uint32(b[len(b)-1]) << 8
+	}
+	for sum>>16 != 0 {
+		sum = sum&0xFFFF + sum>>16
+	}
+	return ^uint16(sum)
 }
 
 func (e *Engine) handleTCP(r *tcp.ForwarderRequest) {
