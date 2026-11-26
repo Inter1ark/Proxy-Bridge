@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -32,8 +33,22 @@ public sealed class StoreGeo
     public string Name { get; init; } = "";
 }
 
+/// <summary>A term of the static residential IP: months, price and the countries in stock for it.</summary>
+public sealed class StoreIspTerm
+{
+    public int Months { get; init; }
+    public int Days { get; init; }
+    public int PriceRub { get; init; }
+    public List<string> Countries { get; init; } = new();
+}
+
 public sealed class StoreCatalog
 {
+    public int IspPriceRubMonth { get; init; }
+    public List<StoreIspTerm> IspTerms { get; init; } = new();
+    public List<StoreCountry> IspCountries { get; init; } = new();
+    public bool HasIsp => IspTerms.Count > 0 && IspCountries.Count > 0;
+
     public int DcPriceRub { get; init; }
     public int DcDays { get; init; }
     public List<StoreCountry> DcCountries { get; init; } = new();
@@ -50,7 +65,7 @@ public sealed class StoreCatalog
 public sealed class StoreProxyInfo
 {
     public int Id { get; init; }
-    public string Kind { get; init; } = "";          // dc | traffic
+    public string Kind { get; init; } = "";          // dc | isp | traffic
     public string Status { get; init; } = "";        // provisioning | active | exhausted | expired
     public string Type { get; init; } = "";          // mobile | residential | datacenter
     public StoreCountry Country { get; init; } = new();
@@ -180,12 +195,25 @@ public sealed class StoreService
         var j = await PostAsync("/catalog", new JsonObject(), ct).ConfigureAwait(false);
         var dc = j["dc"] as JsonObject;
         var tr = j["traffic"] as JsonObject;
+        var isp = j["isp"] as JsonObject;
+        var terms = new List<StoreIspTerm>();
+        if (isp?["terms"] is JsonArray ta)
+            foreach (var t in ta)
+            {
+                var codes = new List<string>();
+                if (t?["countries"] is JsonArray ca)
+                    foreach (var c in ca) codes.Add(Str(c));
+                terms.Add(new StoreIspTerm { Months = Int(t?["months"]), Days = Int(t?["days"]), PriceRub = Int(t?["price_rub"]), Countries = codes });
+            }
         var prices = new Dictionary<string, double>();
         if (tr?["gb_price_rub"] is JsonObject p)
             foreach (var kv in p)
                 if (Dbl(kv.Value) is double d) prices[kv.Key] = d;
         return new StoreCatalog
         {
+            IspPriceRubMonth = Int(isp?["price_rub_month"]),
+            IspTerms = terms.Where(t => t.Months > 0 && t.PriceRub > 0).ToList(),
+            IspCountries = Countries(isp?["countries"]),
             DcPriceRub = Int(dc?["price_rub"]),
             DcDays = Int(dc?["days"]),
             DcCountries = Countries(dc?["countries"]),

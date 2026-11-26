@@ -212,7 +212,7 @@
                             <StackPanel Spacing="10" IsVisible="{Binding Store.IsPickMode}">
                                 <TextBlock Classes="hdr" Text="{i:Tr store.buy_caps}"/>
                                 <Border Classes="segmented">
-                                    <Grid ColumnDefinitions="*,*">
+                                    <Grid ColumnDefinitions="*,*,*">
                                         <Button Grid.Column="0" Classes="seg opt" Classes.active="{Binding Store.IsDcMode}"
                                                 IsEnabled="{Binding Store.HasDc}" Command="{Binding Store.ShowDcCommand}">
                                             <StackPanel HorizontalAlignment="Center">
@@ -220,7 +220,14 @@
                                                 <TextBlock Classes="sub" Text="{i:Tr store.mode.dc_sub}" HorizontalAlignment="Center"/>
                                             </StackPanel>
                                         </Button>
-                                        <Button Grid.Column="1" Classes="seg opt" Classes.active="{Binding Store.IsTrafficMode}"
+                                        <Button Grid.Column="1" Classes="seg opt" Classes.active="{Binding Store.IsIspMode}"
+                                                IsEnabled="{Binding Store.HasIsp}" Command="{Binding Store.ShowIspCommand}">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="{i:Tr store.mode.isp}" HorizontalAlignment="Center"/>
+                                                <TextBlock Classes="sub" Text="{i:Tr store.mode.isp_sub}" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="2" Classes="seg opt" Classes.active="{Binding Store.IsTrafficMode}"
                                                 IsEnabled="{Binding Store.HasTraffic}" Command="{Binding Store.ShowTrafficCommand}">
                                             <StackPanel HorizontalAlignment="Center">
                                                 <TextBlock Text="{i:Tr store.mode.traffic}" HorizontalAlignment="Center"/>
@@ -249,6 +256,37 @@
                                           ItemTemplate="{StaticResource CountryTemplate}"/>
                                 <TextBlock Classes="mono" FontSize="12" LineHeight="18" TextWrapping="Wrap" Margin="0,6,0,0"
                                            Foreground="{StaticResource PbText2Brush}" Text="{i:Tr store.dc.about}"/>
+                            </StackPanel>
+
+                            <!-- static residential (ISP) -->
+                            <StackPanel Spacing="6" IsVisible="{Binding Store.IsIspMode}">
+                                <TextBlock Classes="mono" FontSize="12" LineHeight="18" TextWrapping="Wrap" Margin="0,0,0,4"
+                                           Foreground="{StaticResource PbText2Brush}" Text="{i:Tr store.isp.about}"/>
+                                <TextBlock Classes="mono" FontSize="12" LineHeight="19" TextWrapping="Wrap" Margin="0,0,0,6"
+                                           Text="{i:Tr store.isp.perks}"/>
+                                <TextBlock Classes="flabel" Text="{i:Tr store.isp.term}"/>
+                                <ItemsControl ItemsSource="{Binding Store.IspTerms}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:StoreIspTermChoice">
+                                            <Button Classes="seg opt" Classes.active="{Binding IsSelected}" Margin="0,0,6,6"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).Store.SetIspTermCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel HorizontalAlignment="Center">
+                                                    <TextBlock Text="{Binding MonthsText}" HorizontalAlignment="Center"/>
+                                                    <TextBlock Classes="sub" Text="{Binding PriceText}" HorizontalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Classes="flabel" Text="{i:Tr store.country}"/>
+                                <ComboBox Classes="pick" ItemsSource="{Binding Store.IspCountries}"
+                                          SelectedItem="{Binding Store.IspCountry}"
+                                          ItemTemplate="{StaticResource CountryTemplate}"/>
                             </StackPanel>
 
                             <!-- traffic -->

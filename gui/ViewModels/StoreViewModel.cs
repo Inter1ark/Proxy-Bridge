@@ -48,7 +48,12 @@ public sealed class StoreProxyRow : ViewModelBase
         }
     }
 
-    public string TypeText => Info.Kind == "dc" ? I18n.T("store.kind.dc") : I18n.T("store.type." + Info.Type);
+    public string TypeText => Info.Kind switch
+    {
+        "dc" => I18n.T("store.kind.dc"),
+        "isp" => I18n.T("store.kind.isp"),
+        _ => I18n.T("store.type." + Info.Type)
+    };
 
     public string RotationText => Info.Kind != "traffic" ? "" : Info.Rotation switch
     {
@@ -109,6 +114,17 @@ public sealed class StoreProxyRow : ViewModelBase
     }
 }
 
+/// <summary>One term button of the static residential IP.</summary>
+public sealed class StoreIspTermChoice : ViewModelBase
+{
+    private bool _isSelected;
+    public StoreIspTerm Term { get; init; } = new();
+    public string MonthsText => I18n.T("store.isp.months_" + Term.Months);
+    public string PriceText => Term.PriceRub.ToString("N0", CultureInfo.GetCultureInfo("ru-RU")) + " ₽";
+    public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
+    public void RefreshTexts() => OnPropertyChanged(nameof(MonthsText));
+}
+
 /// <summary>
 /// "Get proxy" page: buy a dedicated proxy for a fixed term or a pay per GB proxy, pay in the
 /// browser, wait for the server to create it, then add it to the user's proxy list.
@@ -123,7 +139,9 @@ public sealed class StoreViewModel : ViewModelBase
     private StoreCatalog? _catalog;
     private bool _isLoading;
     private bool _loaded;
-    private string _mode = "dc";             // dc | traffic | renew | topup
+    private string _mode = "dc";             // dc | isp | traffic | renew | topup
+    private StoreCountry? _ispCountry;
+    private int _ispMonths = 1;
     private string _returnMode = "dc";
     private StoreProxyRow? _target;
 
@@ -154,6 +172,8 @@ public sealed class StoreViewModel : ViewModelBase
 
         ShowDcCommand = new RelayCommand(() => Mode = "dc");
         ShowTrafficCommand = new RelayCommand(() => Mode = "traffic");
+        ShowIspCommand = new RelayCommand(() => Mode = "isp");
+        SetIspTermCommand = new RelayCommand<StoreIspTermChoice>(t => { if (t != null) IspMonths = t.Term.Months; });
         SetTypeCommand = new RelayCommand<string>(t => { if (t != null) Type = t; });
         SetRotationCommand = new RelayCommand<string>(r => { if (r != null) Rotation = r; });
         SetMethodCommand = new RelayCommand<string>(m => { if (m != null) Method = m; });
@@ -179,6 +199,8 @@ public sealed class StoreViewModel : ViewModelBase
     // ------------------------------------------------------------------
     public ICommand ShowDcCommand { get; }
     public ICommand ShowTrafficCommand { get; }
+    public ICommand ShowIspCommand { get; }
+    public ICommand SetIspTermCommand { get; }
     public ICommand SetTypeCommand { get; }
     public ICommand SetRotationCommand { get; }
     public ICommand SetMethodCommand { get; }
@@ -217,6 +239,7 @@ public sealed class StoreViewModel : ViewModelBase
     }
     public bool HasDc => _catalog?.HasDc == true;
     public bool HasTraffic => _catalog?.HasTraffic == true;
+    public bool HasIsp => _catalog?.HasIsp == true;
 
     /// <summary>Called when the page is shown.</summary>
     public async Task OnShownAsync()
@@ -235,8 +258,9 @@ public sealed class StoreViewModel : ViewModelBase
             _catalog = await _api.GetCatalogAsync();
             FillCountries();
             IsLoaded = true;
-            if (!HasDc && HasTraffic) Mode = "traffic";
-            if (!HasDc && !HasTraffic) Status.Set("store.err.empty", StatusKind.Warning);
+            if (!HasDc && HasIsp) Mode = "isp";
+            else if (!HasDc && HasTraffic) Mode = "traffic";
+            if (!HasDc && !HasTraffic && !HasIsp) Status.Set("store.err.empty", StatusKind.Warning);
         }
         catch (StoreException ex)
         {
@@ -247,12 +271,16 @@ public sealed class StoreViewModel : ViewModelBase
             IsLoading = false;
             OnPropertyChanged(nameof(HasDc));
             OnPropertyChanged(nameof(HasTraffic));
+            OnPropertyChanged(nameof(HasIsp));
+            OnPropertyChanged(nameof(IspPriceText));
             RaisePrice();
         }
     }
 
     public ObservableCollection<StoreCountry> DcCountries { get; } = new();
     public ObservableCollection<StoreCountry> TrafficCountries { get; } = new();
+    public ObservableCollection<StoreCountry> IspCountries { get; } = new();
+    public ObservableCollection<StoreIspTermChoice> IspTerms { get; } = new();
     public ObservableCollection<StoreGeoChoice> States { get; } = new();
     public ObservableCollection<StoreGeoChoice> Cities { get; } = new();
 
@@ -271,7 +299,47 @@ public sealed class StoreViewModel : ViewModelBase
         OnPropertyChanged(nameof(MinGb));
         OnPropertyChanged(nameof(MaxGb));
         RaiseTypePrices();
+        FillIsp();
     }
+
+    /// <summary>Term buttons and the countries in stock for the chosen term.</summary>
+    private void FillIsp()
+    {
+        if (_catalog == null) return;
+        if (IspTerms.Count != _catalog.IspTerms.Count)
+            Reset(IspTerms, _catalog.IspTerms.Select(t => new StoreIspTermChoice { Term = t }));
+        if (!_catalog.IspTerms.Any(t => t.Months == _ispMonths) && _catalog.IspTerms.Count > 0)
+            _ispMonths = _catalog.IspTerms[0].Months;
+        foreach (var t in IspTerms) { t.IsSelected = t.Term.Months == _ispMonths; t.RefreshTexts(); }
+        var term = _catalog.IspTerms.FirstOrDefault(t => t.Months == _ispMonths);
+        var code = _ispCountry?.Code;
+        Reset(IspCountries, _catalog.IspCountries.Where(c => term != null && term.Countries.Contains(c.Code))
+            .OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase));
+        _ispCountry = IspCountries.FirstOrDefault(c => c.Code == (code ?? "US")) ?? IspCountries.FirstOrDefault(c => c.Code == "US")
+                      ?? IspCountries.FirstOrDefault();
+        OnPropertyChanged(nameof(IspCountry));
+    }
+
+    public StoreCountry? IspCountry
+    {
+        get => _ispCountry;
+        set { if (value != null && SetProperty(ref _ispCountry, value)) RaisePrice(); }
+    }
+
+    public int IspMonths
+    {
+        get => _ispMonths;
+        set
+        {
+            if (_ispMonths == value) return;
+            _ispMonths = value;
+            FillIsp();
+            OnPropertyChanged();
+            RaisePrice();
+        }
+    }
+
+    public string IspPriceText => _catalog == null ? "" : I18n.T("store.isp.per_month", _catalog.IspPriceRubMonth);
 
     private static void Reset<T>(ObservableCollection<T> target, IEnumerable<T> items)
     {
@@ -309,8 +377,9 @@ public sealed class StoreViewModel : ViewModelBase
         private set
         {
             if (!SetProperty(ref _mode, value)) return;
-            if (value is "dc" or "traffic") _returnMode = value;
+            if (value is "dc" or "isp" or "traffic") _returnMode = value;
             OnPropertyChanged(nameof(IsDcMode));
+            OnPropertyChanged(nameof(IsIspMode));
             OnPropertyChanged(nameof(IsTrafficMode));
             OnPropertyChanged(nameof(IsRenewMode));
             OnPropertyChanged(nameof(IsTopupMode));
@@ -326,10 +395,12 @@ public sealed class StoreViewModel : ViewModelBase
 
     public bool IsDcMode => _mode == "dc";
     public bool IsTrafficMode => _mode == "traffic";
+    public bool IsIspMode => _mode == "isp";
+    private bool TargetIsIsp => _target?.Info.Kind == "isp";
     public bool IsRenewMode => _mode == "renew";
     public bool IsTopupMode => _mode == "topup";
     public bool IsTargetMode => _mode is "renew" or "topup";
-    public bool IsPickMode => _mode is "dc" or "traffic";
+    public bool IsPickMode => _mode is "dc" or "isp" or "traffic";
     public bool ShowGb => _mode is "traffic" or "topup";
 
     public string TargetTitle => _target == null ? "" : $"{_target.Title}  ·  {_target.TypeText}";
@@ -595,6 +666,8 @@ public sealed class StoreViewModel : ViewModelBase
 
     public string PriceNote => _mode switch
     {
+        "isp" => I18n.T("store.note.isp", I18n.T("store.isp.months_" + _ispMonths)),
+        "renew" when TargetIsIsp => I18n.T("store.note.isp_renew"),
         "dc" or "renew" => I18n.T("store.note.dc", DcDays),
         _ when GbValid => I18n.T("store.note.gb", Gb),
         _ => I18n.T("store.err.bad_gb_range", MinGb, MaxGb)
@@ -624,6 +697,10 @@ public sealed class StoreViewModel : ViewModelBase
         if (_catalog == null || Validate() != null) return null;
         switch (_mode)
         {
+            case "isp":
+                return _catalog.IspTerms.FirstOrDefault(t => t.Months == _ispMonths)?.PriceRub;
+            case "renew" when TargetIsIsp:
+                return null; // the server knows the term of the proxy: wait for the quote
             case "dc":
             case "renew":
                 return _catalog.DcPriceRub;
@@ -670,6 +747,8 @@ public sealed class StoreViewModel : ViewModelBase
         {
             case "dc":
                 return _dcCountry == null ? "store.err.pick_country" : null;
+            case "isp":
+                return _ispCountry == null ? "store.err.pick_country" : null;
             case "renew":
                 return _target == null ? "store.err.pick_country" : null;
             case "traffic":
@@ -689,6 +768,8 @@ public sealed class StoreViewModel : ViewModelBase
         {
             case "dc":
                 return ("dc", new JsonObject { ["country"] = _dcCountry?.Code });
+            case "isp":
+                return ("isp", new JsonObject { ["country"] = _ispCountry?.Code, ["months"] = _ispMonths });
             case "renew":
                 return ("dc_renew", new JsonObject { ["proxy_id"] = _target?.Info.Id });
             case "topup":
