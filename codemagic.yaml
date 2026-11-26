@@ -416,6 +416,7 @@ workflows:
           echo "== A) the proxy does not answer at all (192.0.2.1 is never routed), rule for curl only"
           start socks5://192.0.2.1:1080 "$only_curl"
           echo "system resolver while connected: $(scutil --dns | awk '/nameserver\[0\]/{print $3; exit}') (expected 10.255.0.1)"
+          echo "ping through the tunnel (other programs go direct, expected: replies): $(ping -c 3 -t 6 1.1.1.1 2>&1 | tail -2 | xargs)"
           t0=$(date +%s); echo "python3, no rule, first lookup: $(py https://api.ipify.org 30) after $(( $(date +%s) - t0 )) s (expected: $direct_ip, it must stay online)"
           t0=$(date +%s); echo "python3, no rule, another name: $(py https://www.example.com 20 | cut -c1-15) after $(( $(date +%s) - t0 )) s (expected: a page, fast: the proxy is already known to be down)"
           t0=$(date +%s); curl -4 -sS -m 12 https://api.ipify.org; echo " curl exit=$? after $(( $(date +%s) - t0 )) s (expected: not 0, curl has a rule and must not leave around the proxy)"
@@ -429,6 +430,7 @@ workflows:
           echo "== C) everything through the same dead proxy: no fallback, lookups must fail"
           start socks5://192.0.2.1:1080 "$everything"
           sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+          echo "ping with everything through a proxy (expected: 100% loss, ping is not sent around the proxy): $(ping -c 2 -t 4 1.1.1.1 2>&1 | tail -2 | xargs)"
           t0=$(date +%s); echo "python3, catch-all rule, a name nobody asked before: $(py https://www.wikipedia.org 12 | cut -c1-60) after $(( $(date +%s) - t0 )) s (expected: an error, nothing leaves around the proxy)"
           stop
           echo "-- daemon log of C"; sudo grep -v "exec: " "$log" | tail -n 10
