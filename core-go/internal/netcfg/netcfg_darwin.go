@@ -63,11 +63,52 @@ func parsePhysicalGateway(netstat, vpnInterface string) (Gateway, bool) {
 	return Gateway{}, false
 }
 
+// privateRanges are the address ranges that never belong to the internet: the local
+// network and the inside of a VPN (its gateway, its DNS, company hosts).
+var privateRanges = []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10"}
+
+// KeepPrivateInVPN routes the private ranges to the VPN that owns the internet route, as
+// they went before the session. The tunnel routes of the session are more specific than the
+// VPN's own pair, so without this everything addressed to the inside of the VPN lands in
+// the session's tunnel, which carries TCP and UDP only: the ping a VPN client sends to its
+// gateway every few seconds to see that the tunnel is alive gets no answer, and the client
+// restarts the tunnel again and again. A proxy could not reach those addresses anyway.
+// Ranges that already have such a route (the VPN added it itself) are left alone.
+func KeepPrivateInVPN(gw Gateway, undo *Undo) {
+	for _, p := range privateRanges {
+		if addPrivateRoute(p, gw) && undo != nil {
+			n := p
+			undo.Push(func() error {
+				_, err := run("route", append([]string{"-n", "delete", "-inet", "-net", n}, viaArgs(gw)...)...)
+				if err != nil && strings.Contains(err.Error(), "not in table") {
+					return nil // the VPN went away and took the route with it
+				}
+				return err
+			})
+		}
+	}
+}
+
+func addPrivateRoute(prefix string, gw Gateway) bool {
+	_, err := run("route", append([]string{"-n", "add", "-inet", "-net", prefix}, viaArgs(gw)...)...)
+	return err == nil
+}
+
 // RepairRoutes puts back the routes that live on the original interface after it was
-// destroyed and created again (a VPN client that reconnected): the scoped default route and
-// the host routes of the proxies. Routes that are still there are left alone. The cleanup
-// steps registered when they were first added stay valid.
-func RepairRoutes(gw Gateway, hosts []netip.Addr) error {
+// destroyed and created again (a VPN client that reconnected): the scoped default route,
+// the host routes of the proxies and, with private set, the private ranges. Routes that are
+// still there are left alone. The cleanup steps registered when they were first added stay
+// valid.
+func RepairRoutes(gw Gateway, hosts []netip.Addr, private bool) error {
+	if private {
+		for _, p := range privateRanges {
+			addPrivateRoute(p, gw)
+		}
+	}
+	return repairRoutes(gw, hosts)
+}
+
+func repairRoutes(gw Gateway, hosts []netip.Addr) error {
 	var first error
 	note := func(err error) {
 		if err != nil && !strings.Contains(err.Error(), "exists") && first == nil {

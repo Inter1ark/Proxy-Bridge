@@ -200,6 +200,10 @@ func (s *Session) setup() error {
 		if err := netcfg.RouteAllViaTun(ncfg, gw, &s.undo); err != nil {
 			return fmt.Errorf("route traffic via %s: %v", ifName, err)
 		}
+		if gw.Tunnel {
+			netcfg.KeepPrivateInVPN(gw, &s.undo)
+			s.log.Infof("private address ranges stay in the VPN (%s): its gateway and internal hosts are not sent into this tunnel", gw.Interface)
+		}
 		if bits := netcfg.SplitBits(); bits > 1 {
 			s.log.Infof("tunnel routes installed as /%d: another tunnel holds the shorter prefixes", bits)
 		}
@@ -286,7 +290,7 @@ func (s *Session) watchGateway() {
 		s.log.Infof("interface %s was created again (index %d -> %d): restoring the routes on it", s.gw.Interface, s.gwIdx, idx)
 	}
 	s.gwIdx, s.gwGone = idx, false
-	if err := netcfg.RepairRoutes(s.gw, s.rt.routedHosts()); err != nil {
+	if err := netcfg.RepairRoutes(s.gw, s.rt.routedHosts(), s.gw.Tunnel); err != nil {
 		s.log.Warnf("restore routes on %s: %v", s.gw.Interface, err)
 	}
 }

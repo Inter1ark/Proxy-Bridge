@@ -120,4 +120,7 @@ func AddScopedDefault(gw Gateway, undo *Undo) error { return nil }
 func PhysicalGateway(vpnInterface string) (Gateway, bool) { return Gateway{}, false }
 
 // RepairRoutes is a no-op on Linux.
-func RepairRoutes(gw Gateway, hosts []netip.Addr) error { return nil }
+func RepairRoutes(gw Gateway, hosts []netip.Addr, private bool) error { return nil }
+
+// KeepPrivateInVPN is a no-op on Linux.
+func KeepPrivateInVPN(gw Gateway, undo *Undo) {}
