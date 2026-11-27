@@ -210,6 +210,13 @@ func (s *Session) setup() error {
 			netcfg.KeepPrivateInVPN(gw, &s.undo)
 			s.log.Infof("private address ranges stay in the VPN (%s): its gateway and internal hosts are not sent into this tunnel", gw.Interface)
 		}
+		if via, err := netcfg.RouteIPv6ViaTun(ifName, &s.undo); err != nil {
+			s.log.Warnf("ipv6 routes via %s: %v (programs may reach IPv6 sites around the tunnel)", ifName, err)
+		} else if via != "" {
+			s.log.Infof("IPv6 to the internet (2000::/3) goes through %s too, it left through %s before: programs with a proxy rule cannot reach sites over IPv6 around the proxy", ifName, via)
+		} else if runtime.GOOS == "darwin" {
+			s.log.Infof("no IPv6 route to the internet on this Mac: IPv6 is left alone")
+		}
 		if bits := netcfg.SplitBits(); bits > 1 {
 			s.log.Infof("tunnel routes installed as /%d: another tunnel holds the shorter prefixes", bits)
 		}

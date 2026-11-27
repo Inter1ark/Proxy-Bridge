@@ -53,7 +53,7 @@ func Describe(vpnInterface string) []string {
 	if cfg, err := runQuiet("ifconfig", vpnInterface); err == nil {
 		for _, line := range strings.Split(cfg, "\n") {
 			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "inet ") || strings.Contains(line, "mtu ") {
+			if strings.HasPrefix(line, "inet ") || strings.HasPrefix(line, "inet6 ") || strings.Contains(line, "mtu ") {
 				out = append(out, vpnInterface+": "+line)
 			}
 		}
@@ -348,6 +348,72 @@ func addSplitRoutes(iface string, undo *Undo) error {
 // IP_BOUND_IF use scoped routes first; without one, the lookup picks the 0/1
 // and 128/1 tunnel routes and then rejects them for the wrong interface
 // ("network is unreachable"). A route that already exists is left alone.
+// tunIPv6 is the IPv6 address of our tunnel interface (a unique local address: it is only
+// the source of the packets the system hands to the tunnel, it never leaves the Mac).
+const tunIPv6 = "fd70:6272:6467::2/128"
+
+// ipv6Routes cover the global unicast space 2000::/3 with two /4 routes: narrower than the
+// ::/1 pair or the default route a VPN installs, and clear of link-local, unique local and
+// multicast addresses, which stay where they are.
+var ipv6Routes = []string{"2000::/4", "3000::/4"}
+
+// RouteIPv6ViaTun sends IPv6 traffic to the internet into the tunnel. Without it a program
+// with a proxy rule reaches dual-stack sites over IPv6 around the tunnel, and the site sees
+// the real (or the VPN's) IPv6 address. Nothing is changed when the Mac has no IPv6 route to
+// the internet: then no program can use IPv6 either. It returns the interface IPv6 traffic
+// left through before, "" when there is none.
+func RouteIPv6ViaTun(iface string, undo *Undo) (string, error) {
+	out, err := runQuiet("route", "-n", "get", "-inet6", "2606:4700:4700::1111")
+	if err != nil {
+		return "", nil
+	}
+	via, gateway := "", ""
+	for _, l := range strings.Split(out, "\n") {
+		k, v, ok := strings.Cut(strings.TrimSpace(l), ":")
+		if !ok {
+			continue
+		}
+		switch strings.TrimSpace(k) {
+		case "interface":
+			via = strings.TrimSpace(v)
+		case "gateway":
+			gateway = strings.TrimSpace(v)
+		}
+	}
+	if via == "" || via == iface {
+		return "", nil
+	}
+	if _, err := run("ifconfig", iface, "inet6", tunIPv6, "alias"); err != nil {
+		return via, err
+	}
+	// sockets bound to the original interface (direct connections) need a scoped IPv6 default
+	// there, or their lookup ends in our routes
+	scoped := []string{"-n", "add", "-inet6", "default"}
+	if gateway == "" || IsTunnelName(via) {
+		scoped = append(scoped, "-interface", via)
+	} else {
+		scoped = append(scoped, gateway)
+	}
+	scoped = append(scoped, "-ifscope", via)
+	if _, err := run("route", scoped...); err == nil {
+		undo.Push(func() error {
+			_, err := run("route", "-n", "delete", "-inet6", "default", "-ifscope", via)
+			return err
+		})
+	}
+	for _, p := range ipv6Routes {
+		if _, err := run("route", "-n", "add", "-inet6", "-net", p, "-interface", iface); err != nil {
+			return via, err
+		}
+		p := p
+		undo.Push(func() error {
+			_, err := run("route", "-n", "delete", "-inet6", "-net", p, "-interface", iface)
+			return err
+		})
+	}
+	return via, nil
+}
+
 func AddScopedDefault(gw Gateway, undo *Undo) error {
 	if gw.Interface == "" {
 		return nil

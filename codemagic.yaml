@@ -5,7 +5,7 @@ workflows:
     max_build_duration: 60
     environment:
       vars:
-        VERSION: "3.6.16"
+        VERSION: "3.6.17"
     scripts:
       - name: Install .NET 9 and Go
         script: |
@@ -393,7 +393,7 @@ workflows:
         script: |
           set +e
           cd core-go
-          sudo -E env PATH="$PATH" PB_ROOT_TESTS=1 "$(command -v go)" test -count=1 -v -run 'TestCoverVPNNetsLive' ./internal/netcfg/ 2>&1 | tail -20
+          sudo -E env PATH="$PATH" PB_ROOT_TESTS=1 "$(command -v go)" test -count=1 -v -run 'TestCoverVPNNetsLive|TestRouteIPv6Live' ./internal/netcfg/ 2>&1 | tail -20
           exit 0
 
       - name: Unreachable proxy test (DNS via proxy must not take programs without a rule offline)

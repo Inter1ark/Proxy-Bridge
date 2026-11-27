@@ -163,7 +163,7 @@ func isVPNClient(exe string) bool {
 // instead: without ProxyBridge the system would do the same.
 func (r *router) dialOut(ctx context.Context, network, target string, timeout time.Duration) (net.Conn, error) {
 	if r.vpnNets != nil && r.physical != nil {
-		if ap, err := netip.ParseAddrPort(target); err == nil && !r.vpnNets.Contains(ap.Addr().Unmap()) && !isPrivate(ap.Addr().Unmap()) {
+		if ap, err := netip.ParseAddrPort(target); err == nil && ap.Addr().Unmap().Is4() && !r.vpnNets.Contains(ap.Addr().Unmap()) && !isPrivate(ap.Addr().Unmap()) {
 			return r.physicalDialNet(ctx, network, target, timeout)
 		}
 	}
@@ -361,7 +361,9 @@ func (r *router) Decide(src, dst netip.AddrPort) engine.Decision {
 		d := t.dialers[rule.Proxy]
 		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q%s: proxy %d", src, dst, pid, exe, rule.Process, via, rule.Proxy)
 		r.noteOnce(t, exe, pid, fmt.Sprintf("rule %q%s: proxy %d", rule.Process, via, rule.Proxy))
-		return engine.Decision{Sniff: r.sniffNames, Dial: func(ctx context.Context, target string) (net.Conn, error) {
+		// An IPv6 connection goes to the proxy by site name whenever the name can be read:
+		// many proxies have no IPv6 exit, and by name the proxy picks the address it can reach.
+		return engine.Decision{Sniff: r.sniffNames || dst.Addr().Unmap().Is6(), Dial: func(ctx context.Context, target string) (net.Conn, error) {
 			c, err := d.Dial(ctx, target)
 			if err != nil && interfaceUnusable(err) {
 				// the socket to the proxy is bound to the original interface too

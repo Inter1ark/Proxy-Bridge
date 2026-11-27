@@ -161,3 +161,35 @@ func TestRecordsAligned(t *testing.T) {
 		t.Fatalf("records: %+v", recs)
 	}
 }
+
+func TestParsePcblistIPv6(t *testing.T) {
+	local := netip.MustParseAddrPort("[fd70:6272:6467::2]:52000")
+	remote := netip.MustParseAddrPort("[2a00:1450:4001:80b::200e]:443")
+	mapped := netip.MustParseAddrPort("[::ffff:10.255.0.2]:52001")
+	r4 := netip.MustParseAddrPort("1.2.3.4:443")
+	put := func(local, remote netip.AddrPort) []byte {
+		return record(DefaultLayout.InpKind, 108, func(b []byte) {
+			binary.BigEndian.PutUint16(b[DefaultLayout.Lport:], local.Port())
+			binary.BigEndian.PutUint16(b[DefaultLayout.Fport:], remote.Port())
+			b[48] = 2
+			la, fa := local.Addr().As16(), remote.Addr().As16()
+			copy(b[DefaultLayout.Laddr4-12:], la[:])
+			copy(b[DefaultLayout.Faddr4-12:], fa[:])
+		})
+	}
+	var buf []byte
+	buf = append(buf, put(local, remote)...)
+	buf = append(buf, socket(2001)...)
+	buf = append(buf, put(mapped, netip.AddrPortFrom(netip.AddrFrom16(r4.Addr().As16()), 443))...)
+	buf = append(buf, socket(2002)...)
+	conns := ParsePcblist(buf)
+	if len(conns) != 2 || conns[0].Local != local || conns[0].Remote != remote {
+		t.Fatalf("ipv6 entry: %+v", conns)
+	}
+	if pid, ok := Find(conns, local, remote); !ok || pid != 2001 {
+		t.Fatalf("find ipv6: %d %v", pid, ok)
+	}
+	if pid, ok := Find(conns, netip.MustParseAddrPort("10.255.0.2:52001"), r4); !ok || pid != 2002 {
+		t.Fatalf("v4-mapped entry must match the IPv4 flow: %d %v %+v", pid, ok, conns[1])
+	}
+}

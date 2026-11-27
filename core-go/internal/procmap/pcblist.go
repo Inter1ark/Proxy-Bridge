@@ -85,12 +85,9 @@ func ParsePcblistLayout(b []byte, lay Layout) []Conn {
 			if len(r.Data) < need {
 				break
 			}
-			var la, fa [4]byte
-			copy(la[:], r.Data[lay.Laddr4:lay.Laddr4+4])
-			copy(fa[:], r.Data[lay.Faddr4:lay.Faddr4+4])
 			cur = &Conn{
-				Local:  netip.AddrPortFrom(netip.AddrFrom4(la), binary.BigEndian.Uint16(r.Data[lay.Lport:])),
-				Remote: netip.AddrPortFrom(netip.AddrFrom4(fa), binary.BigEndian.Uint16(r.Data[lay.Fport:])),
+				Local:  netip.AddrPortFrom(addrAt(r.Data, lay.Laddr4), binary.BigEndian.Uint16(r.Data[lay.Lport:])),
+				Remote: netip.AddrPortFrom(addrAt(r.Data, lay.Faddr4), binary.BigEndian.Uint16(r.Data[lay.Fport:])),
 			}
 		case lay.SoKind:
 			if cur != nil && len(r.Data) >= lay.Pid+4 {
@@ -103,6 +100,24 @@ func ParsePcblistLayout(b []byte, lay Layout) []Conn {
 		}
 	}
 	return out
+}
+
+// addrAt reads the address whose IPv4 form sits at off4. The kernel keeps it in a 16-byte
+// union (struct in_addr_4in6: twelve zero bytes, then the IPv4 address); an IPv6 socket fills
+// the whole union, so a union with anything in its first twelve bytes is an IPv6 address.
+func addrAt(b []byte, off4 int) netip.Addr {
+	if off4 >= 12 && off4+4 <= len(b) {
+		var a [16]byte
+		copy(a[:], b[off4-12:off4+4])
+		for _, x := range a[:12] {
+			if x != 0 {
+				return netip.AddrFrom16(a).Unmap()
+			}
+		}
+	}
+	var v [4]byte
+	copy(v[:], b[off4:off4+4])
+	return netip.AddrFrom4(v)
 }
 
 // Calibrate derives the layout from a buffer that contains a known connection

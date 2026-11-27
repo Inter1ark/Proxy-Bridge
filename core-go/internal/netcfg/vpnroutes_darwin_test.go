@@ -111,3 +111,58 @@ func routeIface(t *testing.T, addr string) string {
 	}
 	return ""
 }
+
+// TestRouteIPv6Live (root, PB_ROOT_TESTS=1): a "VPN" that takes all IPv6 with a ::/1 pair, as
+// WireGuard clients do; afterwards IPv6 to the internet must go into our tunnel and come back on cleanup.
+func TestRouteIPv6Live(t *testing.T) {
+	if os.Getenv("PB_ROOT_TESTS") != "1" {
+		t.Skip("set PB_ROOT_TESTS=1 and run as root")
+	}
+	vpn, err := tun.CreateTUN("utun", 1400)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vpn.Close()
+	ours, err := tun.CreateTUN("utun", 1400)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ours.Close()
+	vName, _ := vpn.Name()
+	oName, _ := ours.Name()
+	mustRun(t, "ifconfig", vName, "inet6", "fd11:2233:4455::2/128", "alias")
+	mustRun(t, "ifconfig", vName, "up")
+	mustRun(t, "ifconfig", oName, "inet", "10.124.0.2", "10.124.0.1", "netmask", "255.255.255.0", "up")
+	for _, p := range []string{"::/1", "8000::/1"} {
+		mustRun(t, "route", "-n", "add", "-inet6", p, "-interface", vName)
+	}
+	if got := route6Iface(t, "2606:4700:4700::1111"); got != vName {
+		t.Skipf("the test VPN does not hold IPv6 here (route goes to %q)", got)
+	}
+	var undo Undo
+	via, err := RouteIPv6ViaTun(oName, &undo)
+	if err != nil || via != vName {
+		t.Fatalf("via %q err %v", via, err)
+	}
+	for _, a := range []string{"2606:4700:4700::1111", "2a00:1450:4001:80b::200e"} {
+		if got := route6Iface(t, a); got != oName {
+			t.Errorf("%s goes to %s, want %s", a, got, oName)
+		}
+	}
+	if err := undo.Run(); err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+	if got := route6Iface(t, "2606:4700:4700::1111"); got != vName {
+		t.Errorf("after cleanup IPv6 goes to %s, want the VPN %s", got, vName)
+	}
+}
+
+func route6Iface(t *testing.T, addr string) string {
+	out, _ := exec.Command("route", "-n", "get", "-inet6", addr).CombinedOutput()
+	for _, l := range strings.Split(string(out), "\n") {
+		if k, v, ok := strings.Cut(strings.TrimSpace(l), ":"); ok && strings.TrimSpace(k) == "interface" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}

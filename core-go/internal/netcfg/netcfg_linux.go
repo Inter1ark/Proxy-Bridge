@@ -2,6 +2,7 @@
 
 package netcfg
 
+
 import (
 	"fmt"
 	"net/netip"
@@ -140,3 +141,6 @@ type PrefixSet struct{}
 func NewPrefixSet(ps []netip.Prefix) *PrefixSet { return &PrefixSet{} }
 func (s *PrefixSet) Len() int                   { return 0 }
 func (s *PrefixSet) Contains(a netip.Addr) bool { return false }
+
+// RouteIPv6ViaTun is a no-op on Linux.
+func RouteIPv6ViaTun(iface string, undo *Undo) (string, error) { return "", nil }
