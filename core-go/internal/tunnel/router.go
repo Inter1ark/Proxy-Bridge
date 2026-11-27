@@ -51,6 +51,10 @@ type router struct {
 	// gwTrouble is raised when a socket bound to the original interface could not be used;
 	// the session then puts the routes on that interface back (see Session.watchGateway).
 	gwTrouble   atomic.Bool
+	// vpnNets is set when the VPN under the session splits the traffic itself (its own list of
+	// networks instead of the whole internet): direct traffic to those networks goes through
+	// the VPN, everything else through the network card, as it would without ProxyBridge.
+	vpnNets *netcfg.PrefixSet
 	// sniffNames makes proxied flows on web ports send the site name to the proxy (set when
 	// the system DNS is left to a VPN, so names are still resolved on the proxy's side).
 	sniffNames bool
@@ -158,6 +162,11 @@ func isVPNClient(exe string) bool {
 // interface is a VPN that cannot be used right now, the network card under it is used
 // instead: without ProxyBridge the system would do the same.
 func (r *router) dialOut(ctx context.Context, network, target string, timeout time.Duration) (net.Conn, error) {
+	if r.vpnNets != nil && r.physical != nil {
+		if ap, err := netip.ParseAddrPort(target); err == nil && !r.vpnNets.Contains(ap.Addr().Unmap()) && !isPrivate(ap.Addr().Unmap()) {
+			return r.physicalDialNet(ctx, network, target, timeout)
+		}
+	}
 	d := *r.direct
 	d.Timeout = timeout
 	c, err := d.DialContext(ctx, network, target)
@@ -450,6 +459,9 @@ func (r *router) ping(dst netip.Addr, msg []byte) ([]byte, error) {
 	}
 	if r.gateway.Interface == "" {
 		return nil, errors.New("ping: no original interface")
+	}
+	if r.vpnNets != nil && r.physical != nil && !r.vpnNets.Contains(dst) && !isPrivate(dst) {
+		return pingThrough(r.physicalName, dst, msg)
 	}
 	reply, err := pingThrough(r.gateway.Interface, dst, msg)
 	if err != nil && r.physical != nil && interfaceUnusable(err) {

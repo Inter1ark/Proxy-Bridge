@@ -11,5 +11,8 @@ func SetSystemDNS(ip netip.Addr, undo *Undo) error { return nil }
 // RestoreSystemDNS is a no-op on Linux.
 func RestoreSystemDNS() error { return nil }
 
+// FlushDNS is a no-op on Linux.
+func FlushDNS() {}
+
 // ClearStaleDNS is a no-op on Linux.
 func ClearStaleDNS(ip netip.Addr) []string { return nil }

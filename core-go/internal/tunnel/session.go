@@ -206,6 +206,7 @@ func (s *Session) setup() error {
 			return fmt.Errorf("route traffic via %s: %v", ifName, err)
 		}
 		if gw.Tunnel {
+			s.coverSplitVPN(gw, ifName)
 			netcfg.KeepPrivateInVPN(gw, &s.undo)
 			s.log.Infof("private address ranges stay in the VPN (%s): its gateway and internal hosts are not sent into this tunnel", gw.Interface)
 		}
@@ -223,6 +224,7 @@ func (s *Session) setup() error {
 		// connect. Names are then resolved by the VPN's own DNS, inside the VPN.
 		if udp.DNSViaProxy && runtime.GOOS == "darwin" && cfg.Peer.IsValid() && gw.Tunnel {
 			s.rt.sniffNames = true
+			netcfg.FlushDNS()
 			s.log.Infof("a VPN owns the internet route: the system DNS is left to the VPN; programs with a proxy rule send site names to the proxy, which resolves them")
 		}
 		if udp.DNSViaProxy && runtime.GOOS == "darwin" && cfg.Peer.IsValid() && !gw.Tunnel {
@@ -317,6 +319,30 @@ func pingFunc(external bool, r *router) func(netip.Addr, []byte) ([]byte, error)
 		return nil
 	}
 	return r.ping
+}
+
+// coverSplitVPN handles a VPN that routes a list of networks instead of the whole internet:
+// each of its routes is more specific than ours, so traffic to those networks would skip the
+// rules. Our tunnel gets the two halves of each of them, and direct traffic follows the VPN's
+// split (its networks through the VPN, the rest through the network card).
+func (s *Session) coverSplitVPN(gw netcfg.Gateway, ifName string) {
+	nets, all, err := netcfg.VPNNets(gw.Interface, netcfg.SplitBits()+1)
+	if err != nil {
+		s.log.Warnf("vpn routes on %s: %v", gw.Interface, err)
+		return
+	}
+	if len(nets) == 0 {
+		return
+	}
+	n, err := netcfg.CoverVPNNets(nets, ifName, &s.undo)
+	if err != nil {
+		s.log.Warnf("routes over the vpn's networks: %v", err)
+	}
+	s.log.Infof("the VPN routes %d networks itself (split tunnelling): %d narrower routes on %s keep them under the rules", len(nets), n, ifName)
+	if !all && s.rt.physical != nil {
+		s.rt.vpnNets = netcfg.NewPrefixSet(nets)
+		s.log.Infof("direct traffic follows the VPN's split: its networks through %s, the rest through %s", gw.Interface, s.rt.physicalName)
+	}
 }
 
 // interfaceIndex returns the current index of an interface, 0 when it does not exist.

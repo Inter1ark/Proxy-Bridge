@@ -127,3 +127,16 @@ func Describe(vpnInterface string) []string { return nil }
 
 // KeepPrivateInVPN is a no-op on Linux.
 func KeepPrivateInVPN(gw Gateway, undo *Undo) {}
+
+// VPNNets is not needed on Linux.
+func VPNNets(iface string, minBits int) ([]netip.Prefix, bool, error) { return nil, false, nil }
+
+// CoverVPNNets is a no-op on Linux.
+func CoverVPNNets(nets []netip.Prefix, tunIface string, undo *Undo) (int, error) { return 0, nil }
+
+// PrefixSet answers whether an address falls into one of a set of networks (unused on Linux).
+type PrefixSet struct{}
+
+func NewPrefixSet(ps []netip.Prefix) *PrefixSet { return &PrefixSet{} }
+func (s *PrefixSet) Len() int                   { return 0 }
+func (s *PrefixSet) Contains(a netip.Addr) bool { return false }

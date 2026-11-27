@@ -72,6 +72,11 @@ func setServiceDNS(svc string, servers []string) error {
 	return err
 }
 
+// FlushDNS empties the system resolver cache. Browsers take it as a network change and drop
+// their pooled connections, so a site already open before the connect is opened again through
+// the tunnel instead of staying on the old connection.
+func FlushDNS() { flushDNSCache() }
+
 func flushDNSCache() {
 	_, _ = run("dscacheutil", "-flushcache")
 	_, _ = run("killall", "-HUP", "mDNSResponder")
