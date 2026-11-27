@@ -214,7 +214,16 @@ func (s *Session) setup() error {
 		// macOS sends name lookups to the DNS servers of the network service outside the tunnel
 		// routes, so with DNS via proxy the services point at the tunnel peer while connected:
 		// queries to it enter the engine (a private address is answered through the proxy).
-		if udp.DNSViaProxy && runtime.GOOS == "darwin" && cfg.Peer.IsValid() {
+		//
+		// Not on top of a VPN: the VPN client resolves the name of its own server through the
+		// system DNS, so pointing it at us made a loop (our DNS goes through the proxy, the proxy
+		// is reached through the VPN, the VPN waits for its server's address) and VPN clients on
+		// Xray and sing-box (Happ, V2Box, VPSUS) stopped forwarding a few seconds after the
+		// connect. Names are then resolved by the VPN's own DNS, inside the VPN.
+		if udp.DNSViaProxy && runtime.GOOS == "darwin" && cfg.Peer.IsValid() && gw.Tunnel {
+			s.log.Infof("a VPN owns the internet route: the system DNS is left to the VPN (names are resolved inside the VPN, not through the proxy)")
+		}
+		if udp.DNSViaProxy && runtime.GOOS == "darwin" && cfg.Peer.IsValid() && !gw.Tunnel {
 			if err := netcfg.SetSystemDNS(cfg.Peer, &s.undo); err != nil {
 				s.log.Warnf("system dns: %v (names may be resolved outside the tunnel)", err)
 			} else {
