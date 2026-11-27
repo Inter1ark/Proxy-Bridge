@@ -189,6 +189,7 @@ func (s *Session) setup() error {
 		RouteUDP:  s.rt.DecideUDP,
 		DNS:       dnsHostPort(cfg.DNS),
 		Logf:      s.log.Debugf,
+		Notef:     s.log.Infof,
 		Stats:     s.stats,
 		LowMemory: cfg.LowMemory,
 		Ping:      pingFunc(external, s.rt),
@@ -221,7 +222,8 @@ func (s *Session) setup() error {
 		// Xray and sing-box (Happ, V2Box, VPSUS) stopped forwarding a few seconds after the
 		// connect. Names are then resolved by the VPN's own DNS, inside the VPN.
 		if udp.DNSViaProxy && runtime.GOOS == "darwin" && cfg.Peer.IsValid() && gw.Tunnel {
-			s.log.Infof("a VPN owns the internet route: the system DNS is left to the VPN (names are resolved inside the VPN, not through the proxy)")
+			s.rt.sniffNames = true
+			s.log.Infof("a VPN owns the internet route: the system DNS is left to the VPN; programs with a proxy rule send site names to the proxy, which resolves them")
 		}
 		if udp.DNSViaProxy && runtime.GOOS == "darwin" && cfg.Peer.IsValid() && !gw.Tunnel {
 			if err := netcfg.SetSystemDNS(cfg.Peer, &s.undo); err != nil {

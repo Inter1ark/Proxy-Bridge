@@ -51,6 +51,9 @@ type router struct {
 	// gwTrouble is raised when a socket bound to the original interface could not be used;
 	// the session then puts the routes on that interface back (see Session.watchGateway).
 	gwTrouble   atomic.Bool
+	// sniffNames makes proxied flows on web ports send the site name to the proxy (set when
+	// the system DNS is left to a VPN, so names are still resolved on the proxy's side).
+	sniffNames bool
 	vpnDownNote atomic.Int64
 	// vpnOK and vpnFail are the times (unix ms) of the last TCP connection through the
 	// original interface that succeeded, and of the last one that could not get through it.
@@ -349,7 +352,7 @@ func (r *router) Decide(src, dst netip.AddrPort) engine.Decision {
 		d := t.dialers[rule.Proxy]
 		r.log.Debugf("tcp %s -> %s: pid %d %q: rule %q%s: proxy %d", src, dst, pid, exe, rule.Process, via, rule.Proxy)
 		r.noteOnce(t, exe, pid, fmt.Sprintf("rule %q%s: proxy %d", rule.Process, via, rule.Proxy))
-		return engine.Decision{Dial: func(ctx context.Context, target string) (net.Conn, error) {
+		return engine.Decision{Sniff: r.sniffNames, Dial: func(ctx context.Context, target string) (net.Conn, error) {
 			c, err := d.Dial(ctx, target)
 			if err != nil && interfaceUnusable(err) {
 				// the socket to the proxy is bound to the original interface too

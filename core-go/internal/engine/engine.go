@@ -54,6 +54,10 @@ type Decision struct {
 	Block bool
 	// Label names the decision in the log ("proxy 1", "direct", "block").
 	Label string
+	// Sniff reads the first bytes of the connection before dialling and passes the site
+	// name found in them (TLS server name or HTTP Host) to Dial instead of the address, so
+	// a proxy resolves the name itself. Web ports only, see sniffPorts.
+	Sniff bool
 }
 
 // RouteFunc picks a Decision for a flow from src (the application's socket) to dst.
@@ -80,6 +84,8 @@ type Options struct {
 	RouteUDP UDPRouteFunc
 	// Logf receives diagnostic messages.
 	Logf func(format string, args ...any)
+	// Notef receives a few lines worth keeping in the support log (the first sniffed site names).
+	Notef func(format string, args ...any)
 	// Stats receives byte counters.
 	Stats *Counters
 	// Ping, when set, answers ICMP echo requests: it sends the request (msg starts at the
@@ -105,6 +111,7 @@ type Engine struct {
 	// wmu serialises writes to the TUN device: the stack's loop and the ping replies.
 	wmu   sync.Mutex
 	pings atomic.Int32
+	notes atomic.Int32
 }
 
 // New creates the stack attached to dev. Call Start to begin forwarding.
@@ -366,6 +373,7 @@ func (e *Engine) handleTCP(r *tcp.ForwarderRequest) {
 	go func() {
 		dial := e.opts.Dial
 		label := ""
+		sniff := false
 		if e.opts.Route != nil {
 			src := netip.AddrPortFrom(toAddr(id.RemoteAddress.AsSlice()), id.RemotePort)
 			dst := netip.AddrPortFrom(toAddr(id.LocalAddress.AsSlice()), id.LocalPort)
@@ -379,6 +387,11 @@ func (e *Engine) handleTCP(r *tcp.ForwarderRequest) {
 				dial = d.Dial
 			}
 			label = d.Label
+			sniff = d.Sniff && sniffPorts[id.LocalPort]
+		}
+		if sniff {
+			e.sniffAndRelay(r, dial, target, label, id.LocalPort)
+			return
 		}
 		dialCtx, cancel := context.WithTimeout(e.ctx, 30*time.Second)
 		upstream, err := dial(dialCtx, target)
@@ -403,6 +416,48 @@ func (e *Engine) handleTCP(r *tcp.ForwarderRequest) {
 }
 
 // relay copies data in both directions and closes both connections when done.
+// sniffAndRelay accepts the program's connection first, reads its first bytes, dials the
+// site by name when one is found (by address otherwise), sends those bytes and relays.
+// A failed dial resets the program's connection, as an unreachable site would.
+func (e *Engine) sniffAndRelay(r *tcp.ForwarderRequest, dial DialFunc, target, label string, port uint16) {
+	var wq waiter.Queue
+	ep, tcpErr := r.CreateEndpoint(&wq)
+	if tcpErr != nil {
+		e.opts.Logf("tcp %s: create endpoint: %v", target, tcpErr)
+		r.Complete(true)
+		return
+	}
+	r.Complete(false)
+	client := gonet.NewTCPConn(&wq, ep)
+	first, host := sniffHost(client)
+	dest := target
+	if host != "" {
+		dest = net.JoinHostPort(host, strconv.Itoa(int(port)))
+		e.opts.Logf("tcp %s (%s): site name %s goes to the proxy", target, label, host)
+		if e.opts.Notef != nil && e.notes.Add(1) <= 20 {
+			e.opts.Notef("site name %s (address %s) goes to %s by name", host, target, label)
+		}
+	}
+	dialCtx, cancel := context.WithTimeout(e.ctx, 30*time.Second)
+	upstream, err := dial(dialCtx, dest)
+	cancel()
+	if err != nil {
+		e.opts.Logf("tcp %s (%s): %v", dest, label, err)
+		ep.Abort()
+		client.Close()
+		return
+	}
+	if len(first) > 0 {
+		if _, err := upstream.Write(first); err != nil {
+			upstream.Close()
+			client.Close()
+			return
+		}
+		e.opts.Stats.Up.Add(int64(len(first)))
+	}
+	e.relay(client, upstream)
+}
+
 func (e *Engine) relay(client, upstream net.Conn) {
 	defer client.Close()
 	defer upstream.Close()
